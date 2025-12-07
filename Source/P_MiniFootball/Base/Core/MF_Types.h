@@ -94,13 +94,15 @@ namespace MF_Constants
     constexpr float BallMinSpeed = 10.0f;         // Stop ball below this
     constexpr float BallBounceRestitution = 0.7f; // Velocity retained on bounce
     constexpr float BallRadius = 11.0f;           // cm (FIFA standard)
-    constexpr float BallPickupRadius = 80.0f;     // cm - auto pickup range
+    constexpr float BallPickupRadius = 150.0f;    // cm - auto pickup range (increased for easier pickup)
     constexpr float BallAirResistance = 50.0f;    // cm/s^2 deceleration in air
     constexpr float BallBounciness = 0.6f;        // Velocity retained on ground bounce
 
     // Physics Constants
-    constexpr float Gravity = 980.0f; // cm/s^2 (9.8 m/s^2)
-    constexpr float GroundZ = 0.0f;   // Ground plane Z level
+    constexpr float Gravity = 980.0f;               // cm/s^2 (9.8 m/s^2)
+    constexpr float GroundZ = 0.0f;                 // Ground plane Z level
+    constexpr float CharacterHalfHeight = 96.0f;    // Default capsule half-height (88) + some margin
+    constexpr float CharacterSpawnZOffset = 100.0f; // Spawn offset above ground to prevent embedding
 
     // Field Bounds
     constexpr float OutOfBoundsBuffer = 100.0f; // cm buffer zone for out of bounds check

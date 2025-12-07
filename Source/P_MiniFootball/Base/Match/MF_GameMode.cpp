@@ -20,6 +20,10 @@ AMF_GameMode::AMF_GameMode()
     PlayerControllerClass = AMF_PlayerController::StaticClass();
     DefaultPawnClass = nullptr; // We handle pawn spawning ourselves
 
+    // Set default character and ball classes for spawning
+    PlayerCharacterClass = AMF_PlayerCharacter::StaticClass();
+    BallClass = AMF_Ball::StaticClass();
+
     // Config defaults
     PlayersPerTeam = 5;
     TeamAPlayerCount = 0;
@@ -46,6 +50,13 @@ void AMF_GameMode::BeginPlay()
     // Spawn teams and ball
     SpawnTeams();
     SpawnBall();
+
+    // NOTE: Auto-possession disabled - call these manually from Blueprint:
+    // 1. AssignPlayerToTeam(PC, Team) - Assign controller to a team
+    // 2. RegisterTeamCharactersToController(PC) - Give controller access to team characters
+    // 3. PossessCharacterWithController(PC, Character) - Make controller possess specific character
+    //    OR PossessFirstAvailableTeamCharacter(PC) - Possess first available
+    //    OR PossessTeamCharacterByIndex(PC, Index) - Possess by index
 }
 
 void AMF_GameMode::PostLogin(APlayerController *NewPlayer)
@@ -59,12 +70,16 @@ void AMF_GameMode::PostLogin(APlayerController *NewPlayer)
         return;
     }
 
-    // Auto-assign to team
-    EMF_TeamID Team = GetNextAvailableTeam();
-    AssignPlayerToTeam(MFPC, Team);
+    // NOTE: Auto-assignment disabled - call AssignPlayerToTeam() manually from Blueprint
+    // Available functions:
+    // - AssignPlayerToTeam(PC, Team)
+    // - RegisterTeamCharactersToController(PC)
+    // - PossessCharacterWithController(PC, Character)
+    // - PossessFirstAvailableTeamCharacter(PC)
+    // - PossessTeamCharacterByIndex(PC, Index)
 
-    UE_LOG(LogTemp, Log, TEXT("MF_GameMode::PostLogin - %s assigned to Team %d"),
-           *NewPlayer->GetName(), static_cast<int32>(Team));
+    UE_LOG(LogTemp, Log, TEXT("MF_GameMode::PostLogin - %s logged in (no auto-assignment)"),
+           *NewPlayer->GetName());
 }
 
 void AMF_GameMode::Logout(AController *Exiting)
@@ -193,7 +208,7 @@ void AMF_GameMode::AssignPlayerToTeam(AMF_PlayerController *PC, EMF_TeamID Team)
         return;
     }
 
-    // Assign team
+    // Assign team to controller
     PC->AssignToTeam(Team);
 
     // Update counts
@@ -206,16 +221,9 @@ void AMF_GameMode::AssignPlayerToTeam(AMF_PlayerController *PC, EMF_TeamID Team)
         TeamBPlayerCount++;
     }
 
-    // Find spawned characters for this team and register them to the controller
-    AMF_GameState *GS = GetMFGameState();
-    if (GS)
-    {
-        TArray<AMF_PlayerCharacter *> TeamPlayers = GS->GetTeamPlayers(Team);
-        for (AMF_PlayerCharacter *Character : TeamPlayers)
-        {
-            PC->RegisterTeamCharacter(Character);
-        }
-    }
+    // NOTE: Character registration and possession is handled separately
+    // by RegisterTeamCharactersToController() and PossessFirstAvailableTeamCharacter()
+    // Called from PostLogin (if spawned) or BeginPlay (for early logins)
 
     UE_LOG(LogTemp, Log, TEXT("MF_GameMode::AssignPlayerToTeam - %s to Team %d"),
            *PC->GetName(), static_cast<int32>(Team));
@@ -273,7 +281,8 @@ void AMF_GameMode::SetupDefaultSpawnLocations()
         for (int32 i = 0; i < PlayersPerTeam; ++i)
         {
             float X = -MF_Constants::FieldWidth / 2.0f + XSpacing * (i + 1);
-            TeamASpawnLocations.Add(FVector(X, YOffset, MF_Constants::GroundZ));
+            // Spawn above ground to prevent character being embedded in terrain
+            TeamASpawnLocations.Add(FVector(X, YOffset, MF_Constants::GroundZ + MF_Constants::CharacterSpawnZOffset));
         }
     }
 
@@ -286,10 +295,149 @@ void AMF_GameMode::SetupDefaultSpawnLocations()
         for (int32 i = 0; i < PlayersPerTeam; ++i)
         {
             float X = -MF_Constants::FieldWidth / 2.0f + XSpacing * (i + 1);
-            TeamBSpawnLocations.Add(FVector(X, YOffset, MF_Constants::GroundZ));
+            // Spawn above ground to prevent character being embedded in terrain
+            TeamBSpawnLocations.Add(FVector(X, YOffset, MF_Constants::GroundZ + MF_Constants::CharacterSpawnZOffset));
         }
     }
 
     UE_LOG(LogTemp, Log, TEXT("MF_GameMode::SetupDefaultSpawnLocations - TeamA: %d, TeamB: %d"),
            TeamASpawnLocations.Num(), TeamBSpawnLocations.Num());
+}
+
+// ==================== Possession Control ====================
+
+bool AMF_GameMode::PossessCharacterWithController(AMF_PlayerController *PC, AMF_PlayerCharacter *Character)
+{
+    if (!PC || !Character)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_GameMode::PossessCharacterWithController - Null PC or Character"));
+        return false;
+    }
+
+    // Ensure character is registered to this controller
+    if (!PC->TeamCharacters.Contains(Character))
+    {
+        PC->RegisterTeamCharacter(Character);
+    }
+
+    // Find index and switch
+    int32 Index = PC->TeamCharacters.IndexOfByKey(Character);
+    if (Index != INDEX_NONE)
+    {
+        PC->SwitchToCharacter(Index);
+        UE_LOG(LogTemp, Log, TEXT("MF_GameMode::PossessCharacterWithController - %s now possesses %s"),
+               *PC->GetName(), *Character->GetName());
+        return true;
+    }
+
+    return false;
+}
+
+bool AMF_GameMode::PossessFirstAvailableTeamCharacter(AMF_PlayerController *PC)
+{
+    if (!PC)
+    {
+        return false;
+    }
+
+    if (PC->TeamCharacters.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_GameMode::PossessFirstAvailableTeamCharacter - No team characters for %s"),
+               *PC->GetName());
+        return false;
+    }
+
+    // Find first valid character
+    for (int32 i = 0; i < PC->TeamCharacters.Num(); ++i)
+    {
+        AMF_PlayerCharacter *Character = PC->TeamCharacters[i];
+        if (Character && !Character->IsPendingKillPending())
+        {
+            PC->SwitchToCharacter(i);
+            UE_LOG(LogTemp, Log, TEXT("MF_GameMode::PossessFirstAvailableTeamCharacter - %s possessed %s (index %d)"),
+                   *PC->GetName(), *Character->GetName(), i);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool AMF_GameMode::PossessTeamCharacterByIndex(AMF_PlayerController *PC, int32 PlayerIndex)
+{
+    if (!PC)
+    {
+        return false;
+    }
+
+    AMF_PlayerCharacter *Character = FindCharacterByTeamAndIndex(PC->AssignedTeam, PlayerIndex);
+    if (Character)
+    {
+        return PossessCharacterWithController(PC, Character);
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("MF_GameMode::PossessTeamCharacterByIndex - No character found for Team %d, Index %d"),
+           static_cast<int32>(PC->AssignedTeam), PlayerIndex);
+    return false;
+}
+
+TArray<AMF_PlayerCharacter *> AMF_GameMode::GetSpawnedTeamCharacters(EMF_TeamID Team) const
+{
+    TArray<AMF_PlayerCharacter *> Result;
+
+    for (AMF_PlayerCharacter *Character : SpawnedCharacters)
+    {
+        if (Character && Character->GetTeamID() == Team)
+        {
+            Result.Add(Character);
+        }
+    }
+
+    return Result;
+}
+
+TArray<AMF_PlayerController *> AMF_GameMode::GetAllMFPlayerControllers() const
+{
+    TArray<AMF_PlayerController *> Result;
+
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        AMF_PlayerController *MFPC = Cast<AMF_PlayerController>(It->Get());
+        if (MFPC)
+        {
+            Result.Add(MFPC);
+        }
+    }
+
+    return Result;
+}
+
+AMF_PlayerCharacter *AMF_GameMode::FindCharacterByTeamAndIndex(EMF_TeamID Team, int32 PlayerIndex) const
+{
+    for (AMF_PlayerCharacter *Character : SpawnedCharacters)
+    {
+        if (Character && Character->GetTeamID() == Team && Character->GetPlayerID() == PlayerIndex)
+        {
+            return Character;
+        }
+    }
+    return nullptr;
+}
+
+void AMF_GameMode::RegisterTeamCharactersToController(AMF_PlayerController *PC)
+{
+    if (!PC || PC->AssignedTeam == EMF_TeamID::None)
+    {
+        return;
+    }
+
+    TArray<AMF_PlayerCharacter *> TeamCharacters = GetSpawnedTeamCharacters(PC->AssignedTeam);
+
+    UE_LOG(LogTemp, Log, TEXT("MF_GameMode::RegisterTeamCharactersToController - Registering %d characters to %s (Team %d)"),
+           TeamCharacters.Num(), *PC->GetName(), static_cast<int32>(PC->AssignedTeam));
+
+    for (AMF_PlayerCharacter *Character : TeamCharacters)
+    {
+        PC->RegisterTeamCharacter(Character);
+    }
 }

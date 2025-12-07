@@ -11,13 +11,49 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Integration/CPP_EnhancedInputIntegration.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Camera/CameraComponent.h"
 
 AMF_PlayerCharacter::AMF_PlayerCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
 
+    // NOTE: ACharacter's CapsuleComponent is the root - don't change it!
+    // The CharacterMovementComponent requires CapsuleComponent to be root.
+
+    // Enable overlap events on the capsule for ball pickup detection
+    if (UCapsuleComponent *Capsule = GetCapsuleComponent())
+    {
+        Capsule->SetGenerateOverlapEvents(true);
+    }
+
     // Create Input Handler component
     InputHandler = CreateDefaultSubobject<UMF_InputHandler>(TEXT("InputHandler"));
+
+    // Create Camera Boom (Spring Arm) for top-down view
+    CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+    CameraBoom->SetupAttachment(RootComponent);
+    CameraBoom->SetRelativeRotation(FRotator(-60.0f, 0.0f, 0.0f)); // Look down at 60 degree angle
+    CameraBoom->TargetArmLength = 1500.0f;                         // Distance from player
+    CameraBoom->bDoCollisionTest = false;                          // Don't pull camera in when obstructed
+    CameraBoom->bUsePawnControlRotation = false;                   // Don't rotate with controller
+    CameraBoom->bInheritPitch = false;
+    CameraBoom->bInheritYaw = false;
+    CameraBoom->bInheritRoll = false;
+    CameraBoom->bEnableCameraLag = true; // Smooth camera follow
+    CameraBoom->CameraLagSpeed = 5.0f;
+
+    // Create Top-Down Camera
+    TopDownCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("TopDownCamera"));
+    TopDownCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+    TopDownCamera->bUsePawnControlRotation = false; // Don't rotate with controller
+
+    // Don't use controller rotation - let movement component handle it
+    bUseControllerRotationPitch = false;
+    bUseControllerRotationYaw = false;
+    bUseControllerRotationRoll = false;
 
     // Setup movement
     if (UCharacterMovementComponent *Movement = GetCharacterMovement())
@@ -26,6 +62,21 @@ AMF_PlayerCharacter::AMF_PlayerCharacter()
         Movement->MaxAcceleration = MF_Constants::Acceleration;
         Movement->bOrientRotationToMovement = true;
         Movement->RotationRate = FRotator(0.0f, MF_Constants::TurnRate, 0.0f);
+
+        // Ground movement mode settings
+        Movement->GravityScale = 1.0f;
+        Movement->BrakingDecelerationWalking = 2048.0f;
+        Movement->GroundFriction = 8.0f;
+
+        // Allow the character to walk off ledges
+        Movement->bCanWalkOffLedges = true;
+        Movement->bCanWalkOffLedgesWhenCrouching = true;
+
+        // Don't constrain to plane - let gravity handle Z
+        Movement->bConstrainToPlane = false;
+
+        // Set initial movement mode (will be overridden when grounded)
+        Movement->SetMovementMode(MOVE_Falling);
     }
 
     // Network settings for smooth replication
@@ -53,6 +104,28 @@ void AMF_PlayerCharacter::BeginPlay()
 
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - HasAuthority: %d, IsLocallyControlled: %d"),
            HasAuthority(), IsLocallyControlled());
+
+    // Log spawn position
+    FVector SpawnLoc = GetActorLocation();
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - Spawned at Location: %s"), *SpawnLoc.ToString());
+
+    // Debug: Log movement component state
+    if (UCharacterMovementComponent *MovementComp = GetCharacterMovement())
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - MovementMode: %d, MaxWalkSpeed: %.1f, MaxAccel: %.1f, IsOnGround: %d"),
+               (int32)MovementComp->MovementMode,
+               MovementComp->MaxWalkSpeed,
+               MovementComp->MaxAcceleration,
+               MovementComp->IsMovingOnGround());
+
+        // Check if we're stuck in geometry
+        if (UCapsuleComponent *Capsule = GetCapsuleComponent())
+        {
+            float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+            UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - CapsuleHalfHeight: %.1f, BottomZ: %.1f"),
+                   CapsuleHalfHeight, SpawnLoc.Z - CapsuleHalfHeight);
+        }
+    }
 }
 
 void AMF_PlayerCharacter::Tick(float DeltaTime)
@@ -89,6 +162,13 @@ void AMF_PlayerCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInput
 
     // Input is handled via MF_InputHandler + P_MEIS, not traditional input component
     // This is intentionally minimal - P_MEIS handles all input binding
+
+    // Now that InputComponent exists, try to bind any pending P_MEIS actions
+    if (InputHandler && InputHandler->GetIntegration())
+    {
+        int32 BoundCount = InputHandler->GetIntegration()->TryBindPendingActions();
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::SetupPlayerInputComponent - Bound %d pending actions"), BoundCount);
+    }
 }
 
 void AMF_PlayerCharacter::PossessedBy(AController *NewController)
@@ -288,6 +368,13 @@ void AMF_PlayerCharacter::SetupInputBindings()
         return;
     }
 
+    // Clear any existing delegate bindings to prevent double-binding on re-possession
+    InputHandler->OnMoveInput.RemoveDynamic(this, &AMF_PlayerCharacter::OnMoveInputReceived);
+    InputHandler->OnSprintInput.RemoveDynamic(this, &AMF_PlayerCharacter::OnSprintInputReceived);
+    InputHandler->OnActionPressed.RemoveDynamic(this, &AMF_PlayerCharacter::OnActionPressed);
+    InputHandler->OnActionReleased.RemoveDynamic(this, &AMF_PlayerCharacter::OnActionReleased);
+    InputHandler->OnActionHeld.RemoveDynamic(this, &AMF_PlayerCharacter::OnActionHeld);
+
     // Initialize P_MEIS input
     if (InputHandler->InitializeInput(PC))
     {
@@ -310,14 +397,30 @@ void AMF_PlayerCharacter::UpdateMovement(float DeltaTime)
         return;
     }
 
+    // Check movement component is valid
+    UCharacterMovementComponent *MovementComp = GetCharacterMovement();
+    if (!MovementComp)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::UpdateMovement - No CharacterMovementComponent!"));
+        return;
+    }
+
     // Apply movement
     if (!CurrentMoveInput.IsNearlyZero())
     {
         // Convert 2D input to 3D world direction
+        // UE coordinate system: X = forward (red), Y = right (green), Z = up (blue)
+        // Input: X = left/right (A/D), Y = forward/backward (W/S)
+        // World: X = forward, Y = right
         FVector WorldDirection = FVector(CurrentMoveInput.Y, CurrentMoveInput.X, 0.0f);
 
-        // Add movement input (CharacterMovementComponent handles the rest)
-        AddMovementInput(WorldDirection, 1.0f);
+        if (!WorldDirection.IsNearlyZero())
+        {
+            WorldDirection.Normalize();
+        }
+
+        // Add movement input - this adds to the pending input vector
+        AddMovementInput(WorldDirection, 1.0f, false);
 
         // Update state
         if (HasAuthority())

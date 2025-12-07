@@ -109,6 +109,23 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Input")
     void RequestPause();
 
+    // ==================== Possession Control ====================
+    /** Explicitly possess the first available team character */
+    UFUNCTION(BlueprintCallable, Category = "Possession")
+    void PossessFirstTeamCharacter();
+
+    /** Possess a specific character directly (Server authoritative) */
+    UFUNCTION(BlueprintCallable, Category = "Possession")
+    void PossessCharacter(AMF_PlayerCharacter *CharacterToPossess);
+
+    /** Enable spectator mode - unpossess current character */
+    UFUNCTION(BlueprintCallable, Category = "Possession")
+    void SetSpectatorMode(bool bEnabled);
+
+    /** Is this controller in spectator mode? */
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Possession")
+    bool bIsSpectator;
+
 protected:
     virtual void BeginPlay() override;
     virtual void OnPossess(APawn *InPawn) override;

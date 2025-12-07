@@ -43,7 +43,7 @@ A gameplay plugin for Unreal Engine 5.5 implementing a fast-paced arcade-style m
 | Friction           | 500 cm/s² |
 | Gravity            | 980 cm/s² |
 | Bounce Restitution | 0.7       |
-| Pickup Radius      | 80 cm     |
+| Pickup Radius      | 150 cm    |
 
 ### Player Movement
 
@@ -112,13 +112,14 @@ P_MiniFootball/
             │   └── MF_Types.h         # Enums, constants, replication structs
             ├── Player/
             │   ├── MF_InputHandler.h/.cpp      # P_MEIS integration
-            │   ├── MF_PlayerCharacter.h/.cpp   # Replicated player
+            │   ├── MF_PlayerCharacter.h/.cpp   # Replicated player (top-down camera)
             │   └── MF_PlayerController.h/.cpp  # Network controller
             ├── Ball/
             │   └── MF_Ball.h/.cpp     # Math-based ball physics
             ├── Match/
+            │   ├── MF_GameMode.h/.cpp    # Server-only game mode
             │   ├── MF_GameState.h/.cpp   # Replicated match state
-            │   └── MF_GameMode.h/.cpp    # Server-only game mode
+            │   └── MF_Goal.h/.cpp        # Goal trigger volume
             └── Network/               # Reserved for future use
 ```
 
@@ -126,14 +127,15 @@ P_MiniFootball/
 
 ## 🎯 Core Classes
 
-| Class                  | Description                                        |
-| ---------------------- | -------------------------------------------------- |
-| `AMF_PlayerCharacter`  | Replicated player with Server RPCs for actions     |
-| `AMF_PlayerController` | Network-aware controller with character switching  |
-| `UMF_InputHandler`     | P_MEIS integration component                       |
-| `AMF_Ball`             | Math-based ball with possession and kick mechanics |
-| `AMF_GameState`        | Replicated scores, time, and match phase           |
-| `AMF_GameMode`         | Server-only match management                       |
+| Class                  | Description                                            |
+| ---------------------- | ------------------------------------------------------ |
+| `AMF_PlayerCharacter`  | Replicated player with top-down camera and Server RPCs |
+| `AMF_PlayerController` | Network-aware controller with character switching      |
+| `UMF_InputHandler`     | P_MEIS integration component                           |
+| `AMF_Ball`             | Math-based ball with possession and kick mechanics     |
+| `AMF_GameMode`         | Server-only match management                           |
+| `AMF_GameState`        | Replicated scores, time, and match phase               |
+| `AMF_Goal`             | Goal trigger volume for detecting ball entry           |
 
 ---
 

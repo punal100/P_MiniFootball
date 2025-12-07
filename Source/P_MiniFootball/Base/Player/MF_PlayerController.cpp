@@ -17,6 +17,7 @@ AMF_PlayerController::AMF_PlayerController()
     bReplicates = true;
     AssignedTeam = EMF_TeamID::None;
     ActiveCharacterIndex = -1;
+    bIsSpectator = false;
 }
 
 void AMF_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
@@ -26,6 +27,7 @@ void AMF_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> 
     DOREPLIFETIME(AMF_PlayerController, AssignedTeam);
     DOREPLIFETIME(AMF_PlayerController, TeamCharacters);
     DOREPLIFETIME(AMF_PlayerController, ActiveCharacterIndex);
+    DOREPLIFETIME(AMF_PlayerController, bIsSpectator);
 }
 
 void AMF_PlayerController::BeginPlay()
@@ -83,21 +85,33 @@ void AMF_PlayerController::RegisterTeamCharacter(AMF_PlayerCharacter *InCharacte
 {
     if (!HasAuthority())
     {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::RegisterTeamCharacter - Called on client, ignored"));
         return;
     }
 
-    if (InCharacter && !TeamCharacters.Contains(InCharacter))
+    if (!InCharacter)
     {
-        TeamCharacters.Add(InCharacter);
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::RegisterTeamCharacter - Null character"));
+        return;
+    }
 
-        // If this is our first character and we don't have one possessed, possess it
-        if (TeamCharacters.Num() == 1 && ActiveCharacterIndex < 0)
-        {
-            Internal_SwitchToCharacter(0);
-        }
+    if (TeamCharacters.Contains(InCharacter))
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Character %s already registered"),
+               *InCharacter->GetName());
+        return;
+    }
 
-        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Registered %s (Total: %d)"),
-               *InCharacter->GetName(), TeamCharacters.Num());
+    TeamCharacters.Add(InCharacter);
+
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Registered %s (Total: %d, Spectator: %d, ActiveIndex: %d)"),
+           *InCharacter->GetName(), TeamCharacters.Num(), bIsSpectator, ActiveCharacterIndex);
+
+    // Auto-possess first character if not in spectator mode and not already possessing
+    if (!bIsSpectator && ActiveCharacterIndex < 0 && !GetPawn())
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Auto-possessing first character"));
+        Internal_SwitchToCharacter(TeamCharacters.Num() - 1);
     }
 }
 
@@ -290,4 +304,109 @@ void AMF_PlayerController::RequestPause()
 {
     // TODO: Implement pause menu logic
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RequestPause - Pause requested"));
+}
+
+// ==================== Possession Control ====================
+
+void AMF_PlayerController::PossessFirstTeamCharacter()
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::PossessFirstTeamCharacter - TeamCharacters: %d, IsSpectator: %d"),
+           TeamCharacters.Num(), bIsSpectator);
+
+    if (bIsSpectator)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessFirstTeamCharacter - In spectator mode, call SetSpectatorMode(false) first"));
+        return;
+    }
+
+    if (TeamCharacters.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessFirstTeamCharacter - No team characters available"));
+        return;
+    }
+
+    // Find first valid character
+    for (int32 i = 0; i < TeamCharacters.Num(); ++i)
+    {
+        if (TeamCharacters[i] && !TeamCharacters[i]->IsPendingKillPending())
+        {
+            SwitchToCharacter(i);
+            return;
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessFirstTeamCharacter - No valid characters found"));
+}
+
+void AMF_PlayerController::PossessCharacter(AMF_PlayerCharacter *CharacterToPossess)
+{
+    if (!CharacterToPossess)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessCharacter - Null character"));
+        return;
+    }
+
+    if (bIsSpectator)
+    {
+        SetSpectatorMode(false);
+    }
+
+    // Find index in team characters
+    int32 Index = TeamCharacters.IndexOfByKey(CharacterToPossess);
+    if (Index != INDEX_NONE)
+    {
+        SwitchToCharacter(Index);
+    }
+    else
+    {
+        // Character not in our team, try to possess directly (server only)
+        if (HasAuthority())
+        {
+            if (GetPawn())
+            {
+                UnPossess();
+            }
+            Possess(CharacterToPossess);
+            UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::PossessCharacter - Directly possessed %s"),
+                   *CharacterToPossess->GetName());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessCharacter - Character not in team array"));
+        }
+    }
+}
+
+void AMF_PlayerController::SetSpectatorMode(bool bEnabled)
+{
+    if (!HasAuthority())
+    {
+        // TODO: Add Server RPC if clients need to toggle spectator
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::SetSpectatorMode - Called on client"));
+        return;
+    }
+
+    if (bIsSpectator == bEnabled)
+    {
+        return;
+    }
+
+    bIsSpectator = bEnabled;
+
+    if (bEnabled)
+    {
+        // Unpossess current character
+        if (GetPawn())
+        {
+            UnPossess();
+        }
+        ActiveCharacterIndex = -1;
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::SetSpectatorMode - Spectator mode ENABLED"));
+    }
+    else
+    {
+        // Auto-possess first team character when exiting spectator mode
+        PossessFirstTeamCharacter();
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::SetSpectatorMode - Spectator mode DISABLED"));
+    }
 }

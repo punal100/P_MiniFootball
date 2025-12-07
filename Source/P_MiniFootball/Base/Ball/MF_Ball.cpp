@@ -11,24 +11,31 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "EngineUtils.h" // For TActorIterator
 
 AMF_Ball::AMF_Ball()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    // Create collision sphere (not for physics, just for overlap detection)
+    // Create collision sphere for overlap detection (larger than visual ball for pickup detection)
     CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
-    CollisionSphere->InitSphereRadius(MF_Constants::BallRadius);
-    CollisionSphere->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+    CollisionSphere->InitSphereRadius(MF_Constants::BallPickupRadius); // Use pickup radius for overlap detection
+
+    // Set up collision to overlap with pawns/characters
+    CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    CollisionSphere->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+    CollisionSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
     CollisionSphere->SetGenerateOverlapEvents(true);
+
     // NO PHYSICS - we do our own math
     CollisionSphere->SetSimulatePhysics(false);
     RootComponent = CollisionSphere;
 
-    // Create mesh
+    // Create mesh (visual ball is smaller than collision sphere)
     BallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BallMesh"));
     BallMesh->SetupAttachment(RootComponent);
     BallMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    BallMesh->SetRelativeScale3D(FVector(MF_Constants::BallRadius / 50.0f)); // Scale to proper ball size
 
     // Ball properties
     BallRadius = MF_Constants::BallRadius;
@@ -64,6 +71,12 @@ void AMF_Ball::BeginPlay()
 
     UE_LOG(LogTemp, Log, TEXT("MF_Ball::BeginPlay - HasAuthority: %d"), HasAuthority());
 
+    // Bind overlap event for automatic ball pickup
+    if (CollisionSphere)
+    {
+        CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &AMF_Ball::OnBallOverlap);
+    }
+
     // Initialize interpolation
     LastReplicatedPosition = GetActorLocation();
     InterpolationTarget = LastReplicatedPosition;
@@ -79,6 +92,19 @@ void AMF_Ball::Tick(float DeltaTime)
         PossessionCooldown -= DeltaTime;
     }
 
+    // Debug: Log ball state periodically
+    static float LastStateLogTime = 0.0f;
+    float CurrentTime = GetWorld()->GetTimeSeconds();
+    if (CurrentTime - LastStateLogTime > 2.0f) // Log every 2 seconds
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::Tick - State: %d, Possessor: %s, HasAuthority: %d, Location: %s"),
+               (int32)CurrentBallState,
+               CurrentPossessor ? *CurrentPossessor->GetName() : TEXT("None"),
+               HasAuthority(),
+               *GetActorLocation().ToString());
+        LastStateLogTime = CurrentTime;
+    }
+
     if (HasAuthority())
     {
         // Server: Run physics simulation
@@ -87,6 +113,8 @@ void AMF_Ball::Tick(float DeltaTime)
         case EMF_BallState::Loose:
         case EMF_BallState::InFlight:
             UpdatePhysics(DeltaTime);
+            // Also check for nearby players who can pick up the ball (backup for overlap events)
+            CheckForNearbyPlayers();
             break;
         case EMF_BallState::Possessed:
             UpdatePossessedPosition();
@@ -241,32 +269,120 @@ bool AMF_Ball::CanBePickedUpBy(AMF_PlayerCharacter *Player) const
 {
     if (!Player)
     {
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Player is null"));
         return false;
     }
 
     // Can't pick up if someone else has it
     if (CurrentPossessor != nullptr)
     {
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Already possessed by %s"), *CurrentPossessor->GetName());
         return false;
     }
 
     // Cooldown active
     if (PossessionCooldown > 0.0f)
     {
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Cooldown active (%.2f remaining)"), PossessionCooldown);
         return false;
     }
 
     // Must be loose or InFlight (not out of bounds)
     if (CurrentBallState == EMF_BallState::OutOfBounds)
     {
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Ball is out of bounds"));
         return false;
     }
 
-    // Check distance
-    float DistSq = FVector::DistSquared(GetActorLocation(), Player->GetActorLocation());
-    float PickupRadiusSq = FMath::Square(MF_Constants::BallPickupRadius);
+    // Don't check distance here - let the caller handle distance
+    // This function should only check if the ball CAN be picked up, not if the player is close enough
+    return true;
+}
 
-    return DistSq <= PickupRadiusSq;
+// ==================== Overlap Detection ====================
+
+void AMF_Ball::OnBallOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor,
+                             UPrimitiveComponent *OtherComp, int32 OtherBodyIndex,
+                             bool bFromSweep, const FHitResult &SweepResult)
+{
+    // Only server handles possession changes
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    // Check if it's a player character
+    AMF_PlayerCharacter *Player = Cast<AMF_PlayerCharacter>(OtherActor);
+    if (!Player)
+    {
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnBallOverlap - Player: %s, CanPickup: %d"),
+           *Player->GetName(), CanBePickedUpBy(Player));
+
+    // Try to give possession to the player
+    if (CanBePickedUpBy(Player))
+    {
+        SetPossessor(Player);
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnBallOverlap - Possession given to %s"), *Player->GetName());
+    }
+}
+
+void AMF_Ball::CheckForNearbyPlayers()
+{
+    // Only run on server when ball is loose
+    if (!HasAuthority() || CurrentPossessor != nullptr)
+    {
+        return;
+    }
+
+    // Find all player characters and check distance
+    FVector BallLocation = GetActorLocation();
+
+    // Debug: count players found
+    int32 PlayerCount = 0;
+
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter *Player = *It;
+        if (!Player)
+        {
+            continue;
+        }
+
+        PlayerCount++;
+
+        float Dist = FVector::Dist(BallLocation, Player->GetActorLocation());
+        float PickupRadius = MF_Constants::BallPickupRadius;
+
+        // Always log distance for debugging
+        static float LastDistLogTime = 0.0f;
+        float CurrentTime = GetWorld()->GetTimeSeconds();
+        if (CurrentTime - LastDistLogTime > 1.0f) // Log every second
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MF_Ball::CheckForNearbyPlayers - Player: %s, Distance: %.1f, PickupRadius: %.1f, InRange: %d, CanPickup: %d"),
+                   *Player->GetName(), Dist, PickupRadius, Dist <= PickupRadius, CanBePickedUpBy(Player));
+            LastDistLogTime = CurrentTime;
+        }
+
+        if (Dist <= PickupRadius && CanBePickedUpBy(Player))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MF_Ball::CheckForNearbyPlayers - PICKING UP! Player: %s, Distance: %.1f"),
+                   *Player->GetName(), Dist);
+            SetPossessor(Player);
+            break; // Only one player can pick up at a time
+        }
+    }
+
+    // Debug: Log if no players found
+    static float LastNoPlayerLogTime = 0.0f;
+    float CurrentTime = GetWorld()->GetTimeSeconds();
+    if (PlayerCount == 0 && CurrentTime - LastNoPlayerLogTime > 3.0f)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::CheckForNearbyPlayers - NO PLAYERS FOUND IN WORLD!"));
+        LastNoPlayerLogTime = CurrentTime;
+    }
 }
 
 // ==================== Rep Notifies ====================
@@ -465,6 +581,7 @@ void AMF_Ball::UpdatePossessedPosition()
 {
     if (!CurrentPossessor)
     {
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::UpdatePossessedPosition - No CurrentPossessor!"));
         return;
     }
 
@@ -476,6 +593,16 @@ void AMF_Ball::UpdatePossessedPosition()
     FVector NewLocation = PlayerLocation + Offset;
 
     SetActorLocation(NewLocation);
+
+    // Debug: Log ball following player
+    static float LastLogTime = 0.0f;
+    float CurrentTime = GetWorld()->GetTimeSeconds();
+    if (CurrentTime - LastLogTime > 1.0f) // Log every second
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::UpdatePossessedPosition - Following %s at %s, Ball at %s"),
+               *CurrentPossessor->GetName(), *PlayerLocation.ToString(), *NewLocation.ToString());
+        LastLogTime = CurrentTime;
+    }
 }
 
 void AMF_Ball::ClientInterpolate(float DeltaTime)

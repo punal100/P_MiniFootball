@@ -135,36 +135,51 @@ void UMF_InputHandler::SetupDefaultBindings()
         FS_InputAxisBinding MoveBinding;
         MoveBinding.InputAxisName = MF_InputActions::Move;
         MoveBinding.DisplayName = FText::FromString(TEXT("Move"));
+        MoveBinding.ValueType = EInputActionValueType::Axis2D; // IMPORTANT: Use Axis2D for WASD/Stick movement
         MoveBinding.DeadZone = 0.2f;
         MoveBinding.Sensitivity = 1.0f;
 
-        // WASD for keyboard - add as axis bindings
+        // WASD for keyboard - X axis (D/A), Y axis (W/S)
+        // D = X positive (right)
         FS_AxisKeyBinding BindD;
         BindD.Key = EKeys::D;
         BindD.Scale = 1.0f;
+        BindD.bSwizzleYXZ = false; // X axis - no swizzle needed
+
+        // A = X negative (left)
         FS_AxisKeyBinding BindA;
         BindA.Key = EKeys::A;
         BindA.Scale = -1.0f;
+        BindA.bSwizzleYXZ = false; // X axis - no swizzle needed
+
+        // W = Y positive (forward) - needs swizzle to put input on Y axis
         FS_AxisKeyBinding BindW;
         BindW.Key = EKeys::W;
         BindW.Scale = 1.0f;
+        BindW.bSwizzleYXZ = true; // Swizzle X->Y for forward
+
+        // S = Y negative (backward) - needs swizzle to put input on Y axis
         FS_AxisKeyBinding BindS;
         BindS.Key = EKeys::S;
         BindS.Scale = -1.0f;
+        BindS.bSwizzleYXZ = true; // Swizzle X->Y for backward
 
-        // Gamepad left stick
-        FS_AxisKeyBinding BindStick;
-        BindStick.Key = EKeys::Gamepad_LeftX;
-        BindStick.Scale = 1.0f;
+        // Gamepad left stick - already 2D, no swizzle needed
+        FS_AxisKeyBinding BindStickX;
+        BindStickX.Key = EKeys::Gamepad_LeftX;
+        BindStickX.Scale = 1.0f;
+        BindStickX.bSwizzleYXZ = false;
+
         FS_AxisKeyBinding BindStickY;
         BindStickY.Key = EKeys::Gamepad_LeftY;
         BindStickY.Scale = 1.0f;
+        BindStickY.bSwizzleYXZ = true; // Gamepad Y axis needs swizzle too
 
         MoveBinding.AxisBindings.Add(BindD);
         MoveBinding.AxisBindings.Add(BindA);
         MoveBinding.AxisBindings.Add(BindW);
         MoveBinding.AxisBindings.Add(BindS);
-        MoveBinding.AxisBindings.Add(BindStick);
+        MoveBinding.AxisBindings.Add(BindStickX);
         MoveBinding.AxisBindings.Add(BindStickY);
 
         Manager->SetPlayerAxisBinding(PC, MF_InputActions::Move, MoveBinding);
@@ -256,6 +271,10 @@ void UMF_InputHandler::BindP_MEISEvents()
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandleSwitchPlayerAction);
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandlePauseAction);
 
+    // Completed events for releasing inputs
+    Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleMoveCompleted);
+    Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleSprintCompleted);
+
     // Started/Completed for action hold detection
     Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandleActionStarted);
     Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleActionCompleted);
@@ -271,6 +290,18 @@ void UMF_InputHandler::HandleMoveAction(FName ActionName, FInputActionValue Valu
     }
 
     CurrentMoveInput = Value.Get<FVector2D>();
+    OnMoveInput.Broadcast(CurrentMoveInput);
+}
+
+void UMF_InputHandler::HandleMoveCompleted(FName ActionName, FInputActionValue Value)
+{
+    if (ActionName != MF_InputActions::Move)
+    {
+        return;
+    }
+
+    // Reset move input to zero when movement keys are released
+    CurrentMoveInput = FVector2D::ZeroVector;
     OnMoveInput.Broadcast(CurrentMoveInput);
 }
 
@@ -322,6 +353,21 @@ void UMF_InputHandler::HandleSprintAction(FName ActionName, FInputActionValue Va
     if (bNewSprinting != bIsSprinting)
     {
         bIsSprinting = bNewSprinting;
+        OnSprintInput.Broadcast(bIsSprinting);
+    }
+}
+
+void UMF_InputHandler::HandleSprintCompleted(FName ActionName, FInputActionValue Value)
+{
+    if (ActionName != MF_InputActions::Sprint)
+    {
+        return;
+    }
+
+    // Reset sprint when released
+    if (bIsSprinting)
+    {
+        bIsSprinting = false;
         OnSprintInput.Broadcast(bIsSprinting);
     }
 }
