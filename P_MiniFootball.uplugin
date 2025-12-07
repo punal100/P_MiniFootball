@@ -1,0 +1,24 @@
+﻿{
+"FileVersion": 3,
+"Version": 1,
+"VersionName": "1.0",
+"FriendlyName": "Mini Football System",
+"Description": "Mini Football Game System Plugin",
+"Category": "Gameplay",
+"CreatedBy": "Punal Manalan",
+"CreatedByURL": "https://github.com/punal100/P_MiniFootball.git",
+"DocsURL": "https://github.com/punal100/P_MiniFootball.git",
+"MarketplaceURL": "",
+"SupportURL": "https://github.com/punal100/P_MiniFootball.git",
+"CanContainContent": true,
+"Installed": false,
+"Plugins": [
+],
+"Modules": [
+{
+"Name": "P_MiniFootball",
+"Type": "Runtime",
+"LoadingPhase": "Default"
+}
+]
+}
