@@ -13,6 +13,14 @@
 "CanContainContent": true,
 "Installed": false,
 "Plugins": [
+{
+"Name": "EnhancedInput",
+"Enabled": true
+},
+{
+"Name": "P_MEIS",
+"Enabled": true
+}
 ],
 "Modules": [
 {

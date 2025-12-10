@@ -135,6 +135,18 @@ public:
     UFUNCTION(BlueprintPure, Category = "Teams")
     TArray<AMF_PlayerCharacter *> GetTeamPlayers(EMF_TeamID Team) const;
 
+    /** Get player count for a team (for UI widgets) */
+    UFUNCTION(BlueprintPure, Category = "Teams")
+    int32 GetTeamPlayerCount(EMF_TeamID Team) const;
+
+    /** Get player names for a team (for UI widgets) */
+    UFUNCTION(BlueprintPure, Category = "Teams")
+    TArray<FString> GetTeamPlayerNames(EMF_TeamID Team) const;
+
+    /** Get team roster data (for UI widgets) */
+    UFUNCTION(BlueprintPure, Category = "Teams")
+    FMF_TeamRosterData GetTeamRoster(EMF_TeamID Team) const;
+
     // ==================== State Getters ====================
     UFUNCTION(BlueprintPure, Category = "Match")
     int32 GetScore(EMF_TeamID Team) const;
