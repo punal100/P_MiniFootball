@@ -12,6 +12,139 @@
 #include "Kismet/GameplayStatics.h"
 #include "Match/MF_GameState.h"
 
+const FString &UMF_QuickTeamPanel::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_QuickTeamPanel",
+    "BlueprintName": "WBP_MF_QuickTeamPanel",
+    "ParentClass": "/Script/P_MiniFootball.MF_QuickTeamPanel",
+    "Category": "MF|UI|Team",
+    "Description": "Compact quick-join team panel for spectator mode",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 200, "Height": 150},
+        "ZoomLevel": "1:1",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Border",
+                    "Name": "PanelBorder",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                    },
+                    "Children": [
+                        {
+                            "Type": "VerticalBox",
+                            "Name": "QuickPanelContent",
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "TeamNameText",
+                                    "BindingType": "Required",
+                                    "Slot": {"HAlign": "Center"}
+                                },
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "PlayerCountText",
+                                    "BindingType": "Required",
+                                    "Slot": {"HAlign": "Center"}
+                                },
+                                {
+                                    "Type": "VerticalBox",
+                                    "Name": "PlayerListBox",
+                                    "BindingType": "Optional"
+                                },
+                                {
+                                    "Type": "Button",
+                                    "Name": "QuickJoinButton",
+                                    "BindingType": "Required",
+                                    "Slot": {"HAlign": "Stretch"},
+                                    "Children": [
+                                        {
+                                            "Type": "TextBlock",
+                                            "Name": "ShortcutHintText",
+                                            "BindingType": "Optional"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "PanelBorder": {
+            "BrushColor": {"R": 0.15, "G": 0.15, "B": 0.15, "A": 0.85},
+            "Padding": {"Left": 8, "Top": 6, "Right": 8, "Bottom": 6}
+        },
+        "TeamNameText": {
+            "Font": {"Size": 16, "Typeface": "Bold"}
+        },
+        "PlayerCountText": {
+            "Font": {"Size": 12, "Typeface": "Regular"},
+            "Text": "0/5"
+        },
+        "QuickJoinButton": {
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.3, "G": 0.5, "B": 0.3, "A": 1.0}}
+            }
+        },
+        "ShortcutHintText": {
+            "Font": {"Size": 10, "Typeface": "Regular"},
+            "Text": "Press 1"
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "TeamNameText", "Type": "UTextBlock", "Purpose": "Team name"},
+            {"Name": "PlayerCountText", "Type": "UTextBlock", "Purpose": "Player count"},
+            {"Name": "QuickJoinButton", "Type": "UButton", "Purpose": "Quick join button"}
+        ],
+        "Optional": [
+            {"Name": "PanelBorder", "Type": "UBorder", "Purpose": "Panel background"},
+            {"Name": "PlayerListBox", "Type": "UVerticalBox", "Purpose": "Compact player list"},
+            {"Name": "ShortcutHintText", "Type": "UTextBlock", "Purpose": "Keyboard hint"}
+        ]
+    },
+    
+    "Delegates": [
+        {
+            "Name": "OnQuickJoinClicked",
+            "Type": "FMF_OnQuickJoinClicked",
+            "Signature": "void(EMF_TeamID TeamID)",
+            "Description": "Fired when quick join is triggered"
+        }
+    ],
+    
+    "Dependencies": [],
+    
+    "Comments": {
+        "Header": "MF Quick Team Panel - Compact spectator team join",
+        "Usage": "Used in SpectatorControls for fast team selection"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateBorder": "border = creator.add_widget('Border', 'PanelBorder', root)",
+        "CreateContent": "vbox = creator.add_widget('VerticalBox', 'QuickPanelContent', border)"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_QuickTeamPanel::NativeConstruct()
 {
     Super::NativeConstruct();

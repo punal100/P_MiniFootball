@@ -81,6 +81,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|VirtualJoystick")
     float MaxThumbOffset = 50.0f;
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_VirtualJoystick.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Current joystick direction (normalized) */
     FVector2D CurrentDirection = FVector2D::ZeroVector;

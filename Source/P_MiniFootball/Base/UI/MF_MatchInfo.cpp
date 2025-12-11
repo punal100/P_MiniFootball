@@ -9,6 +9,124 @@
 #include "Kismet/GameplayStatics.h"
 #include "Match/MF_GameState.h"
 
+const FString &UMF_MatchInfo::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_MatchInfo",
+    "BlueprintName": "WBP_MF_MatchInfo",
+    "ParentClass": "/Script/P_MiniFootball.MF_MatchInfo",
+    "Category": "MF|UI|HUD",
+    "Description": "Match score and timer display panel",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 600, "Height": 200},
+        "ZoomLevel": "1:1",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "HorizontalBox",
+                    "Name": "ScoreContainer",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
+                        "Position": {"X": 0, "Y": 10},
+                        "Size": {"X": 400, "Y": 80},
+                        "Alignment": {"X": 0.5, "Y": 0}
+                    },
+                    "Children": [
+                        {
+                            "Type": "VerticalBox",
+                            "Name": "TeamABox",
+                            "Children": [
+                                {"Type": "TextBlock", "Name": "TeamANameText", "BindingType": "Optional"},
+                                {"Type": "TextBlock", "Name": "TeamAScoreText", "BindingType": "Required"}
+                            ]
+                        },
+                        {"Type": "TextBlock", "Name": "MatchTimerText", "BindingType": "Required"},
+                        {
+                            "Type": "VerticalBox",
+                            "Name": "TeamBBox",
+                            "Children": [
+                                {"Type": "TextBlock", "Name": "TeamBNameText", "BindingType": "Optional"},
+                                {"Type": "TextBlock", "Name": "TeamBScoreText", "BindingType": "Required"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "Type": "TextBlock",
+                    "Name": "MatchPhaseText",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
+                        "Position": {"X": 0, "Y": 95},
+                        "Alignment": {"X": 0.5, "Y": 0}
+                    }
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "TeamAScoreText": {
+            "Font": {"Size": 36, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 0.2, "G": 0.6, "B": 1.0, "A": 1.0},
+            "Justification": "Center"
+        },
+        "TeamBScoreText": {
+            "Font": {"Size": 36, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 0.3, "B": 0.3, "A": 1.0},
+            "Justification": "Center"
+        },
+        "MatchTimerText": {
+            "Font": {"Size": 28, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
+            "Justification": "Center",
+            "Text": "00:00"
+        },
+        "MatchPhaseText": {
+            "Font": {"Size": 16, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 0.8, "G": 0.8, "B": 0.8, "A": 1.0}
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "TeamAScoreText", "Type": "UTextBlock", "Purpose": "Team A score display"},
+            {"Name": "TeamBScoreText", "Type": "UTextBlock", "Purpose": "Team B score display"},
+            {"Name": "MatchTimerText", "Type": "UTextBlock", "Purpose": "Match countdown timer"}
+        ],
+        "Optional": [
+            {"Name": "MatchPhaseText", "Type": "UTextBlock", "Purpose": "Current match phase"},
+            {"Name": "TeamANameText", "Type": "UTextBlock", "Purpose": "Team A name"},
+            {"Name": "TeamBNameText", "Type": "UTextBlock", "Purpose": "Team B name"}
+        ]
+    },
+    
+    "Delegates": [],
+    
+    "Dependencies": [],
+    
+    "Comments": {
+        "Header": "MF Match Info - Score and timer display for HUD",
+        "Usage": "Place at top of MF_HUD for match status"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateScoreBox": "hbox = creator.add_widget('HorizontalBox', 'ScoreContainer', root)",
+        "CreateScores": "creator.add_widget('TextBlock', 'TeamAScoreText', hbox); creator.add_widget('TextBlock', 'TeamBScoreText', hbox)"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_MatchInfo::NativeConstruct()
 {
     Super::NativeConstruct();

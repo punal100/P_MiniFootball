@@ -13,6 +13,122 @@
 #include "Player/MF_PlayerController.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 
+const FString &UMF_GameplayControls::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_GameplayControls",
+    "BlueprintName": "WBP_MF_GameplayControls",
+    "ParentClass": "/Script/P_MiniFootball.MF_GameplayControls",
+    "Category": "MF|UI|HUD",
+    "Description": "Touch controls container with joystick and action buttons",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 1280, "Height": 720},
+        "ZoomLevel": "1:4",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Overlay",
+                    "Name": "LeftControlContainer",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 1}, "Max": {"X": 0, "Y": 1}},
+                        "Position": {"X": 50, "Y": -50},
+                        "Size": {"X": 200, "Y": 200},
+                        "Alignment": {"X": 0, "Y": 1}
+                    },
+                    "Children": [
+                        {
+                            "Type": "UserWidget",
+                            "Name": "MovementJoystick",
+                            "BindingType": "Required",
+                            "WidgetClass": "/Script/P_MiniFootball.MF_VirtualJoystick"
+                        }
+                    ]
+                },
+                {
+                    "Type": "Overlay",
+                    "Name": "RightControlContainer",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 1, "Y": 1}, "Max": {"X": 1, "Y": 1}},
+                        "Position": {"X": -50, "Y": -50},
+                        "Size": {"X": 200, "Y": 200},
+                        "Alignment": {"X": 1, "Y": 1}
+                    },
+                    "Children": [
+                        {
+                            "Type": "UserWidget",
+                            "Name": "ActionButton",
+                            "BindingType": "Required",
+                            "WidgetClass": "/Script/P_MiniFootball.MF_ActionButton",
+                            "Slot": {"HAlign": "Right", "VAlign": "Bottom"}
+                        },
+                        {
+                            "Type": "UserWidget",
+                            "Name": "SprintButton",
+                            "BindingType": "Optional",
+                            "WidgetClass": "/Script/P_MiniFootball.MF_SprintButton",
+                            "Slot": {"HAlign": "Right", "VAlign": "Top"}
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "LeftControlContainer": {
+            "Note": "Contains joystick on left side"
+        },
+        "RightControlContainer": {
+            "Note": "Contains action buttons on right side"
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "MovementJoystick", "Type": "UMF_VirtualJoystick", "Purpose": "Movement control"},
+            {"Name": "ActionButton", "Type": "UMF_ActionButton", "Purpose": "Primary action"}
+        ],
+        "Optional": [
+            {"Name": "SprintButton", "Type": "UMF_SprintButton", "Purpose": "Sprint toggle"},
+            {"Name": "LeftControlContainer", "Type": "UOverlay", "Purpose": "Left-side container"},
+            {"Name": "RightControlContainer", "Type": "UOverlay", "Purpose": "Right-side container"}
+        ]
+    },
+    
+    "Delegates": [],
+    
+    "Dependencies": [
+        {"Class": "UMF_VirtualJoystick", "Blueprint": "WBP_MF_VirtualJoystick", "Required": true},
+        {"Class": "UMF_ActionButton", "Blueprint": "WBP_MF_ActionButton", "Required": true},
+        {"Class": "UMF_SprintButton", "Blueprint": "WBP_MF_SprintButton", "Required": false}
+    ],
+    
+    "Comments": {
+        "Header": "MF Gameplay Controls - Mobile touch control overlay",
+        "Usage": "Shown in MF_HUD when player is on a team"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateLeftContainer": "left = creator.add_widget('Overlay', 'LeftControlContainer', root, slot_data={'anchors': 'bottom_left'})",
+        "CreateRightContainer": "right = creator.add_widget('Overlay', 'RightControlContainer', root, slot_data={'anchors': 'bottom_right'})",
+        "CreateJoystick": "joystick = creator.add_widget('UserWidget', 'MovementJoystick', left, widget_class='WBP_MF_VirtualJoystick')",
+        "CreateAction": "action = creator.add_widget('UserWidget', 'ActionButton', right, widget_class='WBP_MF_ActionButton')"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_GameplayControls::NativeConstruct()
 {
     Super::NativeConstruct();

@@ -119,6 +119,18 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|ActionButton")
     FLinearColor NormalColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_ActionButton.
+     *
+     * Contains: Designer toolbar settings, widget hierarchy, layout,
+     * design properties, bindings, delegates, and Python construction snippets.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Current action context */
     EMF_ActionContext CurrentContext = EMF_ActionContext::Shoot;

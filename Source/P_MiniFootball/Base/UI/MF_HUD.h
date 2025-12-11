@@ -184,6 +184,18 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|Config")
     float RefreshInterval = 0.5f;
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_HUD.
+     *
+     * This is the MASTER HUD widget that contains all other MF widgets.
+     * Dependencies must be created in order before creating this widget.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Cached player controller */
     UPROPERTY()

@@ -9,6 +9,7 @@
 /Content/Developers/*
 /Content/__ExternalActors__/*
 /Content/__ExternalObjects__/*
+/Scripts/__pycache__/*
 
 # Ignore generated folders
 /Build/*

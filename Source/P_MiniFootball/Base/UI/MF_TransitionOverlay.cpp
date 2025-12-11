@@ -10,6 +10,106 @@
 #include "Components/Throbber.h"
 #include "Animation/WidgetAnimation.h"
 
+const FString &UMF_TransitionOverlay::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_TransitionOverlay",
+    "BlueprintName": "WBP_MF_TransitionOverlay",
+    "ParentClass": "/Script/P_MiniFootball.MF_TransitionOverlay",
+    "Category": "MF|UI|Overlays",
+    "Description": "Loading/transition screen with status message",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 800, "Height": 600},
+        "ZoomLevel": "1:2",
+        "ShowGrid": false
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Image",
+                    "Name": "BackgroundOverlay",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                    }
+                },
+                {
+                    "Type": "VerticalBox",
+                    "Name": "ContentBox",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
+                        "Alignment": {"X": 0.5, "Y": 0.5}
+                    },
+                    "Children": [
+                        {
+                            "Type": "Throbber",
+                            "Name": "LoadingThrobber",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 20}}
+                        },
+                        {
+                            "Type": "TextBlock",
+                            "Name": "StatusText",
+                            "BindingType": "Required",
+                            "Slot": {"HAlign": "Center"}
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "BackgroundOverlay": {
+            "Brush": {"DrawAs": "Box"},
+            "ColorAndOpacity": {"R": 0, "G": 0, "B": 0, "A": 0.85}
+        },
+        "LoadingThrobber": {
+            "NumberOfPieces": 8
+        },
+        "StatusText": {
+            "Font": {"Size": 24, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
+            "Justification": "Center",
+            "Text": "Loading..."
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "StatusText", "Type": "UTextBlock", "Purpose": "Loading status message"}
+        ],
+        "Optional": [
+            {"Name": "LoadingThrobber", "Type": "UThrobber", "Purpose": "Loading spinner"},
+            {"Name": "BackgroundOverlay", "Type": "UImage", "Purpose": "Dark background"}
+        ]
+    },
+    
+    "Delegates": [],
+    
+    "Dependencies": [],
+    
+    "Comments": {
+        "Header": "MF Transition Overlay - Blocking loading screen",
+        "Usage": "Shown during team join/leave transitions"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateBG": "bg = creator.add_widget('Image', 'BackgroundOverlay', root, slot_data={'anchors': 'fill'})",
+        "CreateContent": "vbox = creator.add_widget('VerticalBox', 'ContentBox', root); creator.add_widget('TextBlock', 'StatusText', vbox)"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_TransitionOverlay::NativeConstruct()
 {
     Super::NativeConstruct();

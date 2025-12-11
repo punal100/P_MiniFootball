@@ -110,6 +110,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TeamPanel")
     FLinearColor TeamBColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f); // Blue
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TeamPanel.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Current team ID this panel represents */
     EMF_TeamID TeamID = EMF_TeamID::None;

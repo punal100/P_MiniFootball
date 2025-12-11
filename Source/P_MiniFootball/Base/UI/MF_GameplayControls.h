@@ -95,6 +95,15 @@ protected:
     UPROPERTY()
     TObjectPtr<AMF_PlayerController> CachedPlayerController;
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_GameplayControls.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Event handlers */
     UFUNCTION()

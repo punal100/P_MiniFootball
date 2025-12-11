@@ -76,6 +76,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|SprintButton")
     FLinearColor NormalColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_SprintButton.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Current sprint state */
     bool bIsSprinting = false;

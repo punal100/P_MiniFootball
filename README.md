@@ -102,8 +102,12 @@ PublicDependencyModuleNames.AddRange(new string[] { "P_MiniFootball" });
 P_MiniFootball/
 ├── P_MiniFootball.uplugin     # Plugin descriptor
 ├── README.md                   # This file
+├── UI_WIDGETS.md              # UI widget binding reference & visual specs
 ├── Resources/
 │   └── Icon128.png            # Plugin icon
+├── Scripts/
+│   ├── MF_WidgetBlueprintCreator.py  # Automated WBP creation from JSON specs
+│   └── EDITOR_UTILITY_WIDGET_GUIDE.md # EUW setup instructions
 └── Source/
     └── P_MiniFootball/
         ├── P_MiniFootball.Build.cs    # Module build configuration
@@ -129,6 +133,20 @@ P_MiniFootball/
             │   ├── MF_GameMode.h/.cpp    # Server-only game mode + team management
             │   ├── MF_GameState.h/.cpp   # Replicated match state + team rosters
             │   └── MF_Goal.h/.cpp        # Goal trigger volume
+            ├── UI/                        # Self-describing widget classes (JSON specs)
+            │   ├── MF_HUD.h/.cpp          # Main HUD + GetWidgetSpec()
+            │   ├── MF_MatchInfo.h/.cpp    # Score/time + GetWidgetSpec()
+            │   ├── MF_TeamIndicator.h/.cpp
+            │   ├── MF_TransitionOverlay.h/.cpp
+            │   ├── MF_SpectatorControls.h/.cpp
+            │   ├── MF_GameplayControls.h/.cpp
+            │   ├── MF_VirtualJoystick.h/.cpp
+            │   ├── MF_ActionButton.h/.cpp
+            │   ├── MF_SprintButton.h/.cpp
+            │   ├── MF_TeamSelectionPopup.h/.cpp
+            │   ├── MF_TeamPanel.h/.cpp
+            │   ├── MF_QuickTeamPanel.h/.cpp
+            │   └── MF_PauseMenu.h/.cpp
             └── Network/               # Reserved for future use
 ```
 
@@ -239,6 +257,8 @@ FOnSpectatorStateChanged OnSpectatorStateChanged;
 
 The plugin includes a complete C++ UI widget system for HUD, spectator controls, team selection, and gameplay controls. All widgets are designed as C++ `UUserWidget` base classes that can be extended in Blueprint.
 
+**Each widget class is self-describing** — containing embedded JSON specifications that define hierarchy, bindings, layout, and design rules.
+
 ### Widget Architecture
 
 ```
@@ -284,11 +304,181 @@ UMF_HUD (Main Container)
 
 ---
 
+## 🧬 Self-Describing Widget System (JSON Specifications)
+
+Each UMF widget class contains an embedded **JSON specification** accessible via `GetWidgetSpec()`. This makes widgets self-documenting and enables automated Widget Blueprint creation.
+
+### Key Benefits
+
+| Feature                    | Description                                         |
+| -------------------------- | --------------------------------------------------- |
+| **Self-Documentation**     | Widget structure defined alongside C++ code         |
+| **Automated WBP Creation** | Python script reads JSON to build Widget Blueprints |
+| **Single Source of Truth** | No duplicate definitions in Python or documentation |
+| **Designer-Friendly**      | Clear binding contracts visible in code             |
+| **Dependency Management**  | Build order automatically resolved from JSON        |
+
+### JSON Specification Contents
+
+Each widget's JSON includes:
+
+- **WidgetClass** — C++ class name
+- **BlueprintName** — Target WBP asset name (e.g., `WBP_MF_ActionButton`)
+- **ParentClass** — Full path to C++ parent class
+- **DesignerToolbar** — Size mode, dimensions for UMG Designer
+- **Hierarchy** — Complete widget tree structure
+- **Bindings** — Required and optional widget bindings
+- **Design** — Colors, fonts, styles per widget
+- **Delegates** — Events exposed to Blueprint
+- **Dependencies** — Other WBPs required before this one
+- **PythonSnippets** — Code examples for automation
+
+### Accessing Widget Specs
+
+```cpp
+// C++ - Get JSON spec from any UMF widget class
+FString JsonSpec = UMF_ActionButton::GetWidgetSpec();
+FString HudSpec = UMF_HUD::GetWidgetSpec();
+
+// The JSON can be parsed to get widget structure
+// Useful for tooling, validation, and automation
+```
+
+```python
+# Python (UE5 Editor) - Read spec for automation
+import unreal
+import json
+
+# Get spec from widget class CDO
+action_btn_cdo = unreal.get_default_object(unreal.MF_ActionButton)
+json_str = unreal.MF_ActionButton.get_widget_spec()
+spec = json.loads(json_str)
+
+print(spec["BlueprintName"])  # "WBP_MF_ActionButton"
+print(spec["Bindings"]["Required"])  # ["ActionButton"]
+```
+
+### Example: UMF_ActionButton JSON Spec
+
+```json
+{
+  "WidgetClass": "UMF_ActionButton",
+  "BlueprintName": "WBP_MF_ActionButton",
+  "ParentClass": "/Script/P_MiniFootball.MF_ActionButton",
+  "Category": "MF|UI|Controls",
+  "Description": "Context-sensitive action button for Shoot/Pass/Tackle",
+
+  "DesignerToolbar": {
+    "DesiredSize": { "Width": 120, "Height": 120 }
+  },
+
+  "Hierarchy": {
+    "Root": { "Type": "CanvasPanel", "Name": "RootPanel" },
+    "Children": [
+      {
+        "Name": "ActionButton",
+        "Type": "Button",
+        "BindingType": "Required",
+        "Slot": {
+          "Anchors": { "Min": [0, 0], "Max": [1, 1] },
+          "Offsets": { "Left": 0, "Top": 0, "Right": 0, "Bottom": 0 }
+        }
+      },
+      {
+        "Name": "ActionIcon",
+        "Type": "Image",
+        "BindingType": "Optional"
+      },
+      {
+        "Name": "ActionText",
+        "Type": "TextBlock",
+        "BindingType": "Optional"
+      }
+    ]
+  },
+
+  "Bindings": {
+    "Required": ["ActionButton"],
+    "Optional": ["ActionIcon", "ActionText"]
+  },
+
+  "Delegates": [
+    { "Name": "OnActionPressed", "Type": "FOnButtonClickedEvent" },
+    { "Name": "OnActionReleased", "Type": "FOnButtonReleasedEvent" }
+  ],
+
+  "Dependencies": {
+    "RequiredWidgets": [],
+    "OptionalWidgets": []
+  }
+}
+```
+
+### Widget Build Order
+
+The `UMF_HUD::GetWidgetSpec()` contains the complete build order for all widgets:
+
+1. `WBP_MF_ActionButton` — No dependencies
+2. `WBP_MF_VirtualJoystick` — No dependencies
+3. `WBP_MF_SprintButton` — No dependencies
+4. `WBP_MF_MatchInfo` — No dependencies
+5. `WBP_MF_TeamIndicator` — No dependencies
+6. `WBP_MF_TransitionOverlay` — No dependencies
+7. `WBP_MF_QuickTeamPanel` — No dependencies
+8. `WBP_MF_TeamPanel` — No dependencies
+9. `WBP_MF_SpectatorControls` — Requires QuickTeamPanel
+10. `WBP_MF_GameplayControls` — Requires VirtualJoystick, ActionButton, SprintButton
+11. `WBP_MF_TeamSelectionPopup` — Requires TeamPanel
+12. `WBP_MF_PauseMenu` — No dependencies
+13. `WBP_MF_HUD` — Requires all above (master widget)
+
+### Automated WBP Creation
+
+A Python script (`Scripts/MF_WidgetBlueprintCreator.py`) reads these JSON specs to:
+
+- Create Widget Blueprints with correct parent classes
+- Build widget hierarchies automatically
+- Apply layout rules (anchors, positions, sizes)
+- Apply theme colors and fonts
+- Validate required bindings
+- Generate binding documentation
+
+#### Option 1: Editor Utility Widget (Recommended)
+
+Create a visual tool with buttons to run the script:
+
+1. Create **Editor Utility Widget** in Content Browser
+2. Add buttons for each action (Preview, Create, Validate)
+3. Use **Execute Python Script** node with commands below
+4. Run via right-click → "Run Editor Utility Widget"
+
+> **📖 Setup Guide:** See [Scripts/EDITOR_UTILITY_WIDGET_GUIDE.md](./Scripts/EDITOR_UTILITY_WIDGET_GUIDE.md) for step-by-step EUW creation.
+
+#### Option 2: Python Console
+
+```python
+# Run in UE5 Python console (Output Log → switch to Python mode)
+exec(open("D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read())
+
+# Quick functions via the MF_WBP alias (EUW-friendly helpers):
+MF_WBP.run_dry()            # Preview what would happen
+MF_WBP.run_create()         # Create missing widgets
+MF_WBP.run_validate()       # Validate existing widgets
+MF_WBP.run_force_recreate() # Recreate all widgets (CAUTION!)
+print(MF_WBP.get_status_text())  # Optional status dump for EUW
+```
+
+> **📖 Automation Documentation:** See [PLAN_WBP_SCRIPT.md](../../PLAN_WBP_SCRIPT.md) for complete automation system documentation.
+
+---
+
 ## 📝 Version History
 
-| Version | Date       | Changes                                    |
-| ------- | ---------- | ------------------------------------------ |
-| 1.0     | 07/12/2025 | Initial plugin implementation (Phases 1-6) |
+| Version | Date       | Changes                                                     |
+| ------- | ---------- | ----------------------------------------------------------- |
+| 1.0     | 07/12/2025 | Initial plugin implementation (Phases 1-6)                  |
+| 1.1     | 11/12/2025 | Added self-describing JSON widget specifications (Phase 10) |
+| 1.2     | 11/12/2025 | Added Editor Utility Widget guide for WBP Creator tool      |
 
 ---
 

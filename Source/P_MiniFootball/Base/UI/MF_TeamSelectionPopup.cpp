@@ -14,6 +14,163 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
+const FString &UMF_TeamSelectionPopup::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_TeamSelectionPopup",
+    "BlueprintName": "WBP_MF_TeamSelectionPopup",
+    "ParentClass": "/Script/P_MiniFootball.MF_TeamSelectionPopup",
+    "Category": "MF|UI|Popups",
+    "Description": "Full team selection popup with detailed team panels",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 1000, "Height": 700},
+        "ZoomLevel": "1:2",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Image",
+                    "Name": "BackgroundOverlay",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                    }
+                },
+                {
+                    "Type": "Border",
+                    "Name": "PopupContainer",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
+                        "Alignment": {"X": 0.5, "Y": 0.5},
+                        "Size": {"X": 800, "Y": 600}
+                    },
+                    "Children": [
+                        {
+                            "Type": "VerticalBox",
+                            "Name": "PopupContent",
+                            "Children": [
+                                {
+                                    "Type": "HorizontalBox",
+                                    "Name": "HeaderRow",
+                                    "Children": [
+                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional"},
+                                        {"Type": "Button", "Name": "CloseButton", "BindingType": "Required"}
+                                    ]
+                                },
+                                {
+                                    "Type": "HorizontalBox",
+                                    "Name": "TeamPanelsRow",
+                                    "Slot": {"FillHeight": 1.0},
+                                    "Children": [
+                                        {
+                                            "Type": "UserWidget",
+                                            "Name": "TeamAPanel",
+                                            "BindingType": "Required",
+                                            "WidgetClass": "/Script/P_MiniFootball.MF_TeamPanel"
+                                        },
+                                        {
+                                            "Type": "UserWidget",
+                                            "Name": "TeamBPanel",
+                                            "BindingType": "Required",
+                                            "WidgetClass": "/Script/P_MiniFootball.MF_TeamPanel"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "Type": "HorizontalBox",
+                                    "Name": "FooterRow",
+                                    "Children": [
+                                        {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional"},
+                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional"}
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "BackgroundOverlay": {
+            "ColorAndOpacity": {"R": 0, "G": 0, "B": 0, "A": 0.7}
+        },
+        "PopupContainer": {
+            "BrushColor": {"R": 0.1, "G": 0.1, "B": 0.15, "A": 0.95},
+            "Padding": {"Left": 20, "Top": 15, "Right": 20, "Bottom": 15}
+        },
+        "TitleText": {
+            "Font": {"Size": 28, "Typeface": "Bold"},
+            "Text": "SELECT TEAM"
+        },
+        "CloseButton": {
+            "Style": {"Normal": {"TintColor": {"R": 0.6, "G": 0.2, "B": 0.2, "A": 1.0}}}
+        },
+        "AutoAssignButton": {
+            "Style": {"Normal": {"TintColor": {"R": 0.3, "G": 0.5, "B": 0.3, "A": 1.0}}}
+        },
+        "StatusText": {
+            "Font": {"Size": 14, "Typeface": "Regular"}
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "TeamAPanel", "Type": "UMF_TeamPanel", "Purpose": "Team A selection panel"},
+            {"Name": "TeamBPanel", "Type": "UMF_TeamPanel", "Purpose": "Team B selection panel"},
+            {"Name": "CloseButton", "Type": "UButton", "Purpose": "Close popup button"}
+        ],
+        "Optional": [
+            {"Name": "TitleText", "Type": "UTextBlock", "Purpose": "Popup title"},
+            {"Name": "AutoAssignButton", "Type": "UButton", "Purpose": "Auto-balance assign"},
+            {"Name": "BackgroundOverlay", "Type": "UImage", "Purpose": "Modal backdrop"},
+            {"Name": "StatusText", "Type": "UTextBlock", "Purpose": "Status messages"}
+        ]
+    },
+    
+    "Delegates": [
+        {
+            "Name": "OnPopupClosed",
+            "Type": "FMF_OnPopupClosed",
+            "Signature": "void()",
+            "Description": "Fired when popup is closed"
+        },
+        {
+            "Name": "OnTeamSelected",
+            "Type": "FMF_OnTeamSelected",
+            "Signature": "void(EMF_TeamID TeamID)",
+            "Description": "Fired when team is selected"
+        }
+    ],
+    
+    "Dependencies": [
+        {"Class": "UMF_TeamPanel", "Blueprint": "WBP_MF_TeamPanel", "Required": true}
+    ],
+    
+    "Comments": {
+        "Header": "MF Team Selection Popup - Full-screen team picker",
+        "Usage": "Modal popup shown from SpectatorControls or PauseMenu"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateBG": "bg = creator.add_widget('Image', 'BackgroundOverlay', root, slot_data={'anchors': 'fill'})",
+        "CreatePopup": "container = creator.add_widget('Border', 'PopupContainer', root)",
+        "CreateTeamPanels": "creator.add_widget('UserWidget', 'TeamAPanel', panels_row, widget_class='WBP_MF_TeamPanel')"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_TeamSelectionPopup::NativeConstruct()
 {
     Super::NativeConstruct();

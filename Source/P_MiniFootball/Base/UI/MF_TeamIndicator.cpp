@@ -10,6 +10,103 @@
 #include "Components/Image.h"
 #include "Player/MF_PlayerController.h"
 
+const FString &UMF_TeamIndicator::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_TeamIndicator",
+    "BlueprintName": "WBP_MF_TeamIndicator",
+    "ParentClass": "/Script/P_MiniFootball.MF_TeamIndicator",
+    "Category": "MF|UI|HUD",
+    "Description": "Shows current team affiliation with colored border",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 300, "Height": 100},
+        "ZoomLevel": "1:1",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Border",
+                    "Name": "TeamColorBorder",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                    },
+                    "Children": [
+                        {
+                            "Type": "HorizontalBox",
+                            "Name": "TeamContentBox",
+                            "Children": [
+                                {
+                                    "Type": "Image",
+                                    "Name": "TeamIcon",
+                                    "BindingType": "Optional",
+                                    "Slot": {"VAlign": "Center", "Padding": {"Right": 8}}
+                                },
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "TeamText",
+                                    "BindingType": "Required",
+                                    "Slot": {"VAlign": "Center"}
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "TeamColorBorder": {
+            "BrushColor": {"R": 0.3, "G": 0.3, "B": 0.3, "A": 0.8},
+            "Padding": {"Left": 10, "Top": 5, "Right": 10, "Bottom": 5}
+        },
+        "TeamIcon": {
+            "Size": {"X": 24, "Y": 24}
+        },
+        "TeamText": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
+            "Text": "Spectator"
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "TeamText", "Type": "UTextBlock", "Purpose": "Team name/status display"}
+        ],
+        "Optional": [
+            {"Name": "TeamColorBorder", "Type": "UBorder", "Purpose": "Colored background"},
+            {"Name": "TeamIcon", "Type": "UImage", "Purpose": "Team logo/icon"}
+        ]
+    },
+    
+    "Delegates": [],
+    
+    "Dependencies": [],
+    
+    "Comments": {
+        "Header": "MF Team Indicator - Current team display",
+        "Usage": "Place in HUD to show player's team affiliation"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateBorder": "border = creator.add_widget('Border', 'TeamColorBorder', root, slot_data={'anchors': 'fill'})",
+        "CreateText": "text = creator.add_widget('TextBlock', 'TeamText', border)"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_TeamIndicator::NativeConstruct()
 {
     Super::NativeConstruct();

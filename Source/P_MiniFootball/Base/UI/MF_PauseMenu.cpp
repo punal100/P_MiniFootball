@@ -13,6 +13,173 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
+const FString &UMF_PauseMenu::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_PauseMenu",
+    "BlueprintName": "WBP_MF_PauseMenu",
+    "ParentClass": "/Script/P_MiniFootball.MF_PauseMenu",
+    "Category": "MF|UI|Menus",
+    "Description": "In-game pause menu with options",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 600, "Height": 500},
+        "ZoomLevel": "1:1",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Overlay",
+                    "Name": "BackgroundOverlay",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                    }
+                },
+                {
+                    "Type": "VerticalBox",
+                    "Name": "MenuContainer",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
+                        "Alignment": {"X": 0.5, "Y": 0.5}
+                    },
+                    "Children": [
+                        {
+                            "Type": "TextBlock",
+                            "Name": "TitleText",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 20}}
+                        },
+                        {
+                            "Type": "TextBlock",
+                            "Name": "CurrentTeamText",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 30}}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "ResumeButton",
+                            "BindingType": "Required",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "ChangeTeamButton",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "LeaveTeamButton",
+                            "BindingType": "Required",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "SettingsButton",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "QuitButton",
+                            "BindingType": "Required",
+                            "Slot": {"HAlign": "Center", "Padding": {"Top": 20}}
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "BackgroundOverlay": {
+            "Note": "Semi-transparent overlay behind menu"
+        },
+        "TitleText": {
+            "Font": {"Size": 32, "Typeface": "Bold"},
+            "Text": "PAUSED"
+        },
+        "CurrentTeamText": {
+            "Font": {"Size": 18, "Typeface": "Regular"},
+            "Text": "Team: None"
+        },
+        "ResumeButton": {
+            "Style": {"Normal": {"TintColor": {"R": 0.2, "G": 0.5, "B": 0.2, "A": 1.0}}},
+            "Size": {"X": 200, "Y": 50}
+        },
+        "LeaveTeamButton": {
+            "Style": {"Normal": {"TintColor": {"R": 0.6, "G": 0.4, "B": 0.1, "A": 1.0}}},
+            "Size": {"X": 200, "Y": 50}
+        },
+        "QuitButton": {
+            "Style": {"Normal": {"TintColor": {"R": 0.6, "G": 0.2, "B": 0.2, "A": 1.0}}},
+            "Size": {"X": 200, "Y": 50}
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "ResumeButton", "Type": "UButton", "Purpose": "Resume game"},
+            {"Name": "LeaveTeamButton", "Type": "UButton", "Purpose": "Leave current team"},
+            {"Name": "QuitButton", "Type": "UButton", "Purpose": "Quit to menu"}
+        ],
+        "Optional": [
+            {"Name": "TitleText", "Type": "UTextBlock", "Purpose": "Menu title"},
+            {"Name": "CurrentTeamText", "Type": "UTextBlock", "Purpose": "Current team display"},
+            {"Name": "ChangeTeamButton", "Type": "UButton", "Purpose": "Change team option"},
+            {"Name": "SettingsButton", "Type": "UButton", "Purpose": "Settings access"},
+            {"Name": "MenuContainer", "Type": "UVerticalBox", "Purpose": "Menu items container"},
+            {"Name": "BackgroundOverlay", "Type": "UOverlay", "Purpose": "Background dimmer"}
+        ]
+    },
+    
+    "Delegates": [
+        {
+            "Name": "OnResumeClicked",
+            "Type": "FMF_OnResumeClicked",
+            "Signature": "void()",
+            "Description": "Resume game requested"
+        },
+        {
+            "Name": "OnLeaveTeamClicked",
+            "Type": "FMF_OnLeaveTeamClicked",
+            "Signature": "void()",
+            "Description": "Leave team requested"
+        },
+        {
+            "Name": "OnQuitToMenuClicked",
+            "Type": "FMF_OnQuitToMenuClicked",
+            "Signature": "void()",
+            "Description": "Quit game requested"
+        }
+    ],
+    
+    "Dependencies": [],
+    
+    "Comments": {
+        "Header": "MF Pause Menu - In-game pause/options menu",
+        "Usage": "Shown when ESC pressed during gameplay"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateOverlay": "overlay = creator.add_widget('Overlay', 'BackgroundOverlay', root)",
+        "CreateMenu": "menu = creator.add_widget('VerticalBox', 'MenuContainer', root)",
+        "CreateButtons": "creator.add_widget('Button', 'ResumeButton', menu); creator.add_widget('Button', 'QuitButton', menu)"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_PauseMenu::NativeConstruct()
 {
     Super::NativeConstruct();

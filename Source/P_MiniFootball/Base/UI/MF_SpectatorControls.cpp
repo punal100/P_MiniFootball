@@ -12,6 +12,154 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
+const FString &UMF_SpectatorControls::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_SpectatorControls",
+    "BlueprintName": "WBP_MF_SpectatorControls",
+    "ParentClass": "/Script/P_MiniFootball.MF_SpectatorControls",
+    "Category": "MF|UI|HUD",
+    "Description": "Spectator mode controls with quick team join",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 800, "Height": 400},
+        "ZoomLevel": "1:2",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "VerticalBox",
+                    "Name": "SpectatorContent",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
+                        "Alignment": {"X": 0.5, "Y": 0},
+                        "Position": {"X": 0, "Y": 50}
+                    },
+                    "Children": [
+                        {
+                            "Type": "TextBlock",
+                            "Name": "SpectatingLabel",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center"}
+                        },
+                        {
+                            "Type": "TextBlock",
+                            "Name": "CameraModeText",
+                            "BindingType": "Optional",
+                            "Slot": {"HAlign": "Center"}
+                        }
+                    ]
+                },
+                {
+                    "Type": "HorizontalBox",
+                    "Name": "QuickJoinContainer",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 1}, "Max": {"X": 0.5, "Y": 1}},
+                        "Alignment": {"X": 0.5, "Y": 1},
+                        "Position": {"X": 0, "Y": -100}
+                    },
+                    "Children": [
+                        {
+                            "Type": "UserWidget",
+                            "Name": "QuickTeamA",
+                            "BindingType": "Optional",
+                            "WidgetClass": "/Script/P_MiniFootball.MF_QuickTeamPanel",
+                            "Slot": {"Padding": {"Right": 20}}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "OpenTeamSelectButton",
+                            "BindingType": "Optional"
+                        },
+                        {
+                            "Type": "UserWidget",
+                            "Name": "QuickTeamB",
+                            "BindingType": "Optional",
+                            "WidgetClass": "/Script/P_MiniFootball.MF_QuickTeamPanel",
+                            "Slot": {"Padding": {"Left": 20}}
+                        }
+                    ]
+                },
+                {
+                    "Type": "TextBlock",
+                    "Name": "ControlHintsText",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 1}, "Max": {"X": 0.5, "Y": 1}},
+                        "Alignment": {"X": 0.5, "Y": 1},
+                        "Position": {"X": 0, "Y": -20}
+                    }
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "SpectatingLabel": {
+            "Font": {"Size": 24, "Typeface": "Bold"},
+            "Text": "SPECTATING",
+            "ColorAndOpacity": {"R": 1.0, "G": 0.9, "B": 0.3, "A": 1.0}
+        },
+        "CameraModeText": {
+            "Font": {"Size": 14, "Typeface": "Regular"},
+            "Text": "Free Camera"
+        },
+        "OpenTeamSelectButton": {
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.4, "G": 0.4, "B": 0.4, "A": 0.8}}
+            }
+        },
+        "ControlHintsText": {
+            "Font": {"Size": 12, "Typeface": "Regular"},
+            "Text": "Press T for Team Selection"
+        }
+    },
+    
+    "Bindings": {
+        "Required": [],
+        "Optional": [
+            {"Name": "SpectatingLabel", "Type": "UTextBlock", "Purpose": "Spectator mode label"},
+            {"Name": "CameraModeText", "Type": "UTextBlock", "Purpose": "Camera mode display"},
+            {"Name": "QuickTeamA", "Type": "UMF_QuickTeamPanel", "Purpose": "Quick join Team A"},
+            {"Name": "QuickTeamB", "Type": "UMF_QuickTeamPanel", "Purpose": "Quick join Team B"},
+            {"Name": "OpenTeamSelectButton", "Type": "UButton", "Purpose": "Open full team select"},
+            {"Name": "ControlHintsText", "Type": "UTextBlock", "Purpose": "Control hints"}
+        ]
+    },
+    
+    "Delegates": [
+        {
+            "Name": "OnOpenTeamSelection",
+            "Type": "FMF_OnOpenTeamSelection",
+            "Signature": "void()",
+            "Description": "Request to open team selection popup"
+        }
+    ],
+    
+    "Dependencies": [
+        {"Class": "UMF_QuickTeamPanel", "Blueprint": "WBP_MF_QuickTeamPanel", "Required": false}
+    ],
+    
+    "Comments": {
+        "Header": "MF Spectator Controls - Spectator mode HUD overlay",
+        "Usage": "Shown in MF_HUD when player is spectating"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateQuickPanels": "creator.add_widget('UserWidget', 'QuickTeamA', hbox, widget_class='WBP_MF_QuickTeamPanel')",
+        "Note": "QuickTeamA and QuickTeamB use nested WBP_MF_QuickTeamPanel"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_SpectatorControls::NativeConstruct()
 {
     Super::NativeConstruct();

@@ -84,6 +84,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|MatchInfo")
     float UpdateInterval = 0.1f;
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_MatchInfo.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Timer for periodic updates */
     float UpdateTimer = 0.0f;

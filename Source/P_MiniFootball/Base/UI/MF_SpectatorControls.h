@@ -90,6 +90,15 @@ protected:
     UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UTextBlock> ControlHintsText;
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_SpectatorControls.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Get owning PlayerController */
     AMF_PlayerController *GetMFPlayerController() const;

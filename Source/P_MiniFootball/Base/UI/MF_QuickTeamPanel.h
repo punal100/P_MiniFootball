@@ -113,6 +113,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|QuickTeamPanel")
     int32 MaxDisplayedPlayers = 3;
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_QuickTeamPanel.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Current team ID this panel represents */
     EMF_TeamID TeamID = EMF_TeamID::None;

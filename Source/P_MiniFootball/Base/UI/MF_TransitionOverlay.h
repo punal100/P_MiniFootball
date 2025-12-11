@@ -73,6 +73,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TransitionOverlay")
     FString DefaultStatusMessage = TEXT("Loading...");
 
+public:
+    // ==================== Widget Specification (JSON) ====================
+    /**
+     * Self-describing JSON specification for automated Widget Blueprint creation.
+     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TransitionOverlay.
+     */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
+    static const FString &GetWidgetSpec();
+
 private:
     /** Animation helper */
     void PlayFadeAnimation(bool bFadeIn);

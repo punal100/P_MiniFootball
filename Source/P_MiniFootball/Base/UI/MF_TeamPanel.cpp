@@ -10,6 +10,141 @@
 #include "Components/VerticalBox.h"
 #include "Components/Border.h"
 
+const FString &UMF_TeamPanel::GetWidgetSpec()
+{
+    static FString Spec = R"JSON({
+    "WidgetClass": "UMF_TeamPanel",
+    "BlueprintName": "WBP_MF_TeamPanel",
+    "ParentClass": "/Script/P_MiniFootball.MF_TeamPanel",
+    "Category": "MF|UI|Team",
+    "Description": "Full team selection panel with player list",
+    "Version": "1.0.0",
+    
+    "DesignerToolbar": {
+        "DesiredSize": {"Width": 350, "Height": 500},
+        "ZoomLevel": "1:1",
+        "ShowGrid": true
+    },
+    
+    "Hierarchy": {
+        "Root": {
+            "Type": "CanvasPanel",
+            "Name": "RootCanvas",
+            "Children": [
+                {
+                    "Type": "Border",
+                    "Name": "PanelBorder",
+                    "BindingType": "Optional",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                    },
+                    "Children": [
+                        {
+                            "Type": "VerticalBox",
+                            "Name": "PanelContent",
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "TeamNameText",
+                                    "BindingType": "Required",
+                                    "Slot": {"HAlign": "Center", "Padding": {"Top": 10, "Bottom": 5}}
+                                },
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "PlayerCountText",
+                                    "BindingType": "Required",
+                                    "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                                },
+                                {
+                                    "Type": "ScrollBox",
+                                    "Name": "PlayerListBox",
+                                    "BindingType": "Required",
+                                    "Slot": {"FillHeight": 1.0}
+                                },
+                                {
+                                    "Type": "Button",
+                                    "Name": "JoinButton",
+                                    "BindingType": "Required",
+                                    "Slot": {"HAlign": "Center", "Padding": {"Top": 10, "Bottom": 10}},
+                                    "Children": [
+                                        {
+                                            "Type": "TextBlock",
+                                            "Name": "JoinButtonText",
+                                            "BindingType": "Optional"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    
+    "Design": {
+        "PanelBorder": {
+            "BrushColor": {"R": 0.1, "G": 0.1, "B": 0.1, "A": 0.9},
+            "Padding": {"Left": 15, "Top": 10, "Right": 15, "Bottom": 10}
+        },
+        "TeamNameText": {
+            "Font": {"Size": 24, "Typeface": "Bold"},
+            "Text": "Team A"
+        },
+        "PlayerCountText": {
+            "Font": {"Size": 14, "Typeface": "Regular"},
+            "Text": "0/5 Players"
+        },
+        "JoinButton": {
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.2, "G": 0.6, "B": 0.2, "A": 1.0}}
+            }
+        },
+        "JoinButtonText": {
+            "Font": {"Size": 16, "Typeface": "Bold"},
+            "Text": "JOIN TEAM"
+        }
+    },
+    
+    "Bindings": {
+        "Required": [
+            {"Name": "TeamNameText", "Type": "UTextBlock", "Purpose": "Team name header"},
+            {"Name": "PlayerCountText", "Type": "UTextBlock", "Purpose": "Player count display"},
+            {"Name": "PlayerListBox", "Type": "UScrollBox", "Purpose": "Scrollable player list"},
+            {"Name": "JoinButton", "Type": "UButton", "Purpose": "Join team button"}
+        ],
+        "Optional": [
+            {"Name": "PanelBorder", "Type": "UBorder", "Purpose": "Team-colored background"},
+            {"Name": "JoinButtonText", "Type": "UTextBlock", "Purpose": "Button label"}
+        ]
+    },
+    
+    "Delegates": [
+        {
+            "Name": "OnJoinClicked",
+            "Type": "FMF_OnTeamJoinClicked",
+            "Signature": "void(EMF_TeamID TeamID)",
+            "Description": "Fired when join button is clicked"
+        }
+    ],
+    
+    "Dependencies": [],
+    
+    "Comments": {
+        "Header": "MF Team Panel - Full team selection with player list",
+        "Usage": "Used in TeamSelectionPopup for detailed team view"
+    },
+    
+    "PythonSnippets": {
+        "CreateRoot": "root = creator.add_widget('CanvasPanel', 'RootCanvas', None)",
+        "CreateBorder": "border = creator.add_widget('Border', 'PanelBorder', root, slot_data={'anchors': 'fill'})",
+        "CreateVBox": "vbox = creator.add_widget('VerticalBox', 'PanelContent', border)"
+    }
+})JSON";
+    return Spec;
+}
+
 void UMF_TeamPanel::NativeConstruct()
 {
     Super::NativeConstruct();
