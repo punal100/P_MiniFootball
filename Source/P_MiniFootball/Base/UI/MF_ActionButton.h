@@ -40,7 +40,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMF_OnActionReleased, float, HoldDur
  * - Context icon (shoot/pass/tackle)
  * - Visual feedback on press
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_ActionButton : public UUserWidget
 {
     GENERATED_BODY()
@@ -129,7 +129,7 @@ public:
      * design properties, bindings, delegates, and Python construction snippets.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Current action context */

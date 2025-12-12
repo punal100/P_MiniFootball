@@ -13,7 +13,7 @@
 #include "Player/MF_PlayerController.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 
-const FString &UMF_GameplayControls::GetWidgetSpec()
+FString UMF_GameplayControls::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_GameplayControls",

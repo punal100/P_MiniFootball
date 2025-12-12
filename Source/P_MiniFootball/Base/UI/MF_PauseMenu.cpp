@@ -13,7 +13,7 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
-const FString &UMF_PauseMenu::GetWidgetSpec()
+FString UMF_PauseMenu::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_PauseMenu",

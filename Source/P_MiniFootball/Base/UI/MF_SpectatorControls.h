@@ -30,7 +30,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_OnOpenTeamSelection);
  * - Quick team panels (A and B)
  * - Control hints
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_SpectatorControls : public UUserWidget
 {
     GENERATED_BODY()
@@ -97,7 +97,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_SpectatorControls.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Get owning PlayerController */

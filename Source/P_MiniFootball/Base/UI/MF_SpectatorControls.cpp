@@ -12,7 +12,7 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
-const FString &UMF_SpectatorControls::GetWidgetSpec()
+FString UMF_SpectatorControls::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_SpectatorControls",

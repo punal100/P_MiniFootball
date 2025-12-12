@@ -10,7 +10,7 @@
 #include "Components/VerticalBox.h"
 #include "Components/Border.h"
 
-const FString &UMF_TeamPanel::GetWidgetSpec()
+FString UMF_TeamPanel::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_TeamPanel",

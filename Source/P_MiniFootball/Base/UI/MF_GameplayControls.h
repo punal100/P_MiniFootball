@@ -28,7 +28,7 @@ class AMF_PlayerController;
  * - Relays control events to player controller
  * - Supports dynamic button visibility based on context
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_GameplayControls : public UUserWidget
 {
     GENERATED_BODY()
@@ -102,7 +102,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_GameplayControls.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Event handlers */

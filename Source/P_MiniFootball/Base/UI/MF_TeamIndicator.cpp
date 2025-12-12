@@ -10,7 +10,7 @@
 #include "Components/Image.h"
 #include "Player/MF_PlayerController.h"
 
-const FString &UMF_TeamIndicator::GetWidgetSpec()
+FString UMF_TeamIndicator::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_TeamIndicator",

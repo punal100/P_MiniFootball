@@ -10,7 +10,7 @@
 #include "Components/Throbber.h"
 #include "Animation/WidgetAnimation.h"
 
-const FString &UMF_TransitionOverlay::GetWidgetSpec()
+FString UMF_TransitionOverlay::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_TransitionOverlay",

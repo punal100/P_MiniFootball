@@ -18,7 +18,7 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
-const FString &UMF_HUD::GetWidgetSpec()
+FString UMF_HUD::GetWidgetSpec()
 {
     static FString Spec;
 

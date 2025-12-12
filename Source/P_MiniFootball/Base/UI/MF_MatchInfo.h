@@ -26,7 +26,7 @@ class AMF_GameState;
  *
  * Binds to GameState replication for auto-updates
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_MatchInfo : public UUserWidget
 {
     GENERATED_BODY()
@@ -91,7 +91,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_MatchInfo.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Timer for periodic updates */

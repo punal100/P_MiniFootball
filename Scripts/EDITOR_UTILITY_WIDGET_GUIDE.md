@@ -2,6 +2,8 @@
 
 This guide explains how to create an **Editor Utility Widget (EUW)** that provides a UI for the `MF_WidgetBlueprintCreator.py` script.
 
+Important note: the script treats `EUW_MF_WidgetCreator` as a **manual shell**. UE5 Python does not reliably expose or support editing the EUW designer widget tree, so the script will create the EUW asset, but you must build the UI layout manually.
+
 ---
 
 ## 📋 Prerequisites
@@ -18,6 +20,18 @@ This guide explains how to create an **Editor Utility Widget (EUW)** that provid
 
 ## 🛠️ Step 1: Create the Editor Utility Widget
 
+You can create this asset manually (steps below), or auto-create/repair the EUW **asset shell** via Python (no designer UI is generated):
+
+```python
+exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_create_euw()
+```
+
+Optional (if you prefer an explicit module alias in the Python environment):
+
+```python
+exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); import MF_WidgetBlueprintCreator as MF_WBP; MF_WBP.run_create_euw()
+```
+
 1. In **Content Browser**, navigate to: `/P_MiniFootball/BP/` (or create it)
 2. **Right-click** → Editor Utilities → **Editor Utility Widget**
 3. Name it: `EUW_MF_WidgetCreator`
@@ -26,6 +40,8 @@ This guide explains how to create an **Editor Utility Widget (EUW)** that provid
 ---
 
 ## 🎨 Step 2: Design the UI
+
+This step is **manual**: build the widget hierarchy in UMG using the layout below.
 
 ### Recommended Layout:
 
@@ -141,14 +157,28 @@ Event Construct
 
 ## 📝 Python Commands Reference
 
+### Core Commands
+
 | Action             | Python Command                                                                                                                                     |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Create EUW**     | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_create_euw()`         |
+| **Only EUW**       | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_only_euw()`           |
 | **Dry Run**        | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_dry()`                |
 | **Create**         | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_create()`             |
 | **Validate**       | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_validate()`           |
 | **Force Recreate** | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_force_recreate()`     |
 | **Get Status**     | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); print(MF_WBP.get_status_text())` |
 | **Setup Guide**    | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); print_euw_setup_guide()`         |
+
+### Diagnostic Commands
+
+Note: diagnostics intentionally skip the EUW.
+
+| Action                  | Python Command                                                                                                                                                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Diagnose All**        | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); diagnose_all_mf_widgets()`                                                                                     |
+| **Diagnose One Widget** | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); diagnose_widget_blueprint("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD")`                                  |
+| **Check Bindings**      | `exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); diagnose_missing_bindings("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD", "/Script/P_MiniFootball.MF_HUD")` |
 
 ---
 
@@ -163,10 +193,17 @@ If you prefer not to create an EUW, you can use the Python console directly:
    exec(open(r"D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read())
    ```
 4. Then run any function:
+
    ```python
-    MF_WBP.run_dry()
-    MF_WBP.run_create()
-    MF_WBP.run_validate()
+   # Core functions
+   MF_WBP.run_dry()
+   MF_WBP.run_create()
+   MF_WBP.run_validate()
+   run_only_euw()  # Create ONLY the EUW, skip all WBPs
+
+   # Diagnostic functions
+   diagnose_all_mf_widgets()  # Check all widgets
+   diagnose_widget_blueprint("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD")
    ```
 
 ---
@@ -225,4 +262,4 @@ The script creates widgets in dependency order:
 
 ---
 
-_Last Updated: 11/12/2025_
+_Last Updated: 12/12/2025_

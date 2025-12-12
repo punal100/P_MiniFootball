@@ -26,7 +26,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMF_OnSprintStateChanged, bool, bIsS
  * - Visual feedback while sprinting
  * - Sprint state delegate
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_SprintButton : public UUserWidget
 {
     GENERATED_BODY()
@@ -83,7 +83,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_SprintButton.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Current sprint state */

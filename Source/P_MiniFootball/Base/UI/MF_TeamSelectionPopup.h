@@ -37,7 +37,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMF_OnTeamSelected, EMF_TeamID, Sele
  * - Enforces team balance rules
  * - Can be dismissed without selecting
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_TeamSelectionPopup : public UUserWidget
 {
     GENERATED_BODY()
@@ -120,7 +120,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TeamSelectionPopup.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Event handlers */

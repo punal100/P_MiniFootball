@@ -9,7 +9,7 @@
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
 
-const FString &UMF_SprintButton::GetWidgetSpec()
+FString UMF_SprintButton::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_SprintButton",

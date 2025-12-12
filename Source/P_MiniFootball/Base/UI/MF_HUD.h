@@ -50,7 +50,7 @@ enum class EMF_HUDMode : uint8
  * - Handles modal popups (team selection, pause menu)
  * - Responds to player state changes from controller
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_HUD : public UUserWidget
 {
     GENERATED_BODY()
@@ -194,7 +194,7 @@ public:
      * Dependencies must be created in order before creating this widget.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Cached player controller */

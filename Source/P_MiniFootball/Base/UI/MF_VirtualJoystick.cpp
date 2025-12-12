@@ -9,7 +9,7 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 
-const FString &UMF_VirtualJoystick::GetWidgetSpec()
+FString UMF_VirtualJoystick::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_VirtualJoystick",

@@ -14,7 +14,7 @@
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
 
-const FString &UMF_TeamSelectionPopup::GetWidgetSpec()
+FString UMF_TeamSelectionPopup::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_TeamSelectionPopup",

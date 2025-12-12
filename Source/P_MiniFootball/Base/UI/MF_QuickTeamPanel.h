@@ -31,7 +31,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMF_OnQuickJoinClicked, EMF_TeamID, 
  *
  * Used in UMF_SpectatorControls for quick team joining
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_QuickTeamPanel : public UUserWidget
 {
     GENERATED_BODY()
@@ -120,7 +120,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_QuickTeamPanel.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Current team ID this panel represents */

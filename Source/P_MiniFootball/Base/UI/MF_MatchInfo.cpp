@@ -9,7 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Match/MF_GameState.h"
 
-const FString &UMF_MatchInfo::GetWidgetSpec()
+FString UMF_MatchInfo::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_MatchInfo",

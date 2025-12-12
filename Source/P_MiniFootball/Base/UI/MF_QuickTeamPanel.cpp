@@ -12,7 +12,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Match/MF_GameState.h"
 
-const FString &UMF_QuickTeamPanel::GetWidgetSpec()
+FString UMF_QuickTeamPanel::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_QuickTeamPanel",

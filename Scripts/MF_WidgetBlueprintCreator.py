@@ -1,4 +1,5 @@
-﻿"""
+# -*- coding: utf-8 -*-
+"""
 MF_WidgetBlueprintCreator.py
 ============================
 Automated Widget Blueprint creation script for P_MiniFootball plugin.
@@ -21,6 +22,7 @@ USAGE:
    import MF_WidgetBlueprintCreator as MF_WBP
    MF_WBP.run_dry()            # Preview changes
    MF_WBP.run_create()         # Create missing widgets
+    MF_WBP.run_create_euw()     # Create/repair EUW_MF_WidgetCreator tool asset
    MF_WBP.run_validate()       # Validate existing widgets
    MF_WBP.run_force_recreate() # Recreate all (CAUTION!)
 
@@ -40,6 +42,7 @@ Last Updated: 11/12/2025
 import unreal
 import json
 import sys
+import os
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -51,8 +54,14 @@ from typing import Dict, List, Optional, Tuple, Any
 PLUGIN_CONTENT_PATH = "/P_MiniFootball/BP/Widget"
 PLUGIN_COMPONENTS_PATH = "/P_MiniFootball/BP/Widget/Components"
 
+# Editor Utility Widget (EUW) asset path
+PLUGIN_TOOLS_PATH = "/P_MiniFootball/BP"
+
 # C++ Module name
 CPP_MODULE = "/Script/P_MiniFootball"
+
+# C++ Editor module (editor-only)
+CPP_EDITOR_MODULE = "/Script/P_MiniFootballEditor"
 
 # Script path (for Editor Utility Widget reference)
 SCRIPT_PATH = "D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py"
@@ -222,6 +231,38 @@ WIDGET_TYPE_MAP = {
     "Overlay": unreal.Overlay,
     "WidgetSwitcher": unreal.WidgetSwitcher,
     "Throbber": unreal.Throbber,
+    # EUW-only convenience widgets
+    "Spacer": unreal.Spacer,
+    "MultiLineEditableTextBox": unreal.MultiLineEditableTextBox,
+}
+
+# =============================================================================
+# EDITOR UTILITY WIDGET (EUW) DEFINITION
+# =============================================================================
+
+EUW_NAME = "EUW_MF_WidgetCreator"
+EUW_DEFINITION = {
+    "parent_class": f"{CPP_EDITOR_MODULE}.MF_WidgetCreatorUtilityWidget",
+    "path": PLUGIN_TOOLS_PATH,
+    # Names mirror EDITOR_UTILITY_WIDGET_GUIDE.md
+    "required_widgets": [
+        {"name": "MainContainer", "type": "VerticalBox"},
+        {"name": "Title", "type": "TextBlock", "text": "MF Widget Blueprint Creator"},
+        {"name": "StatusBar", "type": "HorizontalBox"},
+        {"name": "ExistingCount", "type": "TextBlock", "text": "0"},
+        {"name": "MissingCount", "type": "TextBlock", "text": "0"},
+        {"name": "IssuesCount", "type": "TextBlock", "text": "0"},
+        {"name": "PreviewButton", "type": "Button"},
+        {"name": "CreateButton", "type": "Button"},
+        {"name": "ValidateButton", "type": "Button"},
+        {"name": "ForceRecreateButton", "type": "Button"},
+        {"name": "OutputLog", "type": "MultiLineEditableTextBox"},
+    ],
+    "optional_widgets": [
+        {"name": "OutputLabel", "type": "TextBlock", "text": "Output Log:"},
+        {"name": "Spacer_Top", "type": "Spacer"},
+        {"name": "Spacer_Bottom", "type": "Spacer"},
+    ],
 }
 
 # Complete widget definitions based on UI_WIDGETS.md
@@ -708,19 +749,158 @@ def get_widget_tree(widget_bp) -> Optional[Any]:
     """
     Get the WidgetTree from a WidgetBlueprint.
     
+    Implements ordered fallbacks to handle UE5.2–5.4 engine API drift:
+    1. Direct properties (most common UE versions)
+    2. Method-based access (older UE versions)
+    3. UE5.3+: widget tree on GeneratedClass (NOT CDO)
+    4. UE5.2+: widget tree on GeneratedClass CDO
+    
     Args:
         widget_bp: WidgetBlueprint asset
     
     Returns:
         WidgetTree or None
     """
-    try:
-        if widget_bp is None:
-            return None
-        return widget_bp.get_editor_property("widget_tree")
-    except Exception as e:
-        logger.warning(f"Could not get widget tree: {e}")
+    if widget_bp is None:
         return None
+
+    gen_class = None  # Track for diagnostic logging
+
+    # 1) Direct properties (most common UE versions)
+    for prop in ("default_widget_tree", "designer_widget_tree", "widget_tree", "preview_widget_tree"):
+        try:
+            wt = widget_bp.get_editor_property(prop)
+            if wt:
+                return wt
+        except Exception:
+            pass
+
+    # 2) Method-based access (older UE versions)
+    for method_name in ("get_designer_widget_tree", "get_widget_tree", "get_preview_widget_tree"):
+        try:
+            if hasattr(widget_bp, method_name):
+                wt = getattr(widget_bp, method_name)()
+                if wt:
+                    return wt
+        except Exception:
+            pass
+
+    # 3) UE5.3+: widget tree on GeneratedClass (NOT CDO)
+    try:
+        gen_class = widget_bp.get_editor_property("generated_class")
+        if gen_class and hasattr(gen_class, "get_editor_property"):
+            wt = gen_class.get_editor_property("widget_tree")
+            if wt:
+                return wt
+    except Exception:
+        pass
+
+    # 4) UE5.2+: widget tree on GeneratedClass CDO
+    cdo = None
+    try:
+        if gen_class is None:
+            gen_class = widget_bp.get_editor_property("generated_class")
+        if gen_class and hasattr(gen_class, "get_default_object"):
+            cdo = gen_class.get_default_object()
+            if cdo:
+                wt = cdo.get_editor_property("widget_tree")
+                if wt:
+                    return wt
+    except Exception:
+        pass
+
+    # Log diagnostic info when widget tree not found
+    try:
+        asset_name = widget_bp.get_name() if hasattr(widget_bp, 'get_name') else str(widget_bp)
+        logger.warning(f"Widget tree unavailable for {asset_name}:")
+        logger.warning(f"  - generated_class: {gen_class is not None}")
+        logger.warning(f"  - CDO: {cdo is not None}")
+    except Exception:
+        logger.warning("Could not get widget tree from blueprint (UE version API mismatch)")
+    return None
+
+
+def get_euw_widget_tree(euw_bp) -> Optional[Any]:
+    """Get the WidgetTree for an Editor Utility Widget Blueprint.
+
+    EUWs store their designer tree in designer_widget_tree property first.
+    Implements EUW-specific fallbacks for UE5.2–5.4 API variations.
+    
+    Args:
+        euw_bp: EditorUtilityWidgetBlueprint asset
+    
+    Returns:
+        WidgetTree or None
+    """
+    if euw_bp is None:
+        return None
+
+    # EUW designer tree is stored in designer_widget_tree property first
+    try:
+        wt = euw_bp.get_editor_property("designer_widget_tree")
+        if wt:
+            return wt
+    except Exception:
+        pass
+
+    # Try method fallback (some versions expose getter)
+    try:
+        if hasattr(euw_bp, "get_designer_widget_tree"):
+            wt = euw_bp.get_designer_widget_tree()
+            if wt:
+                return wt
+    except Exception:
+        pass
+
+    # Fall back to generic widget tree access
+    return get_widget_tree(euw_bp)
+
+
+def compile_blueprint(bp) -> bool:
+    """Best-effort compile for blueprint assets (WidgetBlueprint/EUW)."""
+    if bp is None:
+        return False
+    try:
+        if hasattr(unreal, "BlueprintEditorLibrary") and hasattr(unreal.BlueprintEditorLibrary, "compile_blueprint"):
+            unreal.BlueprintEditorLibrary.compile_blueprint(bp)
+            return True
+    except Exception as e:
+        logger.warning(f"Blueprint compile failed for {bp}: {e}")
+    return False
+
+
+def save_loaded_asset(asset) -> bool:
+    """Best-effort save for a loaded asset."""
+    if asset is None:
+        return False
+    try:
+        if hasattr(unreal, "EditorAssetLibrary") and hasattr(unreal.EditorAssetLibrary, "save_loaded_asset"):
+            return bool(unreal.EditorAssetLibrary.save_loaded_asset(asset, only_if_is_dirty=False))
+    except Exception as e:
+        logger.warning(f"save_loaded_asset failed for {asset}: {e}")
+    return False
+
+
+def _attach_child_widget(parent_panel, child_widget) -> bool:
+    """Attach child_widget to parent_panel, preferring slot-safe APIs."""
+    if not parent_panel or not child_widget:
+        return False
+    try:
+        # CanvasPanel: prefer add_child_to_canvas to ensure CanvasPanelSlot.
+        if isinstance(parent_panel, unreal.CanvasPanel) and hasattr(parent_panel, "add_child_to_canvas"):
+            parent_panel.add_child_to_canvas(child_widget)
+            return True
+    except Exception:
+        pass
+
+    try:
+        if hasattr(parent_panel, "add_child"):
+            parent_panel.add_child(child_widget)
+            return True
+    except Exception:
+        return False
+
+    return False
 
 def get_all_widgets_in_tree(widget_bp) -> List[Tuple[str, str]]:
     """
@@ -868,6 +1048,11 @@ def validate_widget_blueprint(
         Tuple of (ValidationResult, list of issues)
     """
     issues = []
+
+    # EUW is treated as a manual shell: UE Python cannot reliably inspect/validate
+    # its designer widget tree, so we intentionally skip all validation.
+    if name == EUW_NAME:
+        return ValidationResult.VALID, issues
     
     if widget_bp is None:
         return ValidationResult.NOT_FOUND, ["Widget blueprint not found"]
@@ -917,6 +1102,10 @@ def get_action_for_existing_widget(
     Returns:
         Tuple of (action, validation_result, issues)
     """
+    # EUW is treated as a manual shell: skip validation and treat as always valid.
+    if name == EUW_NAME:
+        return default_action, ValidationResult.VALID, []
+
     result, issues = validate_widget_blueprint(widget_bp, definition, name)
     
     if result == ValidationResult.VALID:
@@ -1050,66 +1239,381 @@ def create_widget_blueprint(
     if not ensure_directory_exists(definition["path"]):
         logger.error(f"Invalid path for {name}: {definition['path']}")
         return None, False
-    
-    # Get parent class
+
+    # Create the widget blueprint
     parent_class = get_parent_class(definition["parent_class"])
     if not parent_class:
-        logger.error(f"Cannot create {name}: parent class not found")
-        logger.error(f"  Expected: {definition['parent_class']}")
-        logger.error("  Ensure P_MiniFootball module is compiled and loaded")
+        logger.error(f"Parent class not found for {name}: {definition['parent_class']}")
         return None, False
-    
-    # Create the widget blueprint using factory
+
     asset_tools = get_asset_tools()
     if not asset_tools:
-        logger.error("Failed to get AssetTools - cannot create assets")
+        logger.error("AssetTools unavailable — cannot create WBP")
         return None, False
-    
+
     factory = unreal.WidgetBlueprintFactory()
-    
     try:
         factory.set_editor_property("parent_class", parent_class)
     except Exception as e:
-        logger.error(f"Failed to set parent class on factory: {e}")
+        logger.error(f"Failed to set parent class on factory for {name}: {e}")
         return None, False
-    
+
     try:
-        # Create the asset
         widget_bp = asset_tools.create_asset(
             asset_name=name,
             package_path=definition["path"],
             asset_class=unreal.WidgetBlueprint,
-            factory=factory
+            factory=factory,
         )
-        
-        if widget_bp:
-            logger.info(f"Created Widget Blueprint: {name}")
-            was_created = True
-
-            # Auto-construct widget tree structure (root + required/optional/custom widgets)
-            try:
-                setup_widget_structure(widget_bp, definition, name, auto_create_optional=True)
-            except Exception as e:
-                logger.error(f"Failed to setup widget structure for new WBP {name}: {e}")
-
-            # Log what bindings are present/expected
-            required = definition.get("required_widgets", [])
-            custom_req = [w for w in definition.get("custom_widgets", []) if w.get("required", False)]
-
-            if required or custom_req:
-                logger.info(f"  Required bindings for {name}:")
-                for w in required:
-                    logger.info(f"    - {w['name']} ({w['type']})")
-                for w in custom_req:
-                    logger.info(f"    - {w['name']} ({w['type']}) [Custom WBP]")
-
-            return widget_bp, was_created
-        else:
-            logger.error(f"Failed to create Widget Blueprint: {name}")
-            return None, False
-            
     except Exception as e:
-        logger.error(f"Exception creating {name}: {e}")
+        logger.error(f"Exception creating Widget Blueprint {name}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None, False
+
+    if not widget_bp:
+        logger.error(f"Failed to create widget: {name}")
+        return None, False
+
+    was_created = True
+
+    # Auto-construct widget tree structure (root + required/optional/custom widgets)
+    try:
+        setup_widget_structure(widget_bp, definition, name, auto_create_optional=True)
+    except Exception as e:
+        logger.error(f"Failed to setup widget structure for new WBP {name}: {e}")
+
+    # Compile + save for reliability (designer tree + GeneratedClass)
+    try:
+        compile_blueprint(widget_bp)
+    except Exception:
+        pass
+    try:
+        save_loaded_asset(widget_bp)
+    except Exception:
+        pass
+
+    return widget_bp, was_created
+
+
+def _try_set_button_content(button_widget, content_widget) -> bool:
+    """Best-effort to set a Button's content (engine-version tolerant)."""
+    if not button_widget or not content_widget:
+        return False
+    try:
+        if hasattr(button_widget, "set_content"):
+            button_widget.set_content(content_widget)
+            return True
+    except Exception:
+        pass
+    try:
+        if hasattr(button_widget, "set_editor_property"):
+            button_widget.set_editor_property("content", content_widget)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def setup_euw_widget_structure(widget_bp, definition: Dict, name: str) -> bool:
+    """Create the recommended EUW layout for EUW_MF_WidgetCreator.
+
+    This creates a usable, named widget tree matching EDITOR_UTILITY_WIDGET_GUIDE.md
+    (and the C++ spec), so you can immediately wire button events in the graph.
+    """
+    if widget_bp is None:
+        logger.error(f"Cannot setup EUW structure for {name}: widget blueprint is None")
+        return False
+
+    widget_tree = get_euw_widget_tree(widget_bp)
+    if widget_tree is None:
+        logger.error(f"Cannot setup EUW structure for {name}: widget tree not available")
+        return False
+
+    # Force a CanvasPanel root (safe for editor utility widgets)
+    root_panel = get_or_create_root_panel(widget_tree, definition, name)
+    if root_panel is None:
+        logger.error(f"Cannot setup EUW structure for {name}: failed to get/create root panel")
+        return False
+
+    # If root isn't a CanvasPanel, wrap it
+    try:
+        if not isinstance(root_panel, unreal.CanvasPanel):
+            existing_root = root_panel
+            canvas_root = widget_tree.construct_widget(unreal.CanvasPanel, "RootCanvas")
+            try:
+                canvas_root.add_child(existing_root)
+            except Exception:
+                pass
+            widget_tree.set_editor_property("root_widget", canvas_root)
+            root_panel = canvas_root
+    except Exception:
+        pass
+
+    def _get_or_create(widget_class, widget_name: str, make_variable: bool = True):
+        existing = find_widget_in_tree(widget_tree, widget_name)
+        if existing:
+            if make_variable:
+                ensure_widget_is_variable(existing)
+            return existing
+
+        try:
+            w = widget_tree.construct_widget(widget_class, widget_name)
+            if make_variable:
+                ensure_widget_is_variable(w)
+            return w
+        except Exception as e:
+            logger.error(f"EUW: failed to construct widget '{widget_name}': {e}")
+            return None
+
+    # MainContainer (VerticalBox) anchored to fill the canvas
+    main_container = _get_or_create(unreal.VerticalBox, "MainContainer", make_variable=True)
+    if not main_container:
+        return False
+
+    # Ensure attached to root
+    try:
+        # Try add_child_to_canvas first
+        if isinstance(root_panel, unreal.CanvasPanel) and hasattr(root_panel, "add_child_to_canvas"):
+            slot = root_panel.add_child_to_canvas(main_container)
+        else:
+            slot = root_panel.add_child(main_container)
+
+        # Anchor fill
+        try:
+            if slot and hasattr(slot, "set_anchors"):
+                slot.set_anchors(unreal.Anchors(unreal.Vector2D(0.0, 0.0), unreal.Vector2D(1.0, 1.0)))
+        except Exception:
+            pass
+        try:
+            if slot and hasattr(slot, "set_offsets"):
+                slot.set_offsets(unreal.Margin(0.0, 0.0, 0.0, 0.0))
+            else:
+                # Fallback: zero position/size
+                if slot and hasattr(slot, "set_position"):
+                    slot.set_position(unreal.Vector2D(0.0, 0.0))
+                if slot and hasattr(slot, "set_size"):
+                    slot.set_size(unreal.Vector2D(0.0, 0.0))
+        except Exception:
+            pass
+    except Exception as e:
+        # If parenting fails, continue; widget still exists and can be arranged manually
+        logger.warning(f"EUW: failed to attach MainContainer to root for {name}: {e}")
+
+    # Verify MainContainer is parented; if not, force attach once more.
+    try:
+        if hasattr(main_container, "get_parent") and main_container.get_parent() is None:
+            _attach_child_widget(root_panel, main_container)
+    except Exception:
+        pass
+
+    def _vb_add(child_widget):
+        try:
+            if hasattr(main_container, "add_child"):
+                return main_container.add_child(child_widget)
+        except Exception:
+            return None
+        return None
+
+    # Title
+    title = _get_or_create(unreal.TextBlock, "Title", make_variable=True)
+    if title:
+        try:
+            title.set_editor_property("text", unreal.Text.from_string("MF Widget Blueprint Creator"))
+        except Exception:
+            pass
+        _vb_add(title)
+
+    # StatusBar
+    status_bar = _get_or_create(unreal.HorizontalBox, "StatusBar", make_variable=True)
+    if status_bar:
+        _vb_add(status_bar)
+
+        def _hb_add(widget_obj):
+            try:
+                if hasattr(status_bar, "add_child"):
+                    return status_bar.add_child(widget_obj)
+            except Exception:
+                return None
+            return None
+
+        # Labels + Counts
+        existing_label = _get_or_create(unreal.TextBlock, "ExistingLabel", make_variable=False)
+        if existing_label:
+            try:
+                existing_label.set_editor_property("text", unreal.Text.from_string("Existing:"))
+            except Exception:
+                pass
+            _hb_add(existing_label)
+
+        existing_count = _get_or_create(unreal.TextBlock, "ExistingCount", make_variable=True)
+        if existing_count:
+            try:
+                existing_count.set_editor_property("text", unreal.Text.from_string("0"))
+            except Exception:
+                pass
+            _hb_add(existing_count)
+
+        missing_label = _get_or_create(unreal.TextBlock, "MissingLabel", make_variable=False)
+        if missing_label:
+            try:
+                missing_label.set_editor_property("text", unreal.Text.from_string("Missing:"))
+            except Exception:
+                pass
+            _hb_add(missing_label)
+
+        missing_count = _get_or_create(unreal.TextBlock, "MissingCount", make_variable=True)
+        if missing_count:
+            try:
+                missing_count.set_editor_property("text", unreal.Text.from_string("0"))
+            except Exception:
+                pass
+            _hb_add(missing_count)
+
+        issues_label = _get_or_create(unreal.TextBlock, "IssuesLabel", make_variable=False)
+        if issues_label:
+            try:
+                issues_label.set_editor_property("text", unreal.Text.from_string("Issues:"))
+            except Exception:
+                pass
+            _hb_add(issues_label)
+
+        issues_count = _get_or_create(unreal.TextBlock, "IssuesCount", make_variable=True)
+        if issues_count:
+            try:
+                issues_count.set_editor_property("text", unreal.Text.from_string("0"))
+            except Exception:
+                pass
+            _hb_add(issues_count)
+
+    # Spacer
+    spacer_top = _get_or_create(unreal.Spacer, "Spacer_Top", make_variable=False)
+    if spacer_top:
+        _vb_add(spacer_top)
+
+    def _make_button(button_name: str, button_label: str):
+        btn = _get_or_create(unreal.Button, button_name, make_variable=True)
+        if not btn:
+            return None
+        _vb_add(btn)
+
+        label = _get_or_create(unreal.TextBlock, f"{button_name}Text", make_variable=False)
+        if label:
+            try:
+                label.set_editor_property("text", unreal.Text.from_string(button_label))
+            except Exception:
+                pass
+            _try_set_button_content(btn, label)
+        return btn
+
+    _make_button("PreviewButton", "🔍 Preview Changes (Dry Run)")
+    _make_button("CreateButton", "➕ Create Missing Widgets")
+    _make_button("ValidateButton", "✓ Validate All Widgets")
+    _make_button("ForceRecreateButton", "🔄 Force Recreate All (DANGER!)")
+
+    spacer_bottom = _get_or_create(unreal.Spacer, "Spacer_Bottom", make_variable=False)
+    if spacer_bottom:
+        _vb_add(spacer_bottom)
+
+    output_label = _get_or_create(unreal.TextBlock, "OutputLabel", make_variable=False)
+    if output_label:
+        try:
+            output_label.set_editor_property("text", unreal.Text.from_string("Output Log:"))
+        except Exception:
+            pass
+        _vb_add(output_label)
+
+    output_log = _get_or_create(unreal.MultiLineEditableTextBox, "OutputLog", make_variable=True)
+    if output_log:
+        try:
+            output_log.set_editor_property("is_read_only", True)
+        except Exception:
+            pass
+        _vb_add(output_log)
+
+    logger.info(f"Setup EUW widget structure for {name}")
+    return True
+
+
+def create_editor_utility_widget_blueprint(
+    name: str,
+    definition: Dict,
+    action: AssetAction = AssetAction.SKIP,
+) -> Tuple[Optional[Any], bool]:
+    """Create or update an Editor Utility Widget Blueprint."""
+    asset_path = f"{definition['path']}/{name}"
+    was_created = False
+
+    if does_asset_exist(asset_path):
+        existing_bp = load_asset(asset_path)
+        if existing_bp is None:
+            logger.error(f"EUW asset exists but failed to load: {asset_path}")
+            return None, False
+
+        # EUW is treated as a manual shell:
+        # - Do NOT validate
+        # - Do NOT attempt to build/inspect widget trees
+        # - Do NOT auto-update structure
+        if action != AssetAction.RECREATE:
+            return existing_bp, False
+
+        if not delete_asset(asset_path):
+            logger.error(f"Failed to delete EUW asset for recreation: {name}")
+            return existing_bp, False
+
+    if not ensure_directory_exists(definition["path"]):
+        logger.error(f"Invalid EUW path for {name}: {definition['path']}")
+        return None, False
+
+    parent_class = get_parent_class(definition["parent_class"])
+    if not parent_class:
+        logger.error(f"Cannot create EUW {name}: parent class not found")
+        logger.error(f"  Expected: {definition['parent_class']}")
+        logger.error("  Ensure P_MiniFootballEditor module is compiled and loaded")
+        return None, False
+
+    asset_tools = get_asset_tools()
+    if not asset_tools:
+        logger.error("Failed to get AssetTools - cannot create EUW asset")
+        return None, False
+
+    factory = unreal.EditorUtilityWidgetBlueprintFactory()
+    try:
+        factory.set_editor_property("parent_class", parent_class)
+    except Exception as e:
+        logger.error(f"Failed to set parent class on EUW factory: {e}")
+        return None, False
+
+    try:
+        widget_bp = asset_tools.create_asset(
+            asset_name=name,
+            package_path=definition["path"],
+            asset_class=unreal.EditorUtilityWidgetBlueprint,
+            factory=factory,
+        )
+        if not widget_bp:
+            logger.error(f"Failed to create EUW: {name}")
+            return None, False
+
+        was_created = True
+        logger.info(f"Created Editor Utility Widget Blueprint: {name}")
+
+        # NOTE: EUW designer trees are not reliably scriptable via UE Python.
+        # We intentionally create only the asset shell and let designers author
+        # the widget content manually.
+
+        try:
+            compile_blueprint(widget_bp)
+        except Exception:
+            pass
+        try:
+            save_loaded_asset(widget_bp)
+        except Exception:
+            pass
+
+        return widget_bp, was_created
+    except Exception as e:
+        logger.error(f"Exception creating EUW {name}: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return None, False
@@ -1152,7 +1656,70 @@ def find_widget_in_tree(widget_tree, widget_name: str):
     if widget_tree is None:
         return None
 
-    # Fast path: use 'all_widgets' if available
+    # Prefer attached widgets: walk from root recursively first
+    try:
+        root = widget_tree.get_editor_property("root_widget")
+    except Exception:
+        root = None
+
+    if root:
+        def _find_recursive(widget, depth: int = 0):
+            if widget is None or depth > 50:
+                return None
+            try:
+                if hasattr(widget, "get_name") and widget.get_name() == widget_name:
+                    return widget
+
+                # Children via panel interface
+                if hasattr(widget, "get_child_at") and hasattr(widget, "get_children_count"):
+                    try:
+                        count = widget.get_children_count()
+                    except Exception:
+                        count = 0
+                    for i in range(count):
+                        try:
+                            child = widget.get_child_at(i)
+                        except Exception:
+                            child = None
+                        if child:
+                            found = _find_recursive(child, depth + 1)
+                            if found:
+                                return found
+
+                # Children via 'content' or 'slots'
+                if hasattr(widget, "get_editor_property"):
+                    try:
+                        content = widget.get_editor_property("content")
+                        if content:
+                            found = _find_recursive(content, depth + 1)
+                            if found:
+                                return found
+                    except Exception:
+                        pass
+
+                    try:
+                        slots = widget.get_editor_property("slots")
+                        if slots:
+                            for slot in slots:
+                                try:
+                                    slot_content = slot.get_editor_property("content")
+                                except Exception:
+                                    slot_content = None
+                                if slot_content:
+                                    found = _find_recursive(slot_content, depth + 1)
+                                    if found:
+                                        return found
+                    except Exception:
+                        pass
+            except Exception:
+                return None
+            return None
+
+        attached = _find_recursive(root)
+        if attached:
+            return attached
+
+    # Fallback: use 'all_widgets' (may include unparented widgets)
     try:
         all_widgets = widget_tree.get_editor_property("all_widgets")
         if all_widgets:
@@ -1165,68 +1732,7 @@ def find_widget_in_tree(widget_tree, widget_name: str):
     except Exception:
         pass
 
-    # Fallback: walk from root recursively
-    try:
-        root = widget_tree.get_editor_property("root_widget")
-    except Exception:
-        root = None
-
-    if not root:
-        return None
-
-    def _find_recursive(widget, depth: int = 0):
-        if widget is None or depth > 50:
-            return None
-        try:
-            if hasattr(widget, "get_name") and widget.get_name() == widget_name:
-                return widget
-
-            # Children via panel interface
-            if hasattr(widget, "get_child_at") and hasattr(widget, "get_children_count"):
-                try:
-                    count = widget.get_children_count()
-                except Exception:
-                    count = 0
-                for i in range(count):
-                    try:
-                        child = widget.get_child_at(i)
-                    except Exception:
-                        child = None
-                    if child:
-                        found = _find_recursive(child, depth + 1)
-                        if found:
-                            return found
-
-            # Children via 'content' or 'slots'
-            if hasattr(widget, "get_editor_property"):
-                try:
-                    content = widget.get_editor_property("content")
-                    if content:
-                        found = _find_recursive(content, depth + 1)
-                        if found:
-                            return found
-                except Exception:
-                    pass
-
-                try:
-                    slots = widget.get_editor_property("slots")
-                    if slots:
-                        for slot in slots:
-                            try:
-                                slot_content = slot.get_editor_property("content")
-                            except Exception:
-                                slot_content = None
-                            if slot_content:
-                                found = _find_recursive(slot_content, depth + 1)
-                                if found:
-                                    return found
-                except Exception:
-                    pass
-        except Exception:
-            return None
-        return None
-
-    return _find_recursive(root)
+    return None
 
 
 def ensure_widget_is_variable(widget):
@@ -1328,6 +1834,18 @@ def get_user_widget_class(widget_name: str):
     except Exception as e:
         logger.warning(f"Failed to get generated_class from '{widget_name}': {e}")
 
+    # If the WBP is newly created, GeneratedClass may be None until compiled.
+    try:
+        if compile_blueprint(bp):
+            try:
+                gen_class = bp.get_editor_property("generated_class")
+                if gen_class:
+                    return gen_class
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     return None
 
 
@@ -1374,6 +1892,12 @@ def setup_widget_structure(widget_bp, definition: Dict, name: str, auto_create_o
         # If widget already exists anywhere in tree, just ensure it's variable and return
         existing = find_widget_in_tree(widget_tree, w_name)
         if existing:
+            # If it exists but isn't parented (common with all_widgets), attach it.
+            try:
+                if hasattr(existing, "get_parent") and existing.get_parent() is None:
+                    _attach_child_widget(root_panel, existing)
+            except Exception:
+                pass
             ensure_widget_is_variable(existing)
             return existing
 
@@ -1397,12 +1921,13 @@ def setup_widget_structure(widget_bp, definition: Dict, name: str, auto_create_o
                 widget = widget_tree.construct_widget(widget_class, w_name)
 
             # Attach to root panel if possible
-            try:
-                if hasattr(root_panel, "add_child"):
-                    root_panel.add_child(widget)
-            except Exception:
-                # Non-fatal; at least widget exists in tree
-                pass
+            attached = _attach_child_widget(root_panel, widget)
+            if not attached:
+                try:
+                    if hasattr(widget, "get_parent") and widget.get_parent() is None:
+                        logger.warning(f"Widget '{w_name}' created in {name} but could not be attached to root")
+                except Exception:
+                    pass
 
             # Set IsVariable
             ensure_widget_is_variable(widget)
@@ -1567,7 +2092,19 @@ def apply_layout_to_widget_blueprint(widget_bp, definition: Dict, name: str, lay
                 try:
                     slot.set_layout(anchors)
                 except Exception:
-                    pass
+                    # Fallback: try writing anchors via layout_data
+                    try:
+                        layout_data = None
+                        if hasattr(slot, "get_editor_property"):
+                            layout_data = slot.get_editor_property("layout_data")
+                        elif hasattr(slot, "layout_data"):
+                            layout_data = slot.layout_data
+                        if layout_data and hasattr(layout_data, "anchors"):
+                            layout_data.anchors = anchors
+                            if hasattr(slot, "set_editor_property"):
+                                slot.set_editor_property("layout_data", layout_data)
+                    except Exception:
+                        pass
 
             # Size & position
             pos = hints.get("position", (0, 0))
@@ -1727,7 +2264,18 @@ def create_simple_fade_animation(widget_bp, target_widget_name: str, duration: f
     try:
         anim_name = f"AutoFade_{target_widget_name}"
         # Best-effort: construct WidgetAnimation instance and attach to BP
-        anim = unreal.WidgetAnimation(widget_bp, anim_name)
+        anim = None
+        try:
+            if hasattr(unreal, "new_object"):
+                anim = unreal.new_object(unreal.WidgetAnimation, outer=widget_bp, name=anim_name)
+            elif hasattr(unreal, "NewObject"):
+                anim = unreal.NewObject(unreal.WidgetAnimation, outer=widget_bp, name=anim_name)
+        except Exception:
+            anim = None
+
+        if not anim:
+            # Fallback for engine bindings that still expose a direct constructor
+            anim = unreal.WidgetAnimation(widget_bp, anim_name)
 
         # Try to append to widget blueprint animations list/property
         try:
@@ -1755,10 +2303,24 @@ def register_editor_menu_entry():
     """
     try:
         menus = unreal.ToolMenus.get()
-        main_menu = menus.find_menu("LevelEditor.MainMenu")
+        menu_paths = [
+            "LevelEditor.MainMenu",
+            "MainFrame.MainMenu",
+            "LevelEditor.LevelEditorMainMenu",
+        ]
+
+        main_menu = None
+        for p in menu_paths:
+            try:
+                main_menu = menus.find_menu(p)
+            except Exception:
+                main_menu = None
+            if main_menu:
+                break
+
         if not main_menu:
-            logger.warning("ToolMenus: could not find LevelEditor.MainMenu, trying Window.MainMenu")
-            main_menu = menus.find_menu("MainFrame.MainMenu")
+            logger.warning("ToolMenus: could not find a main menu (LevelEditor/MainFrame variants)")
+            return False
 
         # Create/extend a 'MF Tools' menu under the main menu
         script_menu = main_menu.add_sub_menu(main_menu.get_name(), "MFTools", "MF Tools", "MiniFootball Tools")
@@ -1913,11 +2475,12 @@ def create_all_widgets(
             logger.info(f"Design Size: {size[0]} x {size[1]}")
         
         # Report bindings
-        bindings = get_widget_binding_info(definition)
-        if bindings:
-            logger.info("Bindings:")
-            for b in bindings:
-                logger.info(b)
+        if name != EUW_NAME:
+            bindings = get_widget_binding_info(definition)
+            if bindings:
+                logger.info("Bindings:")
+                for b in bindings:
+                    logger.info(b)
         
         # Check current state
         asset_exists = does_asset_exist(asset_path)
@@ -2008,6 +2571,16 @@ def generate_report(results: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"Updated: {len(results.get('updated', []))}")
     logger.info(f"Skipped: {len(results['skipped'])}")
     logger.info(f"Failed: {len(results['failed'])}")
+
+    # EUW summary (if present)
+    euw = results.get("euw")
+    if isinstance(euw, dict):
+        if euw.get("created"):
+            logger.info(f"EUW: Created {euw.get('name')}")
+        elif euw.get("exists") or euw.get("skipped"):
+            logger.info(f"EUW: Present {euw.get('name')}")
+        elif euw.get("failed"):
+            logger.warning(f"EUW: Failed to create {euw.get('name')}")
     
     validation_issues = results.get('validation_issues', {})
     if validation_issues:
@@ -2123,7 +2696,9 @@ def main(
     dry_run: bool = False, 
     show_guide: bool = True,
     force_recreate: bool = False,
-    validate_existing: bool = True
+    validate_existing: bool = True,
+    create_euw: bool = True,
+    only_euw: bool = False
 ) -> Dict[str, Any]:
     """
     Main entry point for the script.
@@ -2133,6 +2708,8 @@ def main(
         show_guide: If True, show binding guide after creation
         force_recreate: If True, recreate all widgets even if they exist
         validate_existing: If True, validate existing widgets and report issues
+        create_euw: If True, create the Editor Utility Widget
+        only_euw: If True, create ONLY the EUW and skip all widget blueprints
     
     Returns:
         Dictionary with creation results
@@ -2149,7 +2726,29 @@ def main(
         
         # Create without showing the binding guide
         main(dry_run=False, show_guide=False)
+        
+        # Create ONLY the Editor Utility Widget
+        main(only_euw=True)
     """
+    # ------------------------------------------------------------
+    # MODE: ONLY CREATE EDITOR UTILITY WIDGET (skip everything else)
+    # ------------------------------------------------------------
+    if only_euw:
+        logger.info("\n")
+        logger.info("=" * 60)
+        logger.info("=== ONLY_EUW MODE ENABLED ===")
+        logger.info("Creating Editor Utility Widget and skipping all WBPs.")
+        logger.info("=" * 60)
+        logger.info("\n")
+        
+        euw_result = _run_create_euw_impl()
+        
+        logger.info("\n")
+        logger.info("=== ONLY_EUW MODE COMPLETE ===")
+        logger.info("\n")
+        # Keep a stable return shape for EUW-only callers.
+        return {"only_euw": True, "euw": euw_result}
+    
     logger.info("\n")
     logger.info("*" * 60)
     logger.info("*  P_MiniFootball - Widget Blueprint Creator")
@@ -2167,12 +2766,52 @@ def main(
     
     logger.info("\n")
     
+    # Optionally ensure the EUW tool asset exists
+    euw_result: Dict[str, Any] = {
+        "name": EUW_NAME,
+        "path": f"{EUW_DEFINITION['path']}/{EUW_NAME}",
+        "exists": does_asset_exist(f"{EUW_DEFINITION['path']}/{EUW_NAME}"),
+        "created": False,
+        "updated": False,
+        "skipped": False,
+        "failed": False,
+    }
+
+    if create_euw:
+        if dry_run:
+            if euw_result["exists"]:
+                logger.info(f"[DRY RUN] EUW exists: {EUW_NAME}")
+                euw_result["skipped"] = True
+            else:
+                logger.info(f"[DRY RUN] Would create EUW: {EUW_NAME} at {EUW_DEFINITION['path']}")
+        else:
+            try:
+                euw_bp, euw_created = create_editor_utility_widget_blueprint(
+                    EUW_NAME,
+                    EUW_DEFINITION,
+                    action=AssetAction.SKIP,
+                )
+                if euw_bp:
+                    save_asset(euw_result["path"])
+                    euw_result["exists"] = True
+                    if euw_created:
+                        euw_result["created"] = True
+                    else:
+                        euw_result["skipped"] = True
+                else:
+                    euw_result["failed"] = True
+            except Exception as e:
+                euw_result["failed"] = True
+                logger.error(f"EUW creation step failed: {e}")
+
     # Create widgets
     results = create_all_widgets(
         dry_run=dry_run,
         force_recreate=force_recreate,
         validate_existing=validate_existing
     )
+
+    results["euw"] = euw_result
     
     # === Apply Theme & Layout Rules (BEFORE binding guide) ===
     if not dry_run:
@@ -2207,7 +2846,47 @@ def run_dry():
 
 def run_create():
     """Create missing widgets, skip existing ones."""
-    return main(dry_run=False, show_guide=True)
+    return main(dry_run=False, show_guide=True, create_euw=True)
+
+# ============================================================
+# FIX: Safe EUW creation implementation (prevents recursion)
+# ============================================================
+
+def _run_create_euw_impl() -> Dict[str, Any]:
+    """Actual implementation for creating the EUW (shared by module + class)."""
+    euw_path = f"{EUW_DEFINITION['path']}/{EUW_NAME}"
+    euw_result: Dict[str, Any] = {
+        "name": EUW_NAME,
+        "path": euw_path,
+        "exists": does_asset_exist(euw_path),
+        "created": False,
+        "skipped": False,
+        "failed": False,
+    }
+
+    try:
+        euw_bp, euw_created = create_editor_utility_widget_blueprint(
+            EUW_NAME,
+            EUW_DEFINITION,
+            action=AssetAction.SKIP,
+        )
+        if euw_bp:
+            save_asset(euw_path)
+            euw_result["created"] = bool(euw_created)
+            euw_result["skipped"] = not euw_created
+            euw_result["exists"] = True
+        else:
+            euw_result["failed"] = True
+    except Exception as e:
+        euw_result["failed"] = True
+        logger.error(f"_run_create_euw_impl failed: {e}")
+
+    return {"euw": euw_result}
+
+
+def run_create_euw() -> Dict[str, Any]:
+    """Public module-safe wrapper for creating (or repairing) the EUW asset only."""
+    return _run_create_euw_impl()
 
 def run_validate():
     """Validate all existing widgets without creating or modifying assets."""
@@ -2271,6 +2950,11 @@ class MF_WBP_EditorUtility:
     def run_force_recreate():
         """Delete and recreate all widgets (EUW friendly)."""
         return run_force_recreate()
+
+    @staticmethod
+    def run_create_euw():
+        """Create (or repair) the EUW tool asset (EUW friendly)."""
+        return _run_create_euw_impl()
     
     @staticmethod
     def get_status_text() -> str:
@@ -2458,6 +3142,7 @@ def get_euw_python_commands() -> Dict[str, str]:
     script_path = SCRIPT_PATH.replace("\\", "/")
 
     return {
+        "create_euw": f'exec(open(r"{script_path}").read()); MF_WBP.run_create_euw()',
         "preview": f'exec(open(r"{script_path}").read()); MF_WBP.run_dry()',
         "create": f'exec(open(r"{script_path}").read()); MF_WBP.run_create()',
         "validate": f'exec(open(r"{script_path}").read()); MF_WBP.run_validate()',
@@ -2480,17 +3165,353 @@ def print_euw_setup_guide():
         print("Could not load EDITOR_UTILITY_WIDGET_GUIDE.md. Please open it manually.")
 
 
-# Alias for easy import (module-level)
-MF_WBP = sys.modules[__name__]
+# =============================================================================
+# DIAGNOSTIC UTILITIES
+# =============================================================================
 
-# Run when script is executed
-if __name__ == "__main__":
+def diagnose_widget_blueprint(asset_path: str) -> Dict[str, Any]:
+    """
+    Comprehensive diagnostic for a single Widget Blueprint.
+    
+    Prints and returns diagnostics:
+      - Asset exists
+      - GeneratedClass present
+      - CDO present
+      - Widget tree available
+      - Compile errors (if available)
+    
+    Args:
+        asset_path: Full asset path (e.g., "/P_MiniFootball/BP/Widget/Components/WBP_MF_ScorePopup")
+    
+    Returns:
+        Dict with diagnostic results
+    """
+    result = {
+        "asset_path": asset_path,
+        "asset_loaded": False,
+        "generated_class_present": False,
+        "cdo_present": False,
+        "widget_tree_found": False,
+        "compile_errors": [],
+        "widget_count": 0,
+    }
+
+    # EUW is treated as a manual shell; skip diagnostics that rely on widget trees.
+    try:
+        if asset_path and asset_path.split("/")[-1] == EUW_NAME:
+            print("=" * 70)
+            print(f"DIAGNOSTIC: {asset_path}")
+            print("-" * 70)
+            print("EUW detected: skipping diagnostics (manual shell asset).")
+            try:
+                bp = unreal.EditorAssetLibrary.load_asset(asset_path)
+                result["asset_loaded"] = bp is not None
+            except Exception:
+                pass
+            print("=" * 70)
+            print()
+            result["skipped_euw"] = True
+            return result
+    except Exception:
+        pass
+    
+    print("=" * 70)
+    print(f"DIAGNOSTIC: {asset_path}")
+    print("-" * 70)
+
+    try:
+        bp = unreal.EditorAssetLibrary.load_asset(asset_path)
+        result["asset_loaded"] = bp is not None
+        print(f"Asset Loaded: {bp is not None}")
+        if not bp:
+            print("=" * 70)
+            print()
+            return result
+
+        # Generated class
+        gen_class = None
+        try:
+            gen_class = bp.get_editor_property("generated_class")
+        except Exception:
+            gen_class = None
+        result["generated_class_present"] = gen_class is not None
+        print(f"Generated Class Present: {gen_class is not None}")
+
+        # CDO
+        cdo = None
+        try:
+            if gen_class and hasattr(gen_class, "get_default_object"):
+                cdo = gen_class.get_default_object()
+        except Exception:
+            pass
+        result["cdo_present"] = cdo is not None
+        print(f"CDO Present: {cdo is not None}")
+
+        # Widget Tree
+        try:
+            wt = get_widget_tree(bp)
+            result["widget_tree_found"] = wt is not None
+            print(f"Widget Tree Found: {wt is not None}")
+            
+            if wt:
+                # Count widgets in tree
+                widgets = get_all_widgets_in_tree(bp)
+                result["widget_count"] = len(widgets)
+                print(f"Widget Count: {len(widgets)}")
+        except Exception as e:
+            print(f"Widget Tree Error: {e}")
+
+        # Compile errors (best-effort)
+        try:
+            if hasattr(unreal, 'KismetEditorUtilities'):
+                lib = unreal.KismetEditorUtilities()
+                if hasattr(lib, 'get_blueprint_errors'):
+                    msgs = lib.get_blueprint_errors(bp)
+                    if msgs:
+                        result["compile_errors"] = list(msgs)
+                        print("Compile Errors:")
+                        for m in msgs:
+                            print(f"  - {m}")
+                    else:
+                        print("Compile Errors: None")
+                else:
+                    print("Compile Errors: Could not retrieve (API not available)")
+            else:
+                print("Compile Errors: Could not retrieve (API not available)")
+        except Exception as e:
+            print(f"Compile Errors: Could not retrieve ({e})")
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+
+    print("=" * 70)
+    print()
+    
+    return result
+
+
+def diagnose_all_mf_widgets() -> Dict[str, Dict[str, Any]]:
+    """
+    Run comprehensive diagnosis on all MF widget blueprints.
+    
+    Returns:
+        Dict mapping widget name to diagnostic results
+    """
+    print("\n=== MF UI DIAGNOSTIC REPORT ===\n")
+    
+    all_results = {}
+    
+    for name in CREATION_ORDER:
+        if name == EUW_NAME:
+            continue
+        definition = WIDGET_DEFINITIONS.get(name)
+        if not definition:
+            continue
+        asset_path = f"{definition['path']}/{name}"
+        result = diagnose_widget_blueprint(asset_path)
+        all_results[name] = result
+    
+    # Summary
+    print("\n=== DIAGNOSTIC SUMMARY ===")
+    loaded_count = sum(1 for r in all_results.values() if r["asset_loaded"])
+    gen_class_count = sum(1 for r in all_results.values() if r["generated_class_present"])
+    widget_tree_count = sum(1 for r in all_results.values() if r["widget_tree_found"])
+    with_errors_count = sum(1 for r in all_results.values() if r["compile_errors"])
+    
+    print(f"Total widgets: {len(all_results)}")
+    print(f"Assets loaded: {loaded_count}")
+    print(f"Generated class present: {gen_class_count}")
+    print(f"Widget tree found: {widget_tree_count}")
+    print(f"With compile errors: {with_errors_count}")
+    
+    if widget_tree_count < loaded_count:
+        print(f"\n⚠ WARNING: {loaded_count - widget_tree_count} widgets are missing widget trees!")
+        for name, r in all_results.items():
+            if r["asset_loaded"] and not r["widget_tree_found"]:
+                print(f"  - {name}")
+    
+    print("\n=== END OF DIAGNOSTIC REPORT ===\n")
+    
+    return all_results
+
+
+def diagnose_missing_bindings(asset_path: str, cpp_class_path: str) -> Dict[str, Any]:
+    """
+    Check if all BindWidget / BindWidgetOptional UPROPERTY names
+    exist as widgets inside the Blueprint.
+    
+    Note: This is a best-effort check. The metadata retrieval may not work
+    on all engine versions.
+    
+    Args:
+        asset_path: Full asset path to the WBP
+        cpp_class_path: Class path like "/Script/P_MiniFootball.MF_ScorePopup"
+    
+    Returns:
+        Dict with binding diagnostic results
+    """
+    result = {
+        "asset_path": asset_path,
+        "cpp_class_path": cpp_class_path,
+        "bind_names": [],
+        "widget_names": set(),
+        "missing": [],
+        "satisfied": False,
+    }
+    
+    print(f"\n=== Binding Diagnostic: {asset_path} ===")
+
+    try:
+        if asset_path and asset_path.split("/")[-1] == EUW_NAME:
+            print("EUW detected: skipping binding diagnostics (manual shell asset).")
+            result["skipped_euw"] = True
+            return result
+    except Exception:
+        pass
+
+    bp = unreal.EditorAssetLibrary.load_asset(asset_path)
+    if not bp:
+        print("Blueprint missing.")
+        return result
+
+    # Load the class
+    cpp_class = unreal.load_class(None, cpp_class_path)
+    if not cpp_class:
+        print(f"Could not load class: {cpp_class_path}")
+        return result
+
+    # Extract UPROPERTY names marked as BindWidget or BindWidgetOptional
+    # This is engine-version dependent and may not work on all versions
+    bind_names = []
+    try:
+        if hasattr(unreal, 'get_all_class_properties'):
+            for prop in unreal.get_all_class_properties(cpp_class):
+                try:
+                    meta = None
+                    if hasattr(unreal, 'get_metadata'):
+                        meta = unreal.get_metadata(prop, "")
+                    if meta:
+                        if "BindWidget" in str(meta) or "BindWidgetOptional" in str(meta):
+                            prop_name = prop.get_name() if hasattr(prop, 'get_name') else str(prop)
+                            bind_names.append(prop_name)
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f"Could not extract BindWidget metadata: {e}")
+        print("(This is normal - metadata extraction is engine-version dependent)")
+
+    result["bind_names"] = bind_names
+    print(f"Expected BindWidget fields: {bind_names}")
+
+    # Get widget tree names
+    widgets = get_all_widgets_in_tree(bp)
+    widget_names = {w[0] for w in widgets}
+    result["widget_names"] = widget_names
+
+    missing = [b for b in bind_names if b not in widget_names]
+    result["missing"] = missing
+
+    if missing:
+        print("❌ Missing widgets:")
+        for m in missing:
+            print(f"  - {m}")
+        result["satisfied"] = False
+    else:
+        print("✅ All bindings satisfied!")
+        result["satisfied"] = True
+    
+    return result
+
+
+# Alias for easy import (module-level)
+_current_module = sys.modules[__name__]
+# If executed via exec(open(...).read()), make `import MF_WidgetBlueprintCreator` work afterwards.
+sys.modules["MF_WidgetBlueprintCreator"] = _current_module
+# Also register with alternate name for flexibility
+sys.modules.setdefault("MF_WidgetBlueprintCreator", _current_module)
+MF_WBP = _current_module
+
+# === MODULE-LEVEL EXPORTS FOR exec() SAFETY ===
+# NOTE: Do NOT alias run_* names to MF_WBP_EditorUtility methods.
+# Doing so overwrites the module functions and can cause infinite recursion.
+
+# Export diagnostic functions at module level
+diagnose_widget = diagnose_widget_blueprint
+diagnose_all = diagnose_all_mf_widgets
+diagnose_bindings = diagnose_missing_bindings
+
+# Module-level function for EUW-only mode
+def run_only_euw():
+    """Create ONLY the Editor Utility Widget, skipping all Widget Blueprints."""
+    return main(
+        dry_run=False,
+        show_guide=False,
+        force_recreate=False,
+        validate_existing=False,
+        only_euw=True,
+    )
+
+__all__ = [
+    "run_create_euw", 
+    "run_create", 
+    "run_dry", 
+    "run_validate", 
+    "run_force_recreate",
+    "run_only_euw",
+    "MF_WBP_EditorUtility",
+    "diagnose_widget_blueprint",
+    "diagnose_all_mf_widgets", 
+    "diagnose_missing_bindings",
+    "get_widget_tree",
+    "get_euw_widget_tree",
+    "get_status_text",
+    "get_widget_count",
+    "create_single_widget",
+    "get_widget_info",
+    "main",
+]
+
+# CLI wrapper function to prevent auto-execution during exec()
+def cli():
+    """
+    Command-line interface wrapper for the MF Widget Blueprint Creator.
+    
+    This function is called when the script is run directly (not via exec).
+    It performs the full widget blueprint creation workflow.
+    """
+    main(
+        dry_run=False, 
+        show_guide=True, 
+        force_recreate=False, 
+        validate_existing=True,
+        only_euw=False  # Set to True for EUW-only generation
+    )
+
+def _should_autorun_cli() -> bool:
+    """Return True only when running this file as a script (not via exec())."""
+    file_from_globals = globals().get("__file__")
+    if isinstance(file_from_globals, str) and os.path.basename(file_from_globals).lower() == "mf_widgetblueprintcreator.py":
+        return True
+
+    try:
+        argv0 = sys.argv[0] if sys.argv else ""
+        if isinstance(argv0, str) and os.path.basename(argv0).lower() == "mf_widgetblueprintcreator.py":
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+# Run when script is executed directly (not via exec)
+if __name__ == "__main__" and _should_autorun_cli():
     # Default: Create missing widgets, validate existing ones
     # Change these parameters as needed:
     #   dry_run=True        - Preview only, no changes
     #   force_recreate=True - Recreate all widgets
     #   show_guide=False    - Skip the binding guide
-    main(dry_run=False, show_guide=True, force_recreate=False, validate_existing=True)
+    #   only_euw=True       - Create ONLY the EUW, skip all WBPs
+    cli()
     
     # Uncomment to print Editor Utility Widget setup instructions:
     # print_euw_setup_guide()
@@ -2506,5 +3527,6 @@ if __name__ == "__main__":
 #   MF_WBP.run_dry()
 #   MF_WBP.run_create()
 #   MF_WBP.run_validate()
-#   MF_WBP.MF_WBP.get_status_text()
+#   MF_WBP.diagnose_all_mf_widgets()
+#   MF_WBP.diagnose_widget_blueprint("/P_MiniFootball/BP/Widget/Components/WBP_MF_ScorePopup")
 # =============================================================================

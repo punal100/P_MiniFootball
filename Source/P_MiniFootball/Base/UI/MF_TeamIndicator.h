@@ -25,7 +25,7 @@ class AMF_PlayerController;
  * - Team color background
  * - "SPECTATING" if not on a team
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_TeamIndicator : public UUserWidget
 {
     GENERATED_BODY()
@@ -81,7 +81,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TeamIndicator.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Get owning PlayerController */

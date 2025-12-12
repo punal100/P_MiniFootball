@@ -29,7 +29,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_OnJoystickReleased);
  * - Dead zone handling
  * - Outputs normalized FVector2D direction
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_VirtualJoystick : public UUserWidget
 {
     GENERATED_BODY()
@@ -88,7 +88,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_VirtualJoystick.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Current joystick direction (normalized) */

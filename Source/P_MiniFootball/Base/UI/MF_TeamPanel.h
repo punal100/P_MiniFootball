@@ -31,7 +31,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMF_OnJoinTeamClicked, EMF_TeamID, T
  *
  * Used in UMF_TeamSelectionPopup for team selection
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_TeamPanel : public UUserWidget
 {
     GENERATED_BODY()
@@ -117,7 +117,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TeamPanel.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Current team ID this panel represents */

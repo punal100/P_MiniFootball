@@ -308,6 +308,8 @@ UMF_HUD (Main Container)
 
 Each UMF widget class contains an embedded **JSON specification** accessible via `GetWidgetSpec()`. This makes widgets self-documenting and enables automated Widget Blueprint creation.
 
+> Note: `GetWidgetSpec()` is exposed via `UFUNCTION` and should return **by value** (`FString`), not `const FString&`, for reflection compatibility (Blueprint/Python).
+
 ### Key Benefits
 
 | Feature                    | Description                                         |
@@ -454,18 +456,35 @@ Create a visual tool with buttons to run the script:
 
 > **📖 Setup Guide:** See [Scripts/EDITOR_UTILITY_WIDGET_GUIDE.md](./Scripts/EDITOR_UTILITY_WIDGET_GUIDE.md) for step-by-step EUW creation.
 
+You can also auto-create/repair the EUW **asset shell** (correct C++ parent) via:
+
+> Note: the script does not generate or inspect the EUW designer widget tree. Build the EUW UI layout manually using the guide.
+
+```python
+exec(open("D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_create_euw()
+```
+
 #### Option 2: Python Console
 
 ```python
 # Run in UE5 Python console (Output Log → switch to Python mode)
 exec(open("D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read())
 
+# The script defines an `MF_WBP` module alias for convenience in the same console session.
+
 # Quick functions via the MF_WBP alias (EUW-friendly helpers):
 MF_WBP.run_dry()            # Preview what would happen
 MF_WBP.run_create()         # Create missing widgets
+MF_WBP.run_create_euw()     # Create/repair the EUW tool asset
+run_only_euw()              # Create ONLY the EUW (skip all WBPs)
 MF_WBP.run_validate()       # Validate existing widgets
 MF_WBP.run_force_recreate() # Recreate all widgets (CAUTION!)
 print(MF_WBP.get_status_text())  # Optional status dump for EUW
+
+# Diagnostic functions (for troubleshooting widget tree/binding issues):
+diagnose_all_mf_widgets()   # Check all MF widgets for issues
+diagnose_widget_blueprint("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD")
+diagnose_missing_bindings("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD", "/Script/P_MiniFootball.MF_HUD")
 ```
 
 > **📖 Automation Documentation:** See [PLAN_WBP_SCRIPT.md](../../PLAN_WBP_SCRIPT.md) for complete automation system documentation.
@@ -474,11 +493,13 @@ print(MF_WBP.get_status_text())  # Optional status dump for EUW
 
 ## 📝 Version History
 
-| Version | Date       | Changes                                                     |
-| ------- | ---------- | ----------------------------------------------------------- |
-| 1.0     | 07/12/2025 | Initial plugin implementation (Phases 1-6)                  |
-| 1.1     | 11/12/2025 | Added self-describing JSON widget specifications (Phase 10) |
-| 1.2     | 11/12/2025 | Added Editor Utility Widget guide for WBP Creator tool      |
+| Version | Date       | Changes                                                      |
+| ------- | ---------- | ------------------------------------------------------------ |
+| 1.0     | 07/12/2025 | Initial plugin implementation (Phases 1-6)                   |
+| 1.1     | 11/12/2025 | Added self-describing JSON widget specifications (Phase 10)  |
+| 1.2     | 11/12/2025 | Added Editor Utility Widget guide for WBP Creator tool       |
+| 1.3     | 12/12/2025 | Added diagnostic functions and only_euw mode for WBP Creator |
+| 1.4     | 12/12/2025 | EUW is shell-only (skip EUW validation/tree/diagnostics)     |
 
 ---
 

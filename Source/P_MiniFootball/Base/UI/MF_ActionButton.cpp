@@ -10,7 +10,7 @@
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 
-const FString &UMF_ActionButton::GetWidgetSpec()
+FString UMF_ActionButton::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
     "WidgetClass": "UMF_ActionButton",

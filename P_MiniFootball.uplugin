@@ -27,6 +27,11 @@
 "Name": "P_MiniFootball",
 "Type": "Runtime",
 "LoadingPhase": "Default"
+},
+{
+"Name": "P_MiniFootballEditor",
+"Type": "Editor",
+"LoadingPhase": "Default"
 }
 ]
 }

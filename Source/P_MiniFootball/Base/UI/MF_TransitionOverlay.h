@@ -24,7 +24,7 @@ class UThrobber;
  * - Loading animation
  * - Fade in/out support
  */
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class P_MINIFOOTBALL_API UMF_TransitionOverlay : public UUserWidget
 {
     GENERATED_BODY()
@@ -80,7 +80,7 @@ public:
      * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TransitionOverlay.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
-    static const FString &GetWidgetSpec();
+    static FString GetWidgetSpec();
 
 private:
     /** Animation helper */
