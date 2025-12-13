@@ -15,16 +15,20 @@
 
 class UMF_InputHandler;
 class AMF_Ball;
+class USceneComponent;
+class UCapsuleComponent;
+class USpringArmComponent;
+class UCameraComponent;
 
 // ==================== Delegates ====================
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMF_PossessionChanged, AMF_PlayerCharacter*, Player, bool, bHasBall);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMF_PossessionChanged, AMF_PlayerCharacter *, Player, bool, bHasBall);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMF_PlayerStateChanged, EMF_PlayerState, NewState);
 
 /**
  * MF_PlayerCharacter
  * The football player character with full network replication
- * 
+ *
  * Network Model:
  * - Server: Authoritative for all game logic (possession, actions)
  * - Client: Sends input via RPC, predicts movement locally
@@ -39,12 +43,12 @@ public:
     AMF_PlayerCharacter();
 
     // ==================== AActor Interface ====================
-    
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
-    virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-    virtual void PossessedBy(AController* NewController) override;
+    virtual void SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent) override;
+    virtual void PossessedBy(AController *NewController) override;
     virtual void UnPossessed() override;
     virtual void OnRep_PlayerState() override;
 
@@ -76,10 +80,10 @@ public:
 
     /** Get the ball we're possessing (if any) */
     UFUNCTION(BlueprintPure, Category = "MiniFootball|Player")
-    AMF_Ball* GetPossessedBall() const { return PossessedBall; }
+    AMF_Ball *GetPossessedBall() const { return PossessedBall; }
 
     /** Set the ball reference (Server only) */
-    void SetPossessedBall(AMF_Ball* Ball);
+    void SetPossessedBall(AMF_Ball *Ball);
 
     // ==================== Player State ====================
 
@@ -141,14 +145,22 @@ public:
 
     /** Get the input handler component */
     UFUNCTION(BlueprintPure, Category = "MiniFootball|Input")
-    UMF_InputHandler* GetInputHandler() const { return InputHandler; }
+    UMF_InputHandler *GetInputHandler() const { return InputHandler; }
 
 protected:
     // ==================== Components ====================
 
     /** Input handler component (handles P_MEIS integration) */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
-    UMF_InputHandler* InputHandler;
+    UMF_InputHandler *InputHandler;
+
+    /** Camera boom for top-down view */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
+    USpringArmComponent *CameraBoom;
+
+    /** Top-down camera */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
+    UCameraComponent *TopDownCamera;
 
     // ==================== Replicated Properties ====================
 
@@ -176,7 +188,7 @@ protected:
 
     /** Reference to possessed ball (not replicated, set locally) */
     UPROPERTY()
-    AMF_Ball* PossessedBall = nullptr;
+    AMF_Ball *PossessedBall = nullptr;
 
     /** Current move input (local) */
     FVector2D CurrentMoveInput = FVector2D::ZeroVector;

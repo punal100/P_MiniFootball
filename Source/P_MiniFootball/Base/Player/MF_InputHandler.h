@@ -31,14 +31,14 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMF_PauseInput);
 /**
  * MF_InputHandler
  * Integrates with P_MEIS to handle all Mini Football input
- * 
+ *
  * Usage:
  * 1. Add this component to PlayerController or Character
  * 2. Call InitializeInput() after possession
  * 3. Bind to delegates (OnMoveInput, OnActionInput, etc.)
  * 4. Input flows: P_MEIS -> This Handler -> Delegates -> Character/Controller
  */
-UCLASS(ClassGroup=(MiniFootball), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (MiniFootball), meta = (BlueprintSpawnableComponent))
 class P_MINIFOOTBALL_API UMF_InputHandler : public UActorComponent
 {
     GENERATED_BODY()
@@ -55,7 +55,7 @@ public:
      * @return True if successful
      */
     UFUNCTION(BlueprintCallable, Category = "MiniFootball|Input")
-    bool InitializeInput(APlayerController* PC);
+    bool InitializeInput(APlayerController *PC);
 
     /**
      * Cleanup input bindings
@@ -118,10 +118,13 @@ public:
     UFUNCTION(BlueprintPure, Category = "MiniFootball|Input")
     float GetActionHoldTime() const { return ActionHoldTime; }
 
+    /** Get the P_MEIS Integration object (for deferred binding) */
+    UCPP_EnhancedInputIntegration *GetIntegration() const { return Integration; }
+
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+    virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 private:
     // ==================== P_MEIS References ====================
@@ -130,7 +133,7 @@ private:
     TWeakObjectPtr<APlayerController> OwningController;
 
     UPROPERTY()
-    UCPP_EnhancedInputIntegration* Integration;
+    UCPP_EnhancedInputIntegration *Integration;
 
     // ==================== Input State ====================
 
@@ -163,7 +166,13 @@ private:
     void HandleActionCompleted(FName ActionName, FInputActionValue Value);
 
     UFUNCTION()
+    void HandleMoveCompleted(FName ActionName, FInputActionValue Value);
+
+    UFUNCTION()
     void HandleSprintAction(FName ActionName, FInputActionValue Value);
+
+    UFUNCTION()
+    void HandleSprintCompleted(FName ActionName, FInputActionValue Value);
 
     UFUNCTION()
     void HandleSwitchPlayerAction(FName ActionName, FInputActionValue Value);

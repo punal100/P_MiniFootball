@@ -2,12 +2,17 @@
  * @Author: Punal Manalan
  * @Description: MF_PlayerController - Implementation
  *               Full network replication for Listen Server and Dedicated Server
+ *               Includes spectator system and team request RPCs
  * @Date: 07/12/2025
+ * @Updated: 09/12/2025 - Added spectator state and team request RPCs
  */
 
 #include "Player/MF_PlayerController.h"
 #include "Player/MF_PlayerCharacter.h"
+#include "Player/MF_Spectator.h"
 #include "Ball/MF_Ball.h"
+#include "Match/MF_GameMode.h"
+#include "Interfaces/MF_TeamInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/GameModeBase.h"
@@ -17,6 +22,8 @@ AMF_PlayerController::AMF_PlayerController()
     bReplicates = true;
     AssignedTeam = EMF_TeamID::None;
     ActiveCharacterIndex = -1;
+    bIsSpectator = true;                                    // Start as spectator by default
+    CurrentSpectatorState = EMF_SpectatorState::Spectating; // Start spectating
 }
 
 void AMF_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
@@ -26,14 +33,16 @@ void AMF_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> 
     DOREPLIFETIME(AMF_PlayerController, AssignedTeam);
     DOREPLIFETIME(AMF_PlayerController, TeamCharacters);
     DOREPLIFETIME(AMF_PlayerController, ActiveCharacterIndex);
+    DOREPLIFETIME(AMF_PlayerController, bIsSpectator);
+    DOREPLIFETIME(AMF_PlayerController, CurrentSpectatorState);
 }
 
 void AMF_PlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
-    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::BeginPlay - HasAuthority: %d, IsLocalController: %d"),
-           HasAuthority(), IsLocalController());
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::BeginPlay - HasAuthority: %d, IsLocalController: %d, SpectatorState: %d"),
+           HasAuthority(), IsLocalController(), static_cast<int32>(CurrentSpectatorState));
 }
 
 void AMF_PlayerController::OnPossess(APawn *InPawn)
@@ -77,27 +86,232 @@ void AMF_PlayerController::OnRep_AssignedTeam()
            static_cast<int32>(AssignedTeam));
 }
 
+void AMF_PlayerController::OnRep_SpectatorState()
+{
+    // Update bIsSpectator for backwards compatibility
+    bIsSpectator = (CurrentSpectatorState == EMF_SpectatorState::Spectating);
+
+    OnSpectatorStateChanged.Broadcast(this, CurrentSpectatorState);
+
+    // Call interface method
+    Execute_OnTeamStateChanged(this, AssignedTeam, CurrentSpectatorState);
+
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnRep_SpectatorState - State: %d"),
+           static_cast<int32>(CurrentSpectatorState));
+}
+
+void AMF_PlayerController::SetSpectatorState(EMF_SpectatorState NewState)
+{
+    if (!HasAuthority())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::SetSpectatorState - Called on client, ignoring"));
+        return;
+    }
+
+    if (CurrentSpectatorState != NewState)
+    {
+        CurrentSpectatorState = NewState;
+        bIsSpectator = (NewState == EMF_SpectatorState::Spectating);
+        OnRep_SpectatorState();
+
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::SetSpectatorState - Set to: %d"),
+               static_cast<int32>(NewState));
+    }
+}
+
+// ==================== Team Request Server RPCs ====================
+
+void AMF_PlayerController::Server_RequestJoinTeam_Implementation(EMF_TeamID RequestedTeam)
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::Server_RequestJoinTeam - Player %s requesting team %d"),
+           *GetName(), static_cast<int32>(RequestedTeam));
+
+    // Set transitioning state
+    SetSpectatorState(EMF_SpectatorState::Transitioning);
+
+    // Get GameMode and check if it implements the team interface
+    AGameModeBase *GM = GetWorld()->GetAuthGameMode();
+    if (!GM)
+    {
+        UE_LOG(LogTemp, Error, TEXT("MF_PlayerController::Server_RequestJoinTeam - No GameMode found"));
+        Client_OnTeamAssignmentResponse(false, EMF_TeamID::None, TEXT("Server error: No GameMode"));
+        SetSpectatorState(EMF_SpectatorState::Spectating);
+        return;
+    }
+
+    // Check if GameMode implements IMF_TeamInterface
+    if (!GM->GetClass()->ImplementsInterface(UMF_TeamInterface::StaticClass()))
+    {
+        UE_LOG(LogTemp, Error, TEXT("MF_PlayerController::Server_RequestJoinTeam - GameMode does not implement IMF_TeamInterface"));
+        Client_OnTeamAssignmentResponse(false, EMF_TeamID::None, TEXT("Server error: Team system not available"));
+        SetSpectatorState(EMF_SpectatorState::Spectating);
+        return;
+    }
+
+    // Call the interface function
+    FMF_TeamAssignmentResult Result = IMF_TeamInterface::Execute_HandleJoinTeamRequest(GM, this, RequestedTeam);
+
+    if (Result.bSuccess)
+    {
+        // Success - update state
+        AssignToTeam(Result.AssignedTeam);
+        SetSpectatorState(EMF_SpectatorState::Playing);
+        Client_OnTeamAssignmentResponse(true, Result.AssignedTeam, TEXT(""));
+
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::Server_RequestJoinTeam - SUCCESS: Player %s joined team %d"),
+               *GetName(), static_cast<int32>(Result.AssignedTeam));
+    }
+    else
+    {
+        // Failed - return to spectating
+        SetSpectatorState(EMF_SpectatorState::Spectating);
+        Client_OnTeamAssignmentResponse(false, EMF_TeamID::None, Result.ErrorMessage);
+
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::Server_RequestJoinTeam - FAILED: %s"),
+               *Result.ErrorMessage);
+    }
+}
+
+void AMF_PlayerController::Server_RequestLeaveTeam_Implementation()
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::Server_RequestLeaveTeam - Player %s requesting to leave team"),
+           *GetName());
+
+    if (AssignedTeam == EMF_TeamID::None)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::Server_RequestLeaveTeam - Player not on a team"));
+        return;
+    }
+
+    // Set transitioning state
+    SetSpectatorState(EMF_SpectatorState::Transitioning);
+
+    // Get GameMode and check if it implements the team interface
+    AGameModeBase *GM = GetWorld()->GetAuthGameMode();
+    if (GM && GM->GetClass()->ImplementsInterface(UMF_TeamInterface::StaticClass()))
+    {
+        // Call the interface function
+        bool bSuccess = IMF_TeamInterface::Execute_HandleLeaveTeamRequest(GM, this);
+
+        if (bSuccess)
+        {
+            // Clear team assignment
+            AssignToTeam(EMF_TeamID::None);
+            SetSpectatorState(EMF_SpectatorState::Spectating);
+            Client_OnTeamAssignmentResponse(true, EMF_TeamID::None, TEXT("Left team successfully"));
+
+            UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::Server_RequestLeaveTeam - SUCCESS"));
+        }
+        else
+        {
+            // Failed to leave - restore playing state
+            SetSpectatorState(EMF_SpectatorState::Playing);
+            Client_OnTeamAssignmentResponse(false, AssignedTeam, TEXT("Failed to leave team"));
+
+            UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::Server_RequestLeaveTeam - FAILED"));
+        }
+    }
+    else
+    {
+        // No interface, just do basic cleanup
+        AssignToTeam(EMF_TeamID::None);
+        SetSpectatorState(EMF_SpectatorState::Spectating);
+
+        // Unpossess current pawn
+        if (GetPawn())
+        {
+            UnPossess();
+        }
+
+        Client_OnTeamAssignmentResponse(true, EMF_TeamID::None, TEXT("Left team"));
+    }
+}
+
+// ==================== Team Response Client RPCs ====================
+
+void AMF_PlayerController::Client_OnTeamAssignmentResponse_Implementation(bool bSuccess, EMF_TeamID Team, const FString &ErrorMessage)
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::Client_OnTeamAssignmentResponse - Success: %d, Team: %d, Error: %s"),
+           bSuccess, static_cast<int32>(Team), *ErrorMessage);
+
+    // Broadcast event for widgets to listen to
+    OnTeamAssignmentResponseReceived.Broadcast(bSuccess, Team, ErrorMessage);
+
+    // Call interface method
+    Execute_OnTeamAssignmentResponse(this, bSuccess, Team, ErrorMessage);
+}
+
+// ==================== Interface Implementation ====================
+
+void AMF_PlayerController::OnTeamAssignmentResponse_Implementation(bool bSuccess, EMF_TeamID InAssignedTeam, const FString &ErrorMessage)
+{
+    // Default implementation - can be overridden in Blueprint
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnTeamAssignmentResponse_Implementation - Success: %d, Team: %d"),
+           bSuccess, static_cast<int32>(InAssignedTeam));
+}
+
+void AMF_PlayerController::OnTeamStateChanged_Implementation(EMF_TeamID NewTeamID, EMF_SpectatorState NewState)
+{
+    // Default implementation - can be overridden in Blueprint
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnTeamStateChanged_Implementation - Team: %d, State: %d"),
+           static_cast<int32>(NewTeamID), static_cast<int32>(NewState));
+}
+
+void AMF_PlayerController::OnPossessedPawnChanged_Implementation(APawn *NewPawn)
+{
+    // Default implementation - can be overridden in Blueprint
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnPossessedPawnChanged_Implementation - Pawn: %s"),
+           NewPawn ? *NewPawn->GetName() : TEXT("None"));
+}
+
+EMF_TeamID AMF_PlayerController::GetCurrentTeamID_Implementation()
+{
+    return AssignedTeam;
+}
+
+EMF_SpectatorState AMF_PlayerController::GetCurrentSpectatorState_Implementation()
+{
+    return CurrentSpectatorState;
+}
+
+bool AMF_PlayerController::IsSpectating_Implementation()
+{
+    return CurrentSpectatorState == EMF_SpectatorState::Spectating;
+}
+
 // ==================== Character Management ====================
 
 void AMF_PlayerController::RegisterTeamCharacter(AMF_PlayerCharacter *InCharacter)
 {
     if (!HasAuthority())
     {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::RegisterTeamCharacter - Called on client, ignored"));
         return;
     }
 
-    if (InCharacter && !TeamCharacters.Contains(InCharacter))
+    if (!InCharacter)
     {
-        TeamCharacters.Add(InCharacter);
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::RegisterTeamCharacter - Null character"));
+        return;
+    }
 
-        // If this is our first character and we don't have one possessed, possess it
-        if (TeamCharacters.Num() == 1 && ActiveCharacterIndex < 0)
-        {
-            Internal_SwitchToCharacter(0);
-        }
+    if (TeamCharacters.Contains(InCharacter))
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Character %s already registered"),
+               *InCharacter->GetName());
+        return;
+    }
 
-        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Registered %s (Total: %d)"),
-               *InCharacter->GetName(), TeamCharacters.Num());
+    TeamCharacters.Add(InCharacter);
+
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Registered %s (Total: %d, Spectator: %d, ActiveIndex: %d)"),
+           *InCharacter->GetName(), TeamCharacters.Num(), bIsSpectator, ActiveCharacterIndex);
+
+    // Auto-possess first character if not in spectator mode and not already possessing
+    if (!bIsSpectator && ActiveCharacterIndex < 0 && !GetPawn())
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RegisterTeamCharacter - Auto-possessing first character"));
+        Internal_SwitchToCharacter(TeamCharacters.Num() - 1);
     }
 }
 
@@ -290,4 +504,170 @@ void AMF_PlayerController::RequestPause()
 {
     // TODO: Implement pause menu logic
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RequestPause - Pause requested"));
+}
+
+// ==================== Possession Control ====================
+
+void AMF_PlayerController::PossessFirstTeamCharacter()
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::PossessFirstTeamCharacter - TeamCharacters: %d, IsSpectator: %d"),
+           TeamCharacters.Num(), bIsSpectator);
+
+    if (bIsSpectator)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessFirstTeamCharacter - In spectator mode, call SetSpectatorMode(false) first"));
+        return;
+    }
+
+    if (TeamCharacters.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessFirstTeamCharacter - No team characters available"));
+        return;
+    }
+
+    // Find first valid character
+    for (int32 i = 0; i < TeamCharacters.Num(); ++i)
+    {
+        if (TeamCharacters[i] && !TeamCharacters[i]->IsPendingKillPending())
+        {
+            SwitchToCharacter(i);
+            return;
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessFirstTeamCharacter - No valid characters found"));
+}
+
+void AMF_PlayerController::PossessCharacter(AMF_PlayerCharacter *CharacterToPossess)
+{
+    if (!CharacterToPossess)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessCharacter - Null character"));
+        return;
+    }
+
+    if (bIsSpectator)
+    {
+        SetSpectatorMode(false);
+    }
+
+    // Find index in team characters
+    int32 Index = TeamCharacters.IndexOfByKey(CharacterToPossess);
+    if (Index != INDEX_NONE)
+    {
+        SwitchToCharacter(Index);
+    }
+    else
+    {
+        // Character not in our team, try to possess directly (server only)
+        if (HasAuthority())
+        {
+            if (GetPawn())
+            {
+                UnPossess();
+            }
+            Possess(CharacterToPossess);
+            UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::PossessCharacter - Directly possessed %s"),
+                   *CharacterToPossess->GetName());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::PossessCharacter - Character not in team array"));
+        }
+    }
+}
+
+void AMF_PlayerController::SetSpectatorMode(bool bEnabled)
+{
+    if (!HasAuthority())
+    {
+        // TODO: Add Server RPC if clients need to toggle spectator
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::SetSpectatorMode - Called on client"));
+        return;
+    }
+
+    if (bIsSpectator == bEnabled)
+    {
+        return;
+    }
+
+    bIsSpectator = bEnabled;
+
+    if (bEnabled)
+    {
+        // Unpossess current character
+        if (GetPawn())
+        {
+            UnPossess();
+        }
+        ActiveCharacterIndex = -1;
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::SetSpectatorMode - Spectator mode ENABLED"));
+    }
+    else
+    {
+        // Auto-possess first team character when exiting spectator mode
+        PossessFirstTeamCharacter();
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::SetSpectatorMode - Spectator mode DISABLED"));
+    }
+}
+
+// ==================== Mobile Input Functions (UI Widget Support) ====================
+
+void AMF_PlayerController::ApplyMobileMovementInput(FVector2D Direction)
+{
+    AMF_PlayerCharacter *CurrentCharacter = GetCurrentCharacter();
+    if (CurrentCharacter)
+    {
+        // Apply movement input to the character
+        // This assumes the character has a function to handle 2D movement input
+        // Scale by sprint if needed
+        float Scale = bMobileSprinting ? 1.5f : 1.0f;
+        FVector2D ScaledDirection = Direction * Scale;
+
+        // Add movement input (forward/right based on camera)
+        CurrentCharacter->AddMovementInput(FVector(ScaledDirection.Y, ScaledDirection.X, 0.0f));
+    }
+}
+
+void AMF_PlayerController::OnMobileActionPressed()
+{
+    AMF_PlayerCharacter *CurrentCharacter = GetCurrentCharacter();
+    if (CurrentCharacter)
+    {
+        // Trigger action on character
+        // This could be shoot, pass, tackle depending on context
+        // For now, call the character's action function if it exists
+        UE_LOG(LogTemp, Verbose, TEXT("MF_PlayerController::OnMobileActionPressed - Action triggered"));
+
+        // TODO: Call character action method
+        // CurrentCharacter->PerformContextAction();
+    }
+}
+
+void AMF_PlayerController::OnMobileActionReleased()
+{
+    AMF_PlayerCharacter *CurrentCharacter = GetCurrentCharacter();
+    if (CurrentCharacter)
+    {
+        UE_LOG(LogTemp, Verbose, TEXT("MF_PlayerController::OnMobileActionReleased - Action released"));
+
+        // TODO: Call character action release method
+        // CurrentCharacter->ReleaseContextAction();
+    }
+}
+
+void AMF_PlayerController::SetMobileSprintState(bool bSprinting)
+{
+    bMobileSprinting = bSprinting;
+
+    AMF_PlayerCharacter *CurrentCharacter = GetCurrentCharacter();
+    if (CurrentCharacter)
+    {
+        // Set sprint state on the character if it has such a property
+        UE_LOG(LogTemp, Verbose, TEXT("MF_PlayerController::SetMobileSprintState - Sprint: %s"),
+               bSprinting ? TEXT("ON") : TEXT("OFF"));
+
+        // TODO: Call character sprint method
+        // CurrentCharacter->SetSprinting(bSprinting);
+    }
 }

@@ -2,12 +2,17 @@
  * @Author: Punal Manalan
  * @Description: MF_Types - Core types, enums, and constants for Mini Football
  * @Date: 07/12/2025
+ * @Updated: 09/12/2025 - Added Spectator/Team Assignment types
  */
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "MF_Types.generated.h"
+
+// Forward declarations
+class APlayerController;
+class AMF_PlayerCharacter;
 
 // ==================== Team Identification ====================
 
@@ -32,7 +37,21 @@ enum class EMF_MatchPhase : uint8
     MatchEnd UMETA(DisplayName = "Match End")
 };
 
-// ==================== Player States ====================
+// ==================== Spectator/Controller States ====================
+
+/**
+ * Represents the current state of a player controller
+ * Used for spectator system and team assignment
+ */
+UENUM(BlueprintType)
+enum class EMF_SpectatorState : uint8
+{
+    Spectating UMETA(DisplayName = "Spectating"),      // Viewing match, not on a team
+    Playing UMETA(DisplayName = "Playing"),            // On a team, controlling character
+    Transitioning UMETA(DisplayName = "Transitioning") // In process of joining/leaving team
+};
+
+// ==================== Player Character States ====================
 
 UENUM(BlueprintType)
 enum class EMF_PlayerState : uint8
@@ -94,13 +113,15 @@ namespace MF_Constants
     constexpr float BallMinSpeed = 10.0f;         // Stop ball below this
     constexpr float BallBounceRestitution = 0.7f; // Velocity retained on bounce
     constexpr float BallRadius = 11.0f;           // cm (FIFA standard)
-    constexpr float BallPickupRadius = 80.0f;     // cm - auto pickup range
+    constexpr float BallPickupRadius = 150.0f;    // cm - auto pickup range (increased for easier pickup)
     constexpr float BallAirResistance = 50.0f;    // cm/s^2 deceleration in air
     constexpr float BallBounciness = 0.6f;        // Velocity retained on ground bounce
 
     // Physics Constants
-    constexpr float Gravity = 980.0f; // cm/s^2 (9.8 m/s^2)
-    constexpr float GroundZ = 0.0f;   // Ground plane Z level
+    constexpr float Gravity = 980.0f;               // cm/s^2 (9.8 m/s^2)
+    constexpr float GroundZ = 0.0f;                 // Ground plane Z level
+    constexpr float CharacterHalfHeight = 96.0f;    // Default capsule half-height (88) + some margin
+    constexpr float CharacterSpawnZOffset = 100.0f; // Spawn offset above ground to prevent embedding
 
     // Field Bounds
     constexpr float OutOfBoundsBuffer = 100.0f; // cm buffer zone for out of bounds check
@@ -162,4 +183,85 @@ struct FMF_BallReplicationData
 
     UPROPERTY(BlueprintReadWrite)
     float ServerTimestamp = 0.0f;
+};
+
+// ==================== Team Assignment Structs ====================
+
+/**
+ * Result of a team assignment request
+ * Returned by GameMode when player requests to join a team
+ */
+USTRUCT(BlueprintType)
+struct FMF_TeamAssignmentResult
+{
+    GENERATED_BODY()
+
+    /** Whether the assignment was successful */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    bool bSuccess = false;
+
+    /** The team assigned to (None if failed) */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    EMF_TeamID AssignedTeam = EMF_TeamID::None;
+
+    /** Error message if assignment failed */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    FString ErrorMessage;
+
+    /** Default constructor */
+    FMF_TeamAssignmentResult() = default;
+
+    /** Success constructor */
+    FMF_TeamAssignmentResult(EMF_TeamID InTeam)
+        : bSuccess(true), AssignedTeam(InTeam), ErrorMessage(TEXT("")) {}
+
+    /** Failure constructor */
+    FMF_TeamAssignmentResult(const FString &InErrorMessage)
+        : bSuccess(false), AssignedTeam(EMF_TeamID::None), ErrorMessage(InErrorMessage) {}
+
+    /** Static helper for success */
+    static FMF_TeamAssignmentResult Success(EMF_TeamID Team)
+    {
+        return FMF_TeamAssignmentResult(Team);
+    }
+
+    /** Static helper for failure */
+    static FMF_TeamAssignmentResult Failure(const FString &ErrorMessage)
+    {
+        return FMF_TeamAssignmentResult(ErrorMessage);
+    }
+};
+
+/**
+ * Team roster data - replicated to all clients
+ * Contains list of player controllers on a team
+ */
+USTRUCT(BlueprintType)
+struct FMF_TeamRosterData
+{
+    GENERATED_BODY()
+
+    /** Team ID this roster belongs to */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    EMF_TeamID TeamID = EMF_TeamID::None;
+
+    /** Number of human players on the team */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    int32 PlayerCount = 0;
+
+    /** Current player count (same as PlayerCount, for widget compatibility) */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    int32 CurrentPlayerCount = 0;
+
+    /** Maximum players allowed on team */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    int32 MaxPlayerCount = 3;
+
+    /** List of player controller unique IDs on the team (for UI display) */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    TArray<int32> PlayerUniqueIDs;
+
+    /** List of player names on the team (for UI display) */
+    UPROPERTY(BlueprintReadOnly, Category = "Team")
+    TArray<FString> PlayerNames;
 };

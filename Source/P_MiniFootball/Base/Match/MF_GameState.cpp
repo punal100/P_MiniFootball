@@ -10,6 +10,7 @@
 #include "Player/MF_PlayerCharacter.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
+#include "GameFramework/PlayerState.h"
 
 AMF_GameState::AMF_GameState()
 {
@@ -291,6 +292,59 @@ TArray<AMF_PlayerCharacter *> AMF_GameState::GetTeamPlayers(EMF_TeamID Team) con
         return TeamBPlayers;
     }
     return TArray<AMF_PlayerCharacter *>();
+}
+
+int32 AMF_GameState::GetTeamPlayerCount(EMF_TeamID Team) const
+{
+    if (Team == EMF_TeamID::TeamA)
+    {
+        return TeamAPlayers.Num();
+    }
+    else if (Team == EMF_TeamID::TeamB)
+    {
+        return TeamBPlayers.Num();
+    }
+    return 0;
+}
+
+TArray<FString> AMF_GameState::GetTeamPlayerNames(EMF_TeamID Team) const
+{
+    TArray<FString> Names;
+    TArray<AMF_PlayerCharacter *> Players = GetTeamPlayers(Team);
+
+    for (AMF_PlayerCharacter *Player : Players)
+    {
+        if (Player)
+        {
+            // Get player name from PlayerState if available
+            APlayerState *PS = nullptr;
+            if (Player->GetController())
+            {
+                PS = Player->GetController()->PlayerState;
+            }
+            if (PS)
+            {
+                Names.Add(PS->GetPlayerName());
+            }
+            else
+            {
+                Names.Add(Player->GetName());
+            }
+        }
+    }
+
+    return Names;
+}
+
+FMF_TeamRosterData AMF_GameState::GetTeamRoster(EMF_TeamID Team) const
+{
+    FMF_TeamRosterData RosterData;
+    RosterData.TeamID = Team;
+    RosterData.PlayerNames = GetTeamPlayerNames(Team);
+    RosterData.CurrentPlayerCount = GetTeamPlayerCount(Team);
+    RosterData.MaxPlayerCount = 3; // Default max players per team
+
+    return RosterData;
 }
 
 // ==================== State Getters ====================

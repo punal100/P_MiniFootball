@@ -17,14 +17,14 @@ class AMF_PlayerCharacter;
 class USphereComponent;
 class UStaticMeshComponent;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnBallPossessionChanged, AMF_Ball*, Ball, AMF_PlayerCharacter*, OldPossessor, AMF_PlayerCharacter*, NewPossessor);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBallStateChanged, AMF_Ball*, Ball, EMF_BallState, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBallOutOfBounds, AMF_Ball*, Ball);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGoalScored, AMF_Ball*, Ball, EMF_TeamID, ScoringTeam);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnBallPossessionChanged, AMF_Ball *, Ball, AMF_PlayerCharacter *, OldPossessor, AMF_PlayerCharacter *, NewPossessor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBallStateChanged, AMF_Ball *, Ball, EMF_BallState, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBallOutOfBounds, AMF_Ball *, Ball);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnGoalScored, AMF_Ball *, Ball, EMF_TeamID, ScoringTeam);
 
 /**
  * MF_Ball - The football actor
- * 
+ *
  * Features:
  * - Custom math-based physics (NO UE Physics simulation)
  * - Server authoritative with client interpolation
@@ -40,16 +40,16 @@ public:
     AMF_Ball();
 
     // ==================== Replication ====================
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
 
     // ==================== Components ====================
     /** Root collision sphere */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    USphereComponent* CollisionSphere;
+    USphereComponent *CollisionSphere;
 
     /** Ball mesh */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    UStaticMeshComponent* BallMesh;
+    UStaticMeshComponent *BallMesh;
 
     // ==================== Replicated State ====================
     /** Current ball state */
@@ -58,7 +58,7 @@ public:
 
     /** Which player has the ball (null if loose/flying) */
     UPROPERTY(ReplicatedUsing = OnRep_Possessor, BlueprintReadOnly, Category = "Ball")
-    AMF_PlayerCharacter* CurrentPossessor;
+    AMF_PlayerCharacter *CurrentPossessor;
 
     /** Replicated ball physics data */
     UPROPERTY(ReplicatedUsing = OnRep_BallPhysics, BlueprintReadOnly, Category = "Ball")
@@ -88,7 +88,7 @@ public:
 
     /** Give possession to a player */
     UFUNCTION(BlueprintCallable, Category = "Ball")
-    void SetPossessor(AMF_PlayerCharacter* NewPossessor);
+    void SetPossessor(AMF_PlayerCharacter *NewPossessor);
 
     /** Release ball from current possessor */
     UFUNCTION(BlueprintCallable, Category = "Ball")
@@ -100,7 +100,7 @@ public:
 
     /** Check if a player can pick up the ball */
     UFUNCTION(BlueprintPure, Category = "Ball")
-    bool CanBePickedUpBy(AMF_PlayerCharacter* Player) const;
+    bool CanBePickedUpBy(AMF_PlayerCharacter *Player) const;
 
     // ==================== State Getters ====================
     UFUNCTION(BlueprintPure, Category = "Ball")
@@ -116,7 +116,7 @@ public:
     bool IsOutOfBounds() const { return CurrentBallState == EMF_BallState::OutOfBounds; }
 
     UFUNCTION(BlueprintPure, Category = "Ball")
-    AMF_PlayerCharacter* GetPossessor() const { return CurrentPossessor; }
+    AMF_PlayerCharacter *GetPossessor() const { return CurrentPossessor; }
 
     // ==================== Events ====================
     UPROPERTY(BlueprintAssignable, Category = "Events")
@@ -169,6 +169,15 @@ protected:
 
     /** Set ball state with replication */
     void SetBallState(EMF_BallState NewState);
+
+    /** Handle overlap with player for automatic pickup */
+    UFUNCTION()
+    void OnBallOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor,
+                       UPrimitiveComponent *OtherComp, int32 OtherBodyIndex,
+                       bool bFromSweep, const FHitResult &SweepResult);
+
+    /** Check for nearby players who can pick up the ball (backup for overlap events) */
+    void CheckForNearbyPlayers();
 
 private:
     /** Offset from player when possessed */

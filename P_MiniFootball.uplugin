@@ -13,11 +13,24 @@
 "CanContainContent": true,
 "Installed": false,
 "Plugins": [
+{
+"Name": "EnhancedInput",
+"Enabled": true
+},
+{
+"Name": "P_MEIS",
+"Enabled": true
+}
 ],
 "Modules": [
 {
 "Name": "P_MiniFootball",
 "Type": "Runtime",
+"LoadingPhase": "Default"
+},
+{
+"Name": "P_MiniFootballEditor",
+"Type": "Editor",
 "LoadingPhase": "Default"
 }
 ]
