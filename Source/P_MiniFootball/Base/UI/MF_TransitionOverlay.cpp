@@ -20,9 +20,9 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
     "Description": "Loading/transition screen with status message",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 800, "Height": 600},
-        "ZoomLevel": "1:2",
+    "DesignerPreview": {
+        "SizeMode": "FillScreen",
+        "ZoomLevel": 12,
         "ShowGrid": false
     },
     

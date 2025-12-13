@@ -22,10 +22,10 @@ FString UMF_PauseMenu::GetWidgetSpec()
     "Category": "MF|UI|Menus",
     "Description": "In-game pause menu with options",
     "Version": "1.0.0",
-    
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 600, "Height": 500},
-        "ZoomLevel": "1:1",
+
+    "DesignerPreview": {
+        "SizeMode": "FillScreen",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     

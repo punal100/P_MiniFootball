@@ -19,9 +19,9 @@ FString UMF_VirtualJoystick::GetWidgetSpec()
     "Description": "Touch-friendly virtual joystick for movement input",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 300, "Height": 300},
-        "ZoomLevel": "1:1",
+    "DesignerPreview": {
+        "SizeMode": "Desired",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     
@@ -39,20 +39,18 @@ FString UMF_VirtualJoystick::GetWidgetSpec()
                         "Position": {"X": 0, "Y": 0},
                         "Size": {"X": 150, "Y": 150},
                         "Alignment": {"X": 0.5, "Y": 0.5}
-                    },
-                    "Children": [
-                        {
-                            "Type": "Image",
-                            "Name": "JoystickThumb",
-                            "BindingType": "Required",
-                            "Slot": {
-                                "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
-                                "Position": {"X": 0, "Y": 0},
-                                "Size": {"X": 60, "Y": 60},
-                                "Alignment": {"X": 0.5, "Y": 0.5}
-                            }
-                        }
-                    ]
+                    }
+                },
+                {
+                    "Type": "Image",
+                    "Name": "JoystickThumb",
+                    "BindingType": "Required",
+                    "Slot": {
+                        "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 60, "Y": 60},
+                        "Alignment": {"X": 0.5, "Y": 0.5}
+                    }
                 }
             ]
         }

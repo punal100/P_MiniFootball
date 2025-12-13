@@ -22,9 +22,9 @@ FString UMF_SpectatorControls::GetWidgetSpec()
     "Description": "Spectator mode controls with quick team join",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 800, "Height": 400},
-        "ZoomLevel": "1:2",
+    "DesignerPreview": {
+        "SizeMode": "FillScreen",
+        "ZoomLevel": 12,
         "ShowGrid": true
     },
     

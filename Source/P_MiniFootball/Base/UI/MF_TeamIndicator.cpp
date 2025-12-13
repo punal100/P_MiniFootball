@@ -20,9 +20,9 @@ FString UMF_TeamIndicator::GetWidgetSpec()
     "Description": "Shows current team affiliation with colored border",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 300, "Height": 100},
-        "ZoomLevel": "1:1",
+    "DesignerPreview": {
+        "SizeMode": "Desired",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     

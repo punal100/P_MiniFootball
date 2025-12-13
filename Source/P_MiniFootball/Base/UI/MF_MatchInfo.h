@@ -88,7 +88,8 @@ public:
     // ==================== Widget Specification (JSON) ====================
     /**
      * Self-describing JSON specification for automated Widget Blueprint creation.
-     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_MatchInfo.
+     * Consumed by P_MWCS (MWCS_CreateWidgets / MWCS_ValidateWidgets) to deterministically
+     * generate/repair/validate WBP_MF_MatchInfo.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
     static FString GetWidgetSpec();

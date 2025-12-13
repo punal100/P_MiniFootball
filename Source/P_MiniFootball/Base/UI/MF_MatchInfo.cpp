@@ -18,10 +18,10 @@ FString UMF_MatchInfo::GetWidgetSpec()
     "Category": "MF|UI|HUD",
     "Description": "Match score and timer display panel",
     "Version": "1.0.0",
-    
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 600, "Height": 200},
-        "ZoomLevel": "1:1",
+
+    "DesignerPreview": {
+        "SizeMode": "DesiredOnScreen",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     

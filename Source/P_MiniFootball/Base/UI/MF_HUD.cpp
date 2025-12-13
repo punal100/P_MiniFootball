@@ -42,9 +42,9 @@ FString UMF_HUD::GetWidgetSpec()
     "Version": "1.0.0",
     "IsMasterWidget": true,
 
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 1920, "Height": 1080},
-        "ZoomLevel": "1:4",
+    "DesignerPreview": {
+        "SizeMode": "FillScreen",
+        "ZoomLevel": 10,
         "ShowGrid": true
     },
 

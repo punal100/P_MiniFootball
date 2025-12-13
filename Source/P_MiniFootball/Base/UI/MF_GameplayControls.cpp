@@ -22,10 +22,10 @@ FString UMF_GameplayControls::GetWidgetSpec()
     "Category": "MF|UI|HUD",
     "Description": "Touch controls container with joystick and action buttons",
     "Version": "1.0.0",
-    
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 1280, "Height": 720},
-        "ZoomLevel": "1:4",
+
+    "DesignerPreview": {
+        "SizeMode": "FillScreen",
+        "ZoomLevel": 10,
         "ShowGrid": true
     },
     

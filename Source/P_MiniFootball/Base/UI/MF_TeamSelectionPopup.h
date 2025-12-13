@@ -16,7 +16,7 @@ class UMF_TeamPanel;
 class UTextBlock;
 class UButton;
 class UCanvasPanel;
-class UOverlay;
+class UImage;
 class AMF_PlayerController;
 class AMF_GameState;
 
@@ -103,7 +103,7 @@ protected:
 
     /** Background overlay for modal effect */
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "MF|Components")
-    TObjectPtr<UOverlay> BackgroundOverlay;
+    TObjectPtr<UImage> BackgroundOverlay;
 
     /** Status text showing join result or errors */
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "MF|Components")
@@ -117,7 +117,8 @@ public:
     // ==================== Widget Specification (JSON) ====================
     /**
      * Self-describing JSON specification for automated Widget Blueprint creation.
-     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_TeamSelectionPopup.
+     * Consumed by P_MWCS (MWCS_CreateWidgets / MWCS_ValidateWidgets) to deterministically
+     * generate/repair/validate WBP_MF_TeamSelectionPopup.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
     static FString GetWidgetSpec();

@@ -79,6 +79,7 @@ A gameplay plugin for Unreal Engine 5.5 implementing a fast-paced arcade-style m
 
 - Unreal Engine 5.5+
 - P_MEIS Plugin (Modular Enhanced Input System)
+- P_MWCS Plugin (Modular Widget Creation System) for editor-time Widget Blueprint generation/validation (editor-only)
 
 ---
 
@@ -105,9 +106,6 @@ P_MiniFootball/
 ├── UI_WIDGETS.md              # UI widget binding reference & visual specs
 ├── Resources/
 │   └── Icon128.png            # Plugin icon
-├── Scripts/
-│   ├── MF_WidgetBlueprintCreator.py  # Automated WBP creation from JSON specs
-│   └── EDITOR_UTILITY_WIDGET_GUIDE.md # EUW setup instructions
 └── Source/
     └── P_MiniFootball/
         ├── P_MiniFootball.Build.cs    # Module build configuration
@@ -255,9 +253,24 @@ FOnSpectatorStateChanged OnSpectatorStateChanged;
 
 ## 🎨 UI Widget System (Phase 10)
 
-The plugin includes a complete C++ UI widget system for HUD, spectator controls, team selection, and gameplay controls. All widgets are designed as C++ `UUserWidget` base classes that can be extended in Blueprint.
+The plugin includes a complete C++ UI widget system for HUD, spectator controls, team selection, and gameplay controls.
 
-**Each widget class is self-describing** — containing embedded JSON specifications that define hierarchy, bindings, layout, and design rules.
+All widgets are designed as C++ `UUserWidget`-derived base classes that can be extended in Blueprint.
+
+**Each widget class is self-describing** — it contains embedded JSON returned by `static FString GetWidgetSpec()`.
+That JSON is consumed by **P_MWCS** to deterministically generate/repair/validate the matching Widget Blueprint assets (`WBP_MF_*`).
+
+Read the full workflow + binding reference in **UI_WIDGETS.md**.
+
+### Recommended (CI-safe) generation workflow
+
+Run these commandlets headlessly (example paths):
+
+```bat
+Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Projects\UE\A_MiniFootball\A_MiniFootball.uproject" -run=MWCS_CreateWidgets -Mode=ForceRecreate -FailOnErrors -FailOnWarnings -unattended -nop4 -NullRHI -stdout -FullStdOutLogOutput
+
+Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Projects\UE\A_MiniFootball\A_MiniFootball.uproject" -run=MWCS_ValidateWidgets -FailOnErrors -FailOnWarnings -unattended -nop4 -NullRHI -stdout -FullStdOutLogOutput
+```
 
 ### Widget Architecture
 
@@ -306,188 +319,64 @@ UMF_HUD (Main Container)
 
 ## 🧬 Self-Describing Widget System (JSON Specifications)
 
-Each UMF widget class contains an embedded **JSON specification** accessible via `GetWidgetSpec()`. This makes widgets self-documenting and enables automated Widget Blueprint creation.
+Each `UMF_*` widget class contains an embedded **JSON specification** accessible via `static FString GetWidgetSpec()`.
 
-> Note: `GetWidgetSpec()` is exposed via `UFUNCTION` and should return **by value** (`FString`), not `const FString&`, for reflection compatibility (Blueprint/Python).
+That JSON is the single source of truth used by **P_MWCS** to deterministically generate/repair/validate the corresponding Widget Blueprint assets (`WBP_MF_*`).
 
-### Key Benefits
+> Note: `GetWidgetSpec()` is exposed via `UFUNCTION` and should return **by value** (`FString`), not `const FString&`, for reflection compatibility.
 
-| Feature                    | Description                                         |
-| -------------------------- | --------------------------------------------------- |
-| **Self-Documentation**     | Widget structure defined alongside C++ code         |
-| **Automated WBP Creation** | Python script reads JSON to build Widget Blueprints |
-| **Single Source of Truth** | No duplicate definitions in Python or documentation |
-| **Designer-Friendly**      | Clear binding contracts visible in code             |
-| **Dependency Management**  | Build order automatically resolved from JSON        |
+### Key benefits
 
-### JSON Specification Contents
+| Feature                    | Description                                                            |
+| -------------------------- | ---------------------------------------------------------------------- |
+| **Single source of truth** | Structure + bindings live with the owning C++ widget class             |
+| **Deterministic builds**   | MWCS rebuilds the `WidgetTree` in a stable way (ideal for CI)          |
+| **No Python**              | Automation and validation are implemented in C++ (editor-only tooling) |
+| **Strict CI support**      | Commandlets can fail on warnings (`-FailOnWarnings`)                   |
+| **Nested widgets**         | Specs support `Type: "UserWidget"` with `WidgetClass` for composition  |
 
-Each widget's JSON includes:
+### JSON specification contents (high level)
 
-- **WidgetClass** — C++ class name
-- **BlueprintName** — Target WBP asset name (e.g., `WBP_MF_ActionButton`)
-- **ParentClass** — Full path to C++ parent class
-- **DesignerToolbar** — Size mode, dimensions for UMG Designer
-- **Hierarchy** — Complete widget tree structure
-- **Bindings** — Required and optional widget bindings
-- **Design** — Colors, fonts, styles per widget
-- **Delegates** — Events exposed to Blueprint
-- **Dependencies** — Other WBPs required before this one
-- **PythonSnippets** — Code examples for automation
+Each widget spec typically includes:
 
-### Accessing Widget Specs
+- **BlueprintName** — target WBP name (example: `WBP_MF_ActionButton`)
+- **ParentClass** — full path to the C++ parent class
+- **DesignerPreview** — preview sizing metadata (replaces legacy `DesignerToolbar`)
+- **Hierarchy** — widget tree definition
+- **Bindings** — required vs optional BindWidget names (name + expected type)
 
-```cpp
-// C++ - Get JSON spec from any UMF widget class
-FString JsonSpec = UMF_ActionButton::GetWidgetSpec();
-FString HudSpec = UMF_HUD::GetWidgetSpec();
-
-// The JSON can be parsed to get widget structure
-// Useful for tooling, validation, and automation
-```
-
-```python
-# Python (UE5 Editor) - Read spec for automation
-import unreal
-import json
-
-# Get spec from widget class CDO
-action_btn_cdo = unreal.get_default_object(unreal.MF_ActionButton)
-json_str = unreal.MF_ActionButton.get_widget_spec()
-spec = json.loads(json_str)
-
-print(spec["BlueprintName"])  # "WBP_MF_ActionButton"
-print(spec["Bindings"]["Required"])  # ["ActionButton"]
-```
-
-### Example: UMF_ActionButton JSON Spec
+### Example (trimmed)
 
 ```json
 {
-  "WidgetClass": "UMF_ActionButton",
   "BlueprintName": "WBP_MF_ActionButton",
   "ParentClass": "/Script/P_MiniFootball.MF_ActionButton",
-  "Category": "MF|UI|Controls",
-  "Description": "Context-sensitive action button for Shoot/Pass/Tackle",
-
-  "DesignerToolbar": {
-    "DesiredSize": { "Width": 120, "Height": 120 }
-  },
-
-  "Hierarchy": {
-    "Root": { "Type": "CanvasPanel", "Name": "RootPanel" },
-    "Children": [
-      {
-        "Name": "ActionButton",
-        "Type": "Button",
-        "BindingType": "Required",
-        "Slot": {
-          "Anchors": { "Min": [0, 0], "Max": [1, 1] },
-          "Offsets": { "Left": 0, "Top": 0, "Right": 0, "Bottom": 0 }
-        }
-      },
-      {
-        "Name": "ActionIcon",
-        "Type": "Image",
-        "BindingType": "Optional"
-      },
-      {
-        "Name": "ActionText",
-        "Type": "TextBlock",
-        "BindingType": "Optional"
-      }
-    ]
-  },
-
+  "DesignerPreview": { "SizeMode": "Desired" },
   "Bindings": {
-    "Required": ["ActionButton"],
-    "Optional": ["ActionIcon", "ActionText"]
+    "Required": { "ActionButton": "Button" },
+    "Optional": { "ActionIcon": "Image", "ActionText": "TextBlock" }
   },
-
-  "Delegates": [
-    { "Name": "OnActionPressed", "Type": "FOnButtonClickedEvent" },
-    { "Name": "OnActionReleased", "Type": "FOnButtonReleasedEvent" }
-  ],
-
-  "Dependencies": {
-    "RequiredWidgets": [],
-    "OptionalWidgets": []
+  "Hierarchy": {
+    "Type": "CanvasPanel",
+    "Name": "Root",
+    "Children": [
+      { "Type": "Button", "Name": "ActionButton" },
+      { "Type": "Image", "Name": "ActionIcon" },
+      { "Type": "TextBlock", "Name": "ActionText" }
+    ]
   }
 }
 ```
 
-### Widget Build Order
+### Generating / validating the Widget Blueprints
 
-The `UMF_HUD::GetWidgetSpec()` contains the complete build order for all widgets:
+Use MWCS commandlets (recommended for CI):
 
-1. `WBP_MF_ActionButton` — No dependencies
-2. `WBP_MF_VirtualJoystick` — No dependencies
-3. `WBP_MF_SprintButton` — No dependencies
-4. `WBP_MF_MatchInfo` — No dependencies
-5. `WBP_MF_TeamIndicator` — No dependencies
-6. `WBP_MF_TransitionOverlay` — No dependencies
-7. `WBP_MF_QuickTeamPanel` — No dependencies
-8. `WBP_MF_TeamPanel` — No dependencies
-9. `WBP_MF_SpectatorControls` — Requires QuickTeamPanel
-10. `WBP_MF_GameplayControls` — Requires VirtualJoystick, ActionButton, SprintButton
-11. `WBP_MF_TeamSelectionPopup` — Requires TeamPanel
-12. `WBP_MF_PauseMenu` — No dependencies
-13. `WBP_MF_HUD` — Requires all above (master widget)
+```bat
+Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Projects\UE\A_MiniFootball\A_MiniFootball.uproject" -run=MWCS_CreateWidgets -Mode=ForceRecreate -FailOnErrors -FailOnWarnings -unattended -nop4 -NullRHI -stdout -FullStdOutLogOutput
 
-### Automated WBP Creation
-
-A Python script (`Scripts/MF_WidgetBlueprintCreator.py`) reads these JSON specs to:
-
-- Create Widget Blueprints with correct parent classes
-- Build widget hierarchies automatically
-- Apply layout rules (anchors, positions, sizes)
-- Apply theme colors and fonts
-- Validate required bindings
-- Generate binding documentation
-
-#### Option 1: Editor Utility Widget (Recommended)
-
-Create a visual tool with buttons to run the script:
-
-1. Create **Editor Utility Widget** in Content Browser
-2. Add buttons for each action (Preview, Create, Validate)
-3. Use **Execute Python Script** node with commands below
-4. Run via right-click → "Run Editor Utility Widget"
-
-> **📖 Setup Guide:** See [Scripts/EDITOR_UTILITY_WIDGET_GUIDE.md](./Scripts/EDITOR_UTILITY_WIDGET_GUIDE.md) for step-by-step EUW creation.
-
-You can also auto-create/repair the EUW **asset shell** (correct C++ parent) via:
-
-> Note: the script does not generate or inspect the EUW designer widget tree. Build the EUW UI layout manually using the guide.
-
-```python
-exec(open("D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read()); MF_WBP.run_create_euw()
+Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Projects\UE\A_MiniFootball\A_MiniFootball.uproject" -run=MWCS_ValidateWidgets -FailOnErrors -FailOnWarnings -unattended -nop4 -NullRHI -stdout -FullStdOutLogOutput
 ```
-
-#### Option 2: Python Console
-
-```python
-# Run in UE5 Python console (Output Log → switch to Python mode)
-exec(open("D:/Projects/UE/A_MiniFootball/Plugins/P_MiniFootball/Scripts/MF_WidgetBlueprintCreator.py").read())
-
-# The script defines an `MF_WBP` module alias for convenience in the same console session.
-
-# Quick functions via the MF_WBP alias (EUW-friendly helpers):
-MF_WBP.run_dry()            # Preview what would happen
-MF_WBP.run_create()         # Create missing widgets
-MF_WBP.run_create_euw()     # Create/repair the EUW tool asset
-run_only_euw()              # Create ONLY the EUW (skip all WBPs)
-MF_WBP.run_validate()       # Validate existing widgets
-MF_WBP.run_force_recreate() # Recreate all widgets (CAUTION!)
-print(MF_WBP.get_status_text())  # Optional status dump for EUW
-
-# Diagnostic functions (for troubleshooting widget tree/binding issues):
-diagnose_all_mf_widgets()   # Check all MF widgets for issues
-diagnose_widget_blueprint("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD")
-diagnose_missing_bindings("/P_MiniFootball/BP/Widget/Components/WBP_MF_HUD", "/Script/P_MiniFootball.MF_HUD")
-```
-
-> **📖 Automation Documentation:** See [PLAN_WBP_SCRIPT.md](../../PLAN_WBP_SCRIPT.md) for complete automation system documentation.
 
 ---
 

@@ -1,6 +1,8 @@
 # P_MiniFootball - UI Widget System Documentation
 
-Complete documentation for the C++ UI widget system including binding reference, visual design specifications, and step-by-step Widget Blueprint creation guide.
+Complete documentation for the C++ UI widget system including binding reference, visual design specifications, and a MWCS-driven Widget Blueprint creation/repair/validation workflow.
+
+This project uses **P_MWCS** (Modular Widget Creation System) as the **spec-driven** and **deterministic** source of truth for generating/repairing Widget Blueprints from the JSON returned by each C++ widget’s `GetWidgetSpec()`.
 
 ---
 
@@ -145,306 +147,55 @@ Each widget has **REQUIRED** bindings (⚠️) that MUST exist and **OPTIONAL** 
 
 ---
 
-## 🚀 Step-by-Step: Creating WBP_MF_HUD
+## 🚀 MWCS Workflow (Recommended)
 
-Follow these steps in order to avoid binding errors:
+Use this workflow to **Create Missing**, **Repair**, and **Validate** UI Widget Blueprints from C++ specs (no Python).
 
-### Phase 1: Create Base Widgets (No Dependencies)
+### 1) Enable + Configure MWCS
 
-#### 1.1 Create WBP_MF_MatchInfo
+1. Enable the plugin: **P_MWCS**.
+2. Open **Project Settings → MWCS**.
+3. Add the C++ widget classes (or other configured spec providers) that expose `static FString GetWidgetSpec()` to the allowlist.
 
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 800 px |
-| **Height** | 80 px |
+Recommended baseline allowlist for the MiniFootball UI set:
 
-1. Content Browser → Right-click → User Interface → Widget Blueprint
-2. Parent Class: Search for `MF_MatchInfo` (or `UMF_MatchInfo`)
-3. Name: `WBP_MF_MatchInfo`
-4. **Set Toolbar:** Custom, 800 x 80
-5. Open Designer, add these widgets:
+- `/Script/P_MiniFootball.MF_MatchInfo`
+- `/Script/P_MiniFootball.MF_TeamIndicator`
+- `/Script/P_MiniFootball.MF_TransitionOverlay`
+- `/Script/P_MiniFootball.MF_VirtualJoystick`
+- `/Script/P_MiniFootball.MF_ActionButton`
+- `/Script/P_MiniFootball.MF_SprintButton`
+- `/Script/P_MiniFootball.MF_TeamPanel`
+- `/Script/P_MiniFootball.MF_QuickTeamPanel`
+- `/Script/P_MiniFootball.MF_ScorePopup`
+- `/Script/P_MiniFootball.MF_SpectatorControls`
+- `/Script/P_MiniFootball.MF_GameplayControls`
+- `/Script/P_MiniFootball.MF_TeamSelectionPopup`
+- `/Script/P_MiniFootball.MF_PauseMenu`
+- `/Script/P_MiniFootball.MF_HUD`
 
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-├── [TextBlock] Name: "TeamAScoreText"    ← REQUIRED
-├── [TextBlock] Name: "TeamBScoreText"    ← REQUIRED
-└── [TextBlock] Name: "MatchTimerText"    ← REQUIRED
-```
+4. Set **OutputRootPath** to where you want `WBP_MF_*` assets created.
 
-5. **IMPORTANT**: For each TextBlock, check "Is Variable" in Details panel
-6. Compile & Save
+### 2) Generate / Repair / Validate
 
-#### 1.2 Create WBP_MF_TeamIndicator
+1. Open: **Tools → MWCS → Open Widget Creation System**.
+2. Run **Create Missing** (first time) or **Repair** (for existing assets).
+3. Run **Validate** and review the report/log output.
 
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 180 px |
-| **Height** | 40 px |
+Notes:
 
-1. Create Widget Blueprint with parent `MF_TeamIndicator`
-2. Name: `WBP_MF_TeamIndicator`
-3. **Set Toolbar:** Custom, 180 x 40
-4. Add:
+- MWCS focuses on deterministic **structure + binding variables**. Layout/styling fields in specs may be ignored depending on widget type support; use the Designer to finalize visuals as needed.
+- Some widgets include nested widgets ("UserWidget") in their hierarchy. MWCS will best-effort resolve them via binding type metadata.
 
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-└── [TextBlock] Name: "TeamText"          ← REQUIRED
-```
+---
 
-#### 1.3 Create WBP_MF_TransitionOverlay
+## 🧰 Troubleshooting (Bindings)
 
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Fill Screen |
+The manual, step-by-step creation process is deprecated. Generate/repair these widgets via MWCS so the names/types and `Is Variable` flags match what the C++ class expects.
 
-1. Create Widget Blueprint with parent `MF_TransitionOverlay`
-2. Name: `WBP_MF_TransitionOverlay`
-3. **Set Toolbar:** Fill Screen (or Custom with large size like 1920x1080)
-4. Add:
+If `MWCS_ValidateWidgets` reports a binding issue, it almost always means the blueprint was edited manually after generation, or an older widget tree/member variable is still present.
 
-```
-[Canvas Panel] ← Root (fills screen)
-└── [TextBlock] Name: "StatusText"        ← REQUIRED (Centered)
-```
-
-#### 1.4 Create WBP_MF_VirtualJoystick
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 200 px |
-| **Height** | 200 px |
-
-1. Create Widget Blueprint with parent `MF_VirtualJoystick`
-2. Name: `WBP_MF_VirtualJoystick`
-3. **Set Toolbar:** Custom, 200 x 200
-4. Add:
-
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-├── [Image] Name: "JoystickBase"          ← REQUIRED (fill parent or 200x200)
-└── [Image] Name: "JoystickThumb"         ← REQUIRED (80x80, Centered)
-```
-
-#### 1.5 Create WBP_MF_ActionButton
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 120 px |
-| **Height** | 120 px |
-
-1. Create Widget Blueprint with parent `MF_ActionButton`
-2. Name: `WBP_MF_ActionButton`
-3. **Set Toolbar:** Custom, 120 x 120
-4. Add:
-
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-└── [Button] Name: "ActionButton"         ← REQUIRED (fill parent or 120x120)
-```
-
-#### 1.6 Create WBP_MF_SprintButton
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 80 px |
-| **Height** | 80 px |
-
-1. Create Widget Blueprint with parent `MF_SprintButton`
-2. Name: `WBP_MF_SprintButton`
-3. **Set Toolbar:** Custom, 80 x 80
-4. Add:
-
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-└── [Button] Name: "SprintButton"         ← REQUIRED (fill parent or 80x80)
-```
-
-#### 1.7 Create WBP_MF_TeamPanel
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 280 px |
-| **Height** | 350 px |
-
-1. Create Widget Blueprint with parent `MF_TeamPanel`
-2. Name: `WBP_MF_TeamPanel`
-3. **Set Toolbar:** Custom, 280 x 350
-4. Add:
-
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-└── [Vertical Box]
-    ├── [TextBlock] Name: "TeamNameText"      ← REQUIRED
-    ├── [TextBlock] Name: "PlayerCountText"   ← REQUIRED
-    ├── [Vertical Box] Name: "PlayerListBox"  ← REQUIRED
-    └── [Button] Name: "JoinButton"           ← REQUIRED (Fill x 50)
-```
-
-#### 1.8 Create WBP_MF_QuickTeamPanel
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Custom |
-| **Width** | 220 px |
-| **Height** | 50 px |
-
-1. Create Widget Blueprint with parent `MF_QuickTeamPanel`
-2. Name: `WBP_MF_QuickTeamPanel`
-3. **Set Toolbar:** Custom, 220 x 50
-4. Add:
-
-```
-[Canvas Panel] ← Root (uses WBP size from toolbar)
-└── [Horizontal Box]
-    ├── [TextBlock] Name: "TeamNameText"      ← REQUIRED
-    ├── [TextBlock] Name: "PlayerCountText"   ← REQUIRED
-    └── [Button] Name: "QuickJoinButton"      ← REQUIRED (60x30)
-```
-
-### Phase 2: Create Container Widgets
-
-#### 2.1 Create WBP_MF_SpectatorControls
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Fill Screen |
-
-1. Create Widget Blueprint with parent `MF_SpectatorControls`
-2. Name: `WBP_MF_SpectatorControls`
-3. **Set Toolbar:** Fill Screen
-4. **All bindings are optional!** Just add a root Canvas Panel:
-
-```
-[Canvas Panel] ← Root (fills screen)
-└── (Your layout - optional widgets)
-```
-
-#### 2.2 Create WBP_MF_GameplayControls
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Fill Screen |
-
-1. Create Widget Blueprint with parent `MF_GameplayControls`
-2. Name: `WBP_MF_GameplayControls`
-3. **Set Toolbar:** Fill Screen
-4. Add:
-
-```
-[Canvas Panel] ← Root (fills screen)
-├── [WBP_MF_VirtualJoystick] Name: "MovementJoystick"  ← REQUIRED
-│   └── Slot: Anchors Bottom-Left (0,1), Position X:40 Y:-240
-└── [WBP_MF_ActionButton] Name: "ActionButton"        ← REQUIRED
-    └── Slot: Anchors Bottom-Right (1,1), Position X:-160 Y:-160
-```
-
-**How to add custom widget:**
-
-- In Palette, search for `WBP_MF_VirtualJoystick`
-- Drag it into the hierarchy
-- Rename it to exactly `MovementJoystick`
-- Check "Is Variable"
-
-#### 2.3 Create WBP_MF_TeamSelectionPopup
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Fill Screen |
-
-1. Create Widget Blueprint with parent `MF_TeamSelectionPopup`
-2. Name: `WBP_MF_TeamSelectionPopup`
-3. **Set Toolbar:** Fill Screen
-4. Add:
-
-```
-[Canvas Panel] ← Root (fills screen, acts as darkened background)
-└── [Border] ← Dialog box (650x500)
-    └── Slot: Anchors Center (0.5, 0.5), Alignment (0.5, 0.5)
-    └── Children:
-        ├── [WBP_MF_TeamPanel] Name: "TeamAPanel"  ← REQUIRED
-        ├── [WBP_MF_TeamPanel] Name: "TeamBPanel"  ← REQUIRED
-        └── [Button] Name: "CloseButton"           ← REQUIRED (40x40)
-```
-
-#### 2.4 Create WBP_MF_PauseMenu
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Fill Screen |
-
-1. Create Widget Blueprint with parent `MF_PauseMenu`
-2. Name: `WBP_MF_PauseMenu`
-3. **Set Toolbar:** Fill Screen
-4. Add:
-
-```
-[Canvas Panel] ← Root (fills screen, acts as darkened background)
-└── [Border] ← Menu box (300x400)
-    └── Slot: Anchors Center (0.5, 0.5), Alignment (0.5, 0.5)
-    └── [Vertical Box]
-        ├── [Button] Name: "ResumeButton"          ← REQUIRED (Fill x 50)
-        ├── [Button] Name: "LeaveTeamButton"       ← REQUIRED (Fill x 50)
-        └── [Button] Name: "QuitButton"            ← REQUIRED (Fill x 50)
-```
-
-### Phase 3: Create Main HUD
-
-#### 3.1 Create WBP_MF_HUD
-
-**Designer Toolbar Settings:**
-| Setting | Value |
-| ------------- | ----------- |
-| **Size Mode** | Fill Screen |
-
-1. Create Widget Blueprint with parent `MF_HUD`
-2. Name: `WBP_MF_HUD`
-3. **Set Toolbar:** Fill Screen
-4. Add all REQUIRED widgets to the Canvas Panel:
-
-```
-[Canvas Panel] ← Root (fills screen)
-│
-├── [WBP_MF_MatchInfo] Name: "MatchInfo"              ← REQUIRED
-│   └── Slot: Anchors Top-Center (0.5, 0), Position Y:20, Alignment (0.5, 0)
-│
-├── [WBP_MF_TeamIndicator] Name: "TeamIndicator"      ← REQUIRED
-│   └── Slot: Anchors Top-Left (0, 0), Position X:20 Y:110
-│
-├── [Widget Switcher] Name: "ModeSwitcher"            ← REQUIRED
-│   └── Slot: Anchors Stretch (0,0)→(1,1), Offsets: All 0
-│   └── Children:
-│       ├── [WBP_MF_SpectatorControls] Name: "SpectatorControls"  ← REQUIRED
-│       └── [WBP_MF_GameplayControls] Name: "GameplayControls"    ← REQUIRED
-```
-
-> **Note:** The Anchors/Position are set in each child's **Slot (Canvas Panel Slot)** in the Details Panel, NOT in the WBP itself.
-
-**Widget Switcher Setup:**
-
-1. Drag a `Widget Switcher` from Palette
-2. Rename to `ModeSwitcher`, check "Is Variable"
-3. Add `WBP_MF_SpectatorControls` as child, rename to `SpectatorControls`
-4. Add `WBP_MF_GameplayControls` as child, rename to `GameplayControls`
-
-### Common Binding Errors & Fixes
+### Common binding errors & fixes
 
 | Error               | Cause                   | Fix                                               |
 | ------------------- | ----------------------- | ------------------------------------------------- |
@@ -499,20 +250,20 @@ Roboto Font Family (UE5 Default):
 
 ### Widget Sizing Reference
 
-#### ⚠️ IMPORTANT: Two Different Size Concepts in UE5
+#### ⚠️ IMPORTANT: Two different size concepts in UE5
 
 There are **TWO SEPARATE** places where size is configured:
 
-| Concept                  | Where to Set                                 | What It Controls                                  |
-| ------------------------ | -------------------------------------------- | ------------------------------------------------- |
-| **1. WBP Root Size**     | Designer **Toolbar** (top of Designer)       | The design-time size of this WBP's canvas         |
-| **2. Child Widget Slot** | Details Panel → **Slot (Canvas Panel Slot)** | Position/anchors of widgets INSIDE a Canvas Panel |
+| Concept                  | Where to Set                                         | What It Controls                                  |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------- |
+| **1. WBP preview size**  | Designer **preview controls** (screen-size dropdown) | The design-time size of this WBP's canvas         |
+| **2. Child Widget Slot** | Details Panel → **Slot (Canvas Panel Slot)**         | Position/anchors of widgets INSIDE a Canvas Panel |
 
 ---
 
-#### 1️⃣ WBP Root Size (Designer Toolbar)
+#### 1️⃣ WBP preview size (Designer preview controls)
 
-When you open a Widget Blueprint, the **toolbar at the top** of the Designer shows:
+When you open a Widget Blueprint, the preview controls at the top of the Designer show:
 
 ```
 [ Screen Size ▼ ] [ Custom ▼ ] [ Width: 800 ] [ Height: 80 ]
@@ -525,7 +276,7 @@ When you open a Widget Blueprint, the **toolbar at the top** of the Designer sho
 | **Fill Screen** | WBP matches the selected Screen Size preset        |
 | **Screen Size** | Dropdown with common resolutions (1920×1080, etc.) |
 
-**This sets the design canvas size for your WBP** - it does NOT have anchors because it's the root widget.
+This sets the design canvas size for your WBP. It does NOT have anchors because it's the root widget.
 
 ---
 
@@ -565,9 +316,9 @@ When you place a widget **INSIDE a Canvas Panel**, that widget gets a **Slot** w
 
 ### 📊 Widget Configuration Summary
 
-#### WBP Root Design Size (Set in Designer Toolbar)
+#### WBP preview size (set in the Designer preview controls)
 
-| Widget Blueprint            | Toolbar Setting | Width  | Height | Notes                     |
+| Widget Blueprint            | Preview setting | Width  | Height | Notes                     |
 | --------------------------- | --------------- | ------ | ------ | ------------------------- |
 | `WBP_MF_HUD`                | **Fill Screen** | (auto) | (auto) | Main HUD, fills viewport  |
 | `WBP_MF_MatchInfo`          | **Custom**      | 800 px | 80 px  | Fixed-size info bar       |

@@ -21,10 +21,10 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
     "Category": "MF|UI|Team",
     "Description": "Compact quick-join team panel for spectator mode",
     "Version": "1.0.0",
-    
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 200, "Height": 150},
-        "ZoomLevel": "1:1",
+
+    "DesignerPreview": {
+        "SizeMode": "Desired",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     

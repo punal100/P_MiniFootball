@@ -66,10 +66,11 @@ FString UMF_ScorePopup::GetWidgetSpec()
     "Category": "MF|UI|Popups",
     "Description": "Transient goal score notification popup.",
     "Version": "1.0.0",
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 320, "Height": 220},
-        "SizeMode": "Custom",
-        "ZoomLevel": "1:1"
+
+    "DesignerPreview": {
+        "SizeMode": "Desired",
+        "ZoomLevel": 14,
+        "ShowGrid": true
     },
     "Hierarchy": {
         "Root": {
@@ -113,11 +114,11 @@ FString UMF_ScorePopup::GetWidgetSpec()
         }
     },
     "Bindings": {
-        "required": [],
-        "optional": [
-            {"name": "ScoreText", "type": "UTextBlock", "purpose": "Primary score display"},
-            {"name": "ScorerNameText", "type": "UTextBlock", "purpose": "Scorer name"},
-            {"name": "BackgroundImage", "type": "UImage", "purpose": "Decorative backdrop"}
+        "Required": [],
+        "Optional": [
+            {"Name": "ScoreText", "Type": "UTextBlock", "Purpose": "Primary score display"},
+            {"Name": "ScorerNameText", "Type": "UTextBlock", "Purpose": "Scorer name"},
+            {"Name": "BackgroundImage", "Type": "UImage", "Purpose": "Decorative backdrop"}
         ]
     },
     "Design": {

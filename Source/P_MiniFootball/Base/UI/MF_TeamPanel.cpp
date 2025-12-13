@@ -20,9 +20,9 @@ FString UMF_TeamPanel::GetWidgetSpec()
     "Description": "Full team selection panel with player list",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 350, "Height": 500},
-        "ZoomLevel": "1:1",
+    "DesignerPreview": {
+        "SizeMode": "DesiredOnScreen",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     
@@ -57,10 +57,10 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                     "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
                                 },
                                 {
-                                    "Type": "ScrollBox",
+                                    "Type": "VerticalBox",
                                     "Name": "PlayerListBox",
                                     "BindingType": "Required",
-                                    "Slot": {"FillHeight": 1.0}
+                                    "Slot": {"Fill": 1.0}
                                 },
                                 {
                                     "Type": "Button",
@@ -111,7 +111,7 @@ FString UMF_TeamPanel::GetWidgetSpec()
         "Required": [
             {"Name": "TeamNameText", "Type": "UTextBlock", "Purpose": "Team name header"},
             {"Name": "PlayerCountText", "Type": "UTextBlock", "Purpose": "Player count display"},
-            {"Name": "PlayerListBox", "Type": "UScrollBox", "Purpose": "Scrollable player list"},
+            {"Name": "PlayerListBox", "Type": "UVerticalBox", "Purpose": "Player list container"},
             {"Name": "JoinButton", "Type": "UButton", "Purpose": "Join team button"}
         ],
         "Optional": [

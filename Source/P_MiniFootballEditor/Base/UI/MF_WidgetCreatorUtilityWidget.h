@@ -23,8 +23,8 @@ public:
      * Return a JSON specification describing the recommended layout
      * and bindings for the Editor Utility Widget UI.
      *
-     * This is primarily for documentation and tooling; it is not
-     * consumed by the runtime MF_WidgetBlueprintCreator.py script.
+     * This is primarily for documentation and tooling. MWCS ships its own
+     * editor UI and does not require this EUW.
      */
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
     static FString GetWidgetSpec();

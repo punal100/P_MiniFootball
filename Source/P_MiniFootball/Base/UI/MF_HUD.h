@@ -188,7 +188,8 @@ public:
     // ==================== Widget Specification (JSON) ====================
     /**
      * Self-describing JSON specification for automated Widget Blueprint creation.
-     * Used by MF_WidgetBlueprintCreator.py to construct WBP_MF_HUD.
+     * Consumed by P_MWCS (MWCS_CreateWidgets / MWCS_ValidateWidgets) to deterministically
+     * generate/repair/validate WBP_MF_HUD.
      *
      * This is the MASTER HUD widget that contains all other MF widgets.
      * Dependencies must be created in order before creating this widget.

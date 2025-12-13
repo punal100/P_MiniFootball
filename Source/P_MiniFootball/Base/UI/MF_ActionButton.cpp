@@ -19,10 +19,10 @@ FString UMF_ActionButton::GetWidgetSpec()
     "Category": "MF|UI|Controls",
     "Description": "Touch-friendly action button with icon and text support",
     "Version": "1.0.0",
-    
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 400, "Height": 300},
-        "ZoomLevel": "1:1",
+
+    "DesignerPreview": {
+        "SizeMode": "Desired",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     

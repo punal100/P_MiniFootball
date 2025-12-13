@@ -5,13 +5,13 @@ static FString G_MF_EUW_WidgetCreatorSpec;
 static FString BuildMFWidgetCreatorSpec()
 {
   // JSON spec describing the recommended EUW_MF_WidgetCreator layout.
-  // This mirrors the layout documented in EDITOR_UTILITY_WIDGET_GUIDE.md.
+  // Legacy: this utility widget pre-dates P_MWCS.
   const TCHAR *Json = TEXT(R"JSON({
   "WidgetClass": "UMF_WidgetCreatorUtilityWidget",
   "BlueprintName": "EUW_MF_WidgetCreator",
   "ParentClass": "/Script/P_MiniFootballEditor.MF_WidgetCreatorUtilityWidget",
   "Category": "MF|Editor|UI",
-  "Description": "Editor Utility Widget for driving MF_WidgetBlueprintCreator.py",
+  "Description": "(Legacy) Editor Utility Widget layout spec (MWCS provides its own tools UI)",
 
   "Hierarchy": {
     "Root": { "Type": "CanvasPanel", "Name": "RootPanel" },

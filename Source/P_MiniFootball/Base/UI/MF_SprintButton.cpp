@@ -19,9 +19,9 @@ FString UMF_SprintButton::GetWidgetSpec()
     "Description": "Toggle button for sprint functionality",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 300, "Height": 200},
-        "ZoomLevel": "1:1",
+    "DesignerPreview": {
+        "SizeMode": "Desired",
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     

@@ -9,7 +9,7 @@
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 #include "Components/CanvasPanel.h"
-#include "Components/Overlay.h"
+#include "Components/Image.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
@@ -24,9 +24,9 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
     "Description": "Full team selection popup with detailed team panels",
     "Version": "1.0.0",
     
-    "DesignerToolbar": {
-        "DesiredSize": {"Width": 1000, "Height": 700},
-        "ZoomLevel": "1:2",
+    "DesignerPreview": {
+        "SizeMode": "FillScreen",
+        "ZoomLevel": 12,
         "ShowGrid": true
     },
     
