@@ -44,17 +44,17 @@ FString UMF_MatchInfo::GetWidgetSpec()
                             "Type": "VerticalBox",
                             "Name": "TeamABox",
                             "Children": [
-                                {"Type": "TextBlock", "Name": "TeamANameText", "BindingType": "Optional"},
-                                {"Type": "TextBlock", "Name": "TeamAScoreText", "BindingType": "Required"}
+                                {"Type": "TextBlock", "Name": "TeamANameText", "BindingType": "Optional", "Text": "TEAM A", "FontSize": 14, "Justification": "Center"},
+                                {"Type": "TextBlock", "Name": "TeamAScoreText", "BindingType": "Required", "Text": "0", "FontSize": 36, "Justification": "Center"}
                             ]
                         },
-                        {"Type": "TextBlock", "Name": "MatchTimerText", "BindingType": "Required"},
+                        {"Type": "TextBlock", "Name": "MatchTimerText", "BindingType": "Required", "Text": "00:00", "FontSize": 28, "Justification": "Center"},
                         {
                             "Type": "VerticalBox",
                             "Name": "TeamBBox",
                             "Children": [
-                                {"Type": "TextBlock", "Name": "TeamBNameText", "BindingType": "Optional"},
-                                {"Type": "TextBlock", "Name": "TeamBScoreText", "BindingType": "Required"}
+                                {"Type": "TextBlock", "Name": "TeamBNameText", "BindingType": "Optional", "Text": "TEAM B", "FontSize": 14, "Justification": "Center"},
+                                {"Type": "TextBlock", "Name": "TeamBScoreText", "BindingType": "Required", "Text": "0", "FontSize": 36, "Justification": "Center"}
                             ]
                         }
                     ]
@@ -63,6 +63,9 @@ FString UMF_MatchInfo::GetWidgetSpec()
                     "Type": "TextBlock",
                     "Name": "MatchPhaseText",
                     "BindingType": "Optional",
+                    "Text": "",
+                    "FontSize": 16,
+                    "Justification": "Center",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
                         "Position": {"X": 0, "Y": 95},

@@ -87,8 +87,14 @@ public:
     static FString GetWidgetSpec();
 
 private:
+    /** Refresh whether this button should behave as toggle based on the owning player's P_MEIS profile. */
+    void UpdateToggleModeFromProfile();
+
     /** Current sprint state */
     bool bIsSprinting = false;
+
+    /** If true, press toggles state and release does nothing. */
+    bool bUseToggleMode = false;
 
     /** Update visual state */
     void UpdateVisualState();

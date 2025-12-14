@@ -58,6 +58,9 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
                             "Type": "TextBlock",
                             "Name": "StatusText",
                             "BindingType": "Required",
+                            "Text": "LOADING...",
+                            "FontSize": 24,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center"}
                         }
                     ]

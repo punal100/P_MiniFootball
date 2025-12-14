@@ -100,12 +100,18 @@ FString UMF_ScorePopup::GetWidgetSpec()
                             "Type": "TextBlock",
                             "Name": "ScoreText",
                             "BindingType": "Optional",
+                            "Text": "GOAL!",
+                            "FontSize": 36,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center", "Padding": {"Bottom": 8}}
                         },
                         {
                             "Type": "TextBlock",
                             "Name": "ScorerNameText",
                             "BindingType": "Optional",
+                            "Text": "PLAYER",
+                            "FontSize": 20,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center"}
                         }
                     ]

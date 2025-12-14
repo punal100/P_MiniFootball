@@ -50,12 +50,18 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
                                     "Type": "TextBlock",
                                     "Name": "TeamNameText",
                                     "BindingType": "Required",
+                                    "Text": "TEAM",
+                                    "FontSize": 16,
+                                    "Justification": "Center",
                                     "Slot": {"HAlign": "Center"}
                                 },
                                 {
                                     "Type": "TextBlock",
                                     "Name": "PlayerCountText",
                                     "BindingType": "Required",
+                                    "Text": "0/3",
+                                    "FontSize": 12,
+                                    "Justification": "Center",
                                     "Slot": {"HAlign": "Center"}
                                 },
                                 {
@@ -72,7 +78,11 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
                                         {
                                             "Type": "TextBlock",
                                             "Name": "ShortcutHintText",
-                                            "BindingType": "Optional"
+                                            "BindingType": "Optional",
+                                            "Text": "JOIN",
+                                            "FontSize": 12,
+                                            "Justification": "Center",
+                                            "Slot": {"HAlign": "Center", "VAlign": "Center"}
                                         }
                                     ]
                                 }

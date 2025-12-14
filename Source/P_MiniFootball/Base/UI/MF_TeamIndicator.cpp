@@ -28,35 +28,28 @@ FString UMF_TeamIndicator::GetWidgetSpec()
     
     "Hierarchy": {
         "Root": {
-            "Type": "CanvasPanel",
-            "Name": "RootCanvas",
+            "Type": "Border",
+            "Name": "TeamColorBorder",
+            "BindingType": "Optional",
             "Children": [
                 {
-                    "Type": "Border",
-                    "Name": "TeamColorBorder",
-                    "BindingType": "Optional",
-                    "Slot": {
-                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
-                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
-                    },
+                    "Type": "HorizontalBox",
+                    "Name": "TeamContentBox",
                     "Children": [
                         {
-                            "Type": "HorizontalBox",
-                            "Name": "TeamContentBox",
-                            "Children": [
-                                {
-                                    "Type": "Image",
-                                    "Name": "TeamIcon",
-                                    "BindingType": "Optional",
-                                    "Slot": {"VAlign": "Center", "Padding": {"Right": 8}}
-                                },
-                                {
-                                    "Type": "TextBlock",
-                                    "Name": "TeamText",
-                                    "BindingType": "Required",
-                                    "Slot": {"VAlign": "Center"}
-                                }
-                            ]
+                            "Type": "Image",
+                            "Name": "TeamIcon",
+                            "BindingType": "Optional",
+                            "Slot": {"VAlign": "Center", "Padding": {"Right": 8}}
+                        },
+                        {
+                            "Type": "TextBlock",
+                            "Name": "TeamText",
+                            "BindingType": "Required",
+                            "Text": "SPECTATING",
+                            "FontSize": 18,
+                            "Justification": "Left",
+                            "Slot": {"VAlign": "Center"}
                         }
                     ]
                 }

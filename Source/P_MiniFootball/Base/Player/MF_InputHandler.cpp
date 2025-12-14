@@ -10,6 +10,36 @@
 #include "Integration/CPP_EnhancedInputIntegration.h"
 #include "InputBinding/FS_InputActionBinding.h"
 #include "InputBinding/FS_InputAxisBinding.h"
+#include "InputBinding/FS_InputProfile.h"
+
+namespace
+{
+    static FS_InputProfile *GetProfileRefForController(TWeakObjectPtr<APlayerController> OwningController)
+    {
+        if (!OwningController.IsValid())
+        {
+            return nullptr;
+        }
+
+        UCPP_InputBindingManager *Manager = GEngine->GetEngineSubsystem<UCPP_InputBindingManager>();
+        if (!Manager)
+        {
+            return nullptr;
+        }
+
+        return Manager->GetProfileRefForPlayer(OwningController.Get());
+    }
+
+    static bool IsToggleModeAction(const FS_InputProfile *Profile, const FName &ActionName)
+    {
+        return Profile && Profile->ToggleModeActions.Contains(ActionName);
+    }
+
+    static bool IsToggleActive(const FS_InputProfile *Profile, const FName &ActionName)
+    {
+        return Profile && Profile->bActiveActionToggles.Contains(ActionName);
+    }
+}
 
 UMF_InputHandler::UMF_InputHandler()
 {
@@ -271,6 +301,9 @@ void UMF_InputHandler::BindP_MEISEvents()
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandleSwitchPlayerAction);
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandlePauseAction);
 
+    // Started events for toggle/hold semantics that should not repeat every tick
+    Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandleSprintStarted);
+
     // Completed events for releasing inputs
     Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleMoveCompleted);
     Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleSprintCompleted);
@@ -349,6 +382,12 @@ void UMF_InputHandler::HandleSprintAction(FName ActionName, FInputActionValue Va
         return;
     }
 
+    // In toggle mode we ONLY respond to Started (one-shot). Triggered can fire continuously.
+    if (IsToggleModeAction(GetProfileRefForController(OwningController), ActionName))
+    {
+        return;
+    }
+
     bool bNewSprinting = Value.Get<bool>();
     if (bNewSprinting != bIsSprinting)
     {
@@ -357,9 +396,57 @@ void UMF_InputHandler::HandleSprintAction(FName ActionName, FInputActionValue Va
     }
 }
 
+void UMF_InputHandler::HandleSprintStarted(FName ActionName, FInputActionValue Value)
+{
+    if (ActionName != MF_InputActions::Sprint)
+    {
+        return;
+    }
+
+    FS_InputProfile *Profile = GetProfileRefForController(OwningController);
+    if (IsToggleModeAction(Profile, ActionName))
+    {
+        const bool bWasActive = IsToggleActive(Profile, ActionName);
+        const bool bNowActive = !bWasActive;
+
+        if (Profile)
+        {
+            if (bNowActive)
+            {
+                Profile->bActiveActionToggles.AddUnique(ActionName);
+            }
+            else
+            {
+                Profile->bActiveActionToggles.Remove(ActionName);
+            }
+        }
+
+        if (bIsSprinting != bNowActive)
+        {
+            bIsSprinting = bNowActive;
+            OnSprintInput.Broadcast(bIsSprinting);
+        }
+
+        return;
+    }
+
+    // Hold mode: Started indicates sprint is down.
+    if (!bIsSprinting)
+    {
+        bIsSprinting = true;
+        OnSprintInput.Broadcast(true);
+    }
+}
+
 void UMF_InputHandler::HandleSprintCompleted(FName ActionName, FInputActionValue Value)
 {
     if (ActionName != MF_InputActions::Sprint)
+    {
+        return;
+    }
+
+    // Toggle mode: release should not change sprint state.
+    if (IsToggleModeAction(GetProfileRefForController(OwningController), ActionName))
     {
         return;
     }

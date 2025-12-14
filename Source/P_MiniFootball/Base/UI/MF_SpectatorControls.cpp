@@ -46,12 +46,18 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                             "Type": "TextBlock",
                             "Name": "SpectatingLabel",
                             "BindingType": "Optional",
+                            "Text": "SPECTATING",
+                            "FontSize": 24,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center"}
                         },
                         {
                             "Type": "TextBlock",
                             "Name": "CameraModeText",
                             "BindingType": "Optional",
+                            "Text": "FREE CAMERA",
+                            "FontSize": 14,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center"}
                         }
                     ]
@@ -75,7 +81,17 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                         {
                             "Type": "Button",
                             "Name": "OpenTeamSelectButton",
-                            "BindingType": "Optional"
+                            "BindingType": "Optional",
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "OpenTeamSelectButtonLabel",
+                                    "Text": "TEAM SELECT",
+                                    "FontSize": 14,
+                                    "Justification": "Center",
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                }
+                            ]
                         },
                         {
                             "Type": "UserWidget",
@@ -90,6 +106,9 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                     "Type": "TextBlock",
                     "Name": "ControlHintsText",
                     "BindingType": "Optional",
+                    "Text": "[TAB] TEAM SELECT",
+                    "FontSize": 12,
+                    "Justification": "Center",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 1}, "Max": {"X": 0.5, "Y": 1}},
                         "Alignment": {"X": 0.5, "Y": 1},

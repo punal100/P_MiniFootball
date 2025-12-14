@@ -56,6 +56,9 @@ FString UMF_ActionButton::GetWidgetSpec()
                                     "Type": "TextBlock",
                                     "Name": "ActionText",
                                     "BindingType": "Optional",
+                                    "Text": "ACTION",
+                                    "FontSize": 14,
+                                    "Justification": "Center",
                                     "Slot": {"HAlign": "Center", "VAlign": "Bottom", "Padding": {"Bottom": 5}}
                                 }
                             ]

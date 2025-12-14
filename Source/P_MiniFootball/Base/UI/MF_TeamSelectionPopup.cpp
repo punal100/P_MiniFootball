@@ -61,8 +61,10 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                                     "Type": "HorizontalBox",
                                     "Name": "HeaderRow",
                                     "Children": [
-                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional"},
-                                        {"Type": "Button", "Name": "CloseButton", "BindingType": "Required"}
+                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Text": "SELECT TEAM", "FontSize": 28, "Justification": "Left", "Slot": {"Fill": 1.0, "VAlign": "Center"}},
+                                        {"Type": "Button", "Name": "CloseButton", "BindingType": "Required", "Slot": {"HAlign": "Right", "VAlign": "Center"}, "Children": [
+                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Text": "X", "FontSize": 18, "Justification": "Center", "Slot": {"HAlign": "Center", "VAlign": "Center"}}
+                                        ]}
                                     ]
                                 },
                                 {
@@ -88,8 +90,10 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                                     "Type": "HorizontalBox",
                                     "Name": "FooterRow",
                                     "Children": [
-                                        {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional"},
-                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional"}
+                                        {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional", "Children": [
+                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Text": "AUTO", "FontSize": 14, "Justification": "Center", "Slot": {"HAlign": "Center", "VAlign": "Center"}}
+                                        ]},
+                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional", "Text": "", "FontSize": 14, "Justification": "Left", "Slot": {"Fill": 1.0, "VAlign": "Center"}}
                                     ]
                                 }
                             ]

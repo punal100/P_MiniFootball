@@ -10,7 +10,9 @@
 #include "MF_SprintButton.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/Overlay.h"
+#include "Core/MF_Types.h"
 #include "Player/MF_PlayerController.h"
+#include "Manager/CPP_BPL_InputBinding.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 
 FString UMF_GameplayControls::GetWidgetSpec()
@@ -261,8 +263,7 @@ void UMF_GameplayControls::HandleJoystickMoved(FVector2D Direction)
     AMF_PlayerController *PC = GetMFPlayerController();
     if (PC)
     {
-        // Apply movement input through player controller
-        PC->ApplyMobileMovementInput(Direction);
+        UCPP_BPL_InputBinding::InjectAxis2D(PC, MF_InputActions::Move, Direction);
     }
 }
 
@@ -271,8 +272,7 @@ void UMF_GameplayControls::HandleJoystickReleased()
     AMF_PlayerController *PC = GetMFPlayerController();
     if (PC)
     {
-        // Zero out movement
-        PC->ApplyMobileMovementInput(FVector2D::ZeroVector);
+        UCPP_BPL_InputBinding::InjectAxis2D(PC, MF_InputActions::Move, FVector2D::ZeroVector);
     }
 }
 
@@ -286,7 +286,8 @@ void UMF_GameplayControls::HandleActionPressed()
     AMF_PlayerController *PC = GetMFPlayerController();
     if (PC)
     {
-        PC->OnMobileActionPressed();
+        UCPP_BPL_InputBinding::InjectActionStarted(PC, MF_InputActions::Action);
+        UCPP_BPL_InputBinding::InjectActionTriggered(PC, MF_InputActions::Action);
     }
 }
 
@@ -295,7 +296,7 @@ void UMF_GameplayControls::HandleActionReleased(float HoldDuration)
     AMF_PlayerController *PC = GetMFPlayerController();
     if (PC)
     {
-        PC->OnMobileActionReleased();
+        UCPP_BPL_InputBinding::InjectActionCompleted(PC, MF_InputActions::Action);
     }
 }
 
@@ -309,7 +310,15 @@ void UMF_GameplayControls::HandleSprintStateChanged(bool bSprinting)
     AMF_PlayerController *PC = GetMFPlayerController();
     if (PC)
     {
-        PC->SetMobileSprintState(bSprinting);
+        if (bSprinting)
+        {
+            UCPP_BPL_InputBinding::InjectActionStarted(PC, MF_InputActions::Sprint);
+            UCPP_BPL_InputBinding::InjectActionTriggered(PC, MF_InputActions::Sprint);
+        }
+        else
+        {
+            UCPP_BPL_InputBinding::InjectActionCompleted(PC, MF_InputActions::Sprint);
+        }
     }
 }
 

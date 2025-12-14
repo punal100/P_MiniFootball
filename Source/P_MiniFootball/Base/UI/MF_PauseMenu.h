@@ -18,6 +18,7 @@ class UVerticalBox;
 class UOverlay;
 class AMF_PlayerController;
 class AMF_GameState;
+class UMF_SettingsMenu;
 
 /** Delegate for when resume is clicked */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_OnResumeClicked);
@@ -116,6 +117,10 @@ protected:
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "MF|Components")
     TObjectPtr<UButton> SettingsButton;
 
+    /** Settings menu widget class (prefer WBP_MF_SettingsMenu) */
+    UPROPERTY(EditDefaultsOnly, Category = "MF|PauseMenu")
+    TSubclassOf<UMF_SettingsMenu> SettingsMenuClass;
+
     /** Quit to main menu button */
     UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "MF|Components")
     TObjectPtr<UButton> QuitButton;
@@ -157,6 +162,9 @@ private:
     void HandleSettingsClicked();
 
     UFUNCTION()
+    void HandleSettingsClosed();
+
+    UFUNCTION()
     void HandleQuitClicked();
 
     /** Updates leave team button visibility based on current team */
@@ -169,4 +177,7 @@ private:
     AMF_PlayerController *GetMFPlayerController() const;
     AMF_GameState *GetGameState() const;
     EMF_TeamID GetCurrentTeam() const;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UMF_SettingsMenu> SettingsMenu;
 };

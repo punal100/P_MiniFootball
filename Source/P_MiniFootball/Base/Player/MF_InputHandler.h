@@ -172,6 +172,9 @@ private:
     void HandleSprintAction(FName ActionName, FInputActionValue Value);
 
     UFUNCTION()
+    void HandleSprintStarted(FName ActionName, FInputActionValue Value);
+
+    UFUNCTION()
     void HandleSprintCompleted(FName ActionName, FInputActionValue Value);
 
     UFUNCTION()

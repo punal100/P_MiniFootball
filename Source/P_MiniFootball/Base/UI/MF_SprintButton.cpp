@@ -8,6 +8,8 @@
 #include "Components/Button.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
+#include "Core/MF_Types.h"
+#include "Manager/CPP_InputBindingManager.h"
 
 FString UMF_SprintButton::GetWidgetSpec()
 {
@@ -55,6 +57,9 @@ FString UMF_SprintButton::GetWidgetSpec()
                                     "Type": "TextBlock",
                                     "Name": "SprintText",
                                     "BindingType": "Optional",
+                                    "Text": "SPRINT",
+                                    "FontSize": 12,
+                                    "Justification": "Center",
                                     "Slot": {"HAlign": "Center", "VAlign": "Bottom"}
                                 }
                             ]
@@ -123,6 +128,8 @@ void UMF_SprintButton::NativeConstruct()
 {
     Super::NativeConstruct();
 
+    UpdateToggleModeFromProfile();
+
     // Bind button events
     if (SprintButton)
     {
@@ -148,6 +155,16 @@ void UMF_SprintButton::NativeDestruct()
 
 void UMF_SprintButton::HandleButtonPressed()
 {
+    UpdateToggleModeFromProfile();
+
+    if (bUseToggleMode)
+    {
+        bIsSprinting = !bIsSprinting;
+        UpdateVisualState();
+        OnSprintStateChanged.Broadcast(bIsSprinting);
+        return;
+    }
+
     if (!bIsSprinting)
     {
         bIsSprinting = true;
@@ -158,12 +175,45 @@ void UMF_SprintButton::HandleButtonPressed()
 
 void UMF_SprintButton::HandleButtonReleased()
 {
+    UpdateToggleModeFromProfile();
+
+    // Toggle mode: release does not change state.
+    if (bUseToggleMode)
+    {
+        return;
+    }
+
     if (bIsSprinting)
     {
         bIsSprinting = false;
         UpdateVisualState();
         OnSprintStateChanged.Broadcast(false);
     }
+}
+
+void UMF_SprintButton::UpdateToggleModeFromProfile()
+{
+    bUseToggleMode = false;
+
+    APlayerController *PC = GetOwningPlayer();
+    if (!PC)
+    {
+        return;
+    }
+
+    UCPP_InputBindingManager *Manager = GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
+    if (!Manager)
+    {
+        return;
+    }
+
+    FS_InputProfile *Profile = Manager->GetProfileRefForPlayer(PC);
+    if (!Profile)
+    {
+        return;
+    }
+
+    bUseToggleMode = Profile->ToggleModeActions.Contains(MF_InputActions::Sprint);
 }
 
 void UMF_SprintButton::UpdateVisualState()

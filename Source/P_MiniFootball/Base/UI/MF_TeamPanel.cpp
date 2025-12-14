@@ -48,12 +48,18 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                     "Type": "TextBlock",
                                     "Name": "TeamNameText",
                                     "BindingType": "Required",
+                                    "Text": "TEAM",
+                                    "FontSize": 24,
+                                    "Justification": "Center",
                                     "Slot": {"HAlign": "Center", "Padding": {"Top": 10, "Bottom": 5}}
                                 },
                                 {
                                     "Type": "TextBlock",
                                     "Name": "PlayerCountText",
                                     "BindingType": "Required",
+                                    "Text": "0/3 PLAYERS",
+                                    "FontSize": 14,
+                                    "Justification": "Center",
                                     "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
                                 },
                                 {
@@ -71,7 +77,11 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                         {
                                             "Type": "TextBlock",
                                             "Name": "JoinButtonText",
-                                            "BindingType": "Optional"
+                                            "BindingType": "Optional",
+                                            "Text": "JOIN TEAM",
+                                            "FontSize": 16,
+                                            "Justification": "Center",
+                                            "Slot": {"HAlign": "Center", "VAlign": "Center"}
                                         }
                                     ]
                                 }

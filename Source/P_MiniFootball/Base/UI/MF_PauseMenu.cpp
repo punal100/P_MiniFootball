@@ -12,6 +12,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
+#include "MF_SettingsMenu.h"
 
 FString UMF_PauseMenu::GetWidgetSpec()
 {
@@ -56,43 +57,99 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Type": "TextBlock",
                             "Name": "TitleText",
                             "BindingType": "Optional",
+                            "Text": "PAUSED",
+                            "FontSize": 32,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center", "Padding": {"Bottom": 20}}
                         },
                         {
                             "Type": "TextBlock",
                             "Name": "CurrentTeamText",
                             "BindingType": "Optional",
+                            "Text": "Team: None",
+                            "FontSize": 18,
+                            "Justification": "Center",
                             "Slot": {"HAlign": "Center", "Padding": {"Bottom": 30}}
                         },
                         {
                             "Type": "Button",
                             "Name": "ResumeButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "ResumeButtonLabel",
+                                    "Text": "RESUME",
+                                    "FontSize": 18,
+                                    "Justification": "Center",
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                }
+                            ]
                         },
                         {
                             "Type": "Button",
                             "Name": "ChangeTeamButton",
                             "BindingType": "Optional",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "ChangeTeamButtonLabel",
+                                    "Text": "CHANGE TEAM",
+                                    "FontSize": 18,
+                                    "Justification": "Center",
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                }
+                            ]
                         },
                         {
                             "Type": "Button",
                             "Name": "LeaveTeamButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "LeaveTeamButtonLabel",
+                                    "Text": "LEAVE TEAM",
+                                    "FontSize": 18,
+                                    "Justification": "Center",
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                }
+                            ]
                         },
                         {
                             "Type": "Button",
                             "Name": "SettingsButton",
                             "BindingType": "Optional",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "SettingsButtonLabel",
+                                    "Text": "SETTINGS",
+                                    "FontSize": 18,
+                                    "Justification": "Center",
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                }
+                            ]
                         },
                         {
                             "Type": "Button",
                             "Name": "QuitButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Center", "Padding": {"Top": 20}}
+                            "Slot": {"HAlign": "Center", "Padding": {"Top": 20}},
+                            "Children": [
+                                {
+                                    "Type": "TextBlock",
+                                    "Name": "QuitButtonLabel",
+                                    "Text": "QUIT",
+                                    "FontSize": 18,
+                                    "Justification": "Center",
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                }
+                            ]
                         }
                     ]
                 }
@@ -354,8 +411,62 @@ void UMF_PauseMenu::HandleChangeTeamClicked()
 
 void UMF_PauseMenu::HandleSettingsClicked()
 {
-    // Settings functionality - to be implemented
-    // Could open a settings submenu or separate widget
+    APlayerController *PC = GetOwningPlayer();
+    if (!PC || !PC->IsLocalController())
+    {
+        return;
+    }
+
+    if (!SettingsMenu)
+    {
+        TSubclassOf<UMF_SettingsMenu> ClassToCreate = SettingsMenuClass;
+        if (!ClassToCreate)
+        {
+            // Prefer the MWCS-generated blueprint if available.
+            static const TCHAR *DefaultSettingsMenuClassPath =
+                TEXT("/P_MiniFootball/BP/WBP/Sub/WBP_MF_SettingsMenu.WBP_MF_SettingsMenu_C");
+            ClassToCreate = LoadClass<UMF_SettingsMenu>(nullptr, DefaultSettingsMenuClassPath);
+        }
+
+        if (!ClassToCreate)
+        {
+            ClassToCreate = UMF_SettingsMenu::StaticClass();
+        }
+
+        SettingsMenu = CreateWidget<UMF_SettingsMenu>(PC, ClassToCreate);
+        if (SettingsMenu)
+        {
+            SettingsMenu->AddToViewport(1000); // above pause menu
+            SettingsMenu->OnSettingsClosed.AddDynamic(this, &UMF_PauseMenu::HandleSettingsClosed);
+        }
+    }
+
+    if (SettingsMenu)
+    {
+        SettingsMenu->SetVisibility(ESlateVisibility::Visible);
+
+        FInputModeGameAndUI InputMode;
+        InputMode.SetWidgetToFocus(SettingsMenu->TakeWidget());
+        InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+        InputMode.SetHideCursorDuringCapture(false);
+        PC->SetInputMode(InputMode);
+        PC->bShowMouseCursor = true;
+    }
+}
+
+void UMF_PauseMenu::HandleSettingsClosed()
+{
+    // Settings closed; keep pause menu open, but restore focus.
+    APlayerController *PC = GetOwningPlayer();
+    if (PC)
+    {
+        FInputModeGameAndUI InputMode;
+        InputMode.SetWidgetToFocus(TakeWidget());
+        InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+        InputMode.SetHideCursorDuringCapture(false);
+        PC->SetInputMode(InputMode);
+        PC->bShowMouseCursor = true;
+    }
 }
 
 void UMF_PauseMenu::HandleQuitClicked()
