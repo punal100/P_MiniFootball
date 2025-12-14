@@ -7,7 +7,7 @@
 #include "MF_GameplayControls.h"
 #include "MF_VirtualJoystick.h"
 #include "MF_ActionButton.h"
-#include "MF_SprintButton.h"
+#include "MF_ToggleActionButton.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/Overlay.h"
 #include "Core/MF_Types.h"
@@ -77,7 +77,7 @@ FString UMF_GameplayControls::GetWidgetSpec()
                             "Type": "UserWidget",
                             "Name": "SprintButton",
                             "BindingType": "Optional",
-                            "WidgetClass": "/Script/P_MiniFootball.MF_SprintButton",
+                            "WidgetClass": "/Script/P_MiniFootball.MF_ToggleActionButton",
                             "Slot": {"HAlign": "Right", "VAlign": "Top"}
                         }
                     ]
@@ -101,7 +101,7 @@ FString UMF_GameplayControls::GetWidgetSpec()
             {"Name": "ActionButton", "Type": "UMF_ActionButton", "Purpose": "Primary action"}
         ],
         "Optional": [
-            {"Name": "SprintButton", "Type": "UMF_SprintButton", "Purpose": "Sprint toggle"},
+            {"Name": "SprintButton", "Type": "UMF_ToggleActionButton", "Purpose": "Sprint toggle"},
             {"Name": "LeftControlContainer", "Type": "UOverlay", "Purpose": "Left-side container"},
             {"Name": "RightControlContainer", "Type": "UOverlay", "Purpose": "Right-side container"}
         ]
@@ -112,7 +112,7 @@ FString UMF_GameplayControls::GetWidgetSpec()
     "Dependencies": [
         {"Class": "UMF_VirtualJoystick", "Blueprint": "WBP_MF_VirtualJoystick", "Required": true},
         {"Class": "UMF_ActionButton", "Blueprint": "WBP_MF_ActionButton", "Required": true},
-        {"Class": "UMF_SprintButton", "Blueprint": "WBP_MF_SprintButton", "Required": false}
+        {"Class": "UMF_ToggleActionButton", "Blueprint": "WBP_MF_ToggleActionButton", "Required": false}
     ],
     
     "Comments": {
@@ -152,7 +152,13 @@ void UMF_GameplayControls::NativeConstruct()
     // Bind sprint button events
     if (SprintButton)
     {
-        SprintButton->OnSprintStateChanged.AddDynamic(this, &UMF_GameplayControls::HandleSprintStateChanged);
+        // Default to Sprint if not configured in the widget/blueprint.
+        if (SprintButton->ActionName.IsNone())
+        {
+            SprintButton->ActionName = MF_InputActions::Sprint;
+        }
+
+        SprintButton->OnStateChanged.AddDynamic(this, &UMF_GameplayControls::HandleSprintStateChanged);
     }
 
     // Initial refresh
@@ -176,7 +182,7 @@ void UMF_GameplayControls::NativeDestruct()
 
     if (SprintButton)
     {
-        SprintButton->OnSprintStateChanged.RemoveDynamic(this, &UMF_GameplayControls::HandleSprintStateChanged);
+        SprintButton->OnStateChanged.RemoveDynamic(this, &UMF_GameplayControls::HandleSprintStateChanged);
     }
 
     CachedPlayerController = nullptr;

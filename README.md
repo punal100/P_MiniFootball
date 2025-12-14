@@ -91,7 +91,34 @@ MWCS generates/repairs Blueprint assets under the project output root (commonly 
 
 Notable generated widgets include:
 
-- `/Game/UI/Widgets/WBP_MF_SettingsMenu` (opened from the Pause menu)
+- `/Game/UI/Widgets/WBP_MF_MainMenu` (main menu)
+- `/Game/UI/Widgets/WBP_MF_MainSettings` (settings hub; opened from Main Menu + Pause Menu)
+- `/Game/UI/Widgets/WBP_MF_InputSettings` (dynamic rebinding UI)
+- `UMF_InputActionRow` (runtime-created rows inside `WBP_MF_InputSettings`; no MWCS-generated `WBP_*` asset)
+- `/Game/UI/Widgets/WBP_MF_ToggleActionButton` (generic hold/toggle action button)
+- `/Game/UI/Widgets/WBP_MF_HUD` (gameplay HUD)
+
+## 🗺️ Maps & UI setup (recommended)
+
+Separate menu vs gameplay by using different GameModes / PlayerControllers.
+
+### L_MainMenu
+
+- Map: `/P_MiniFootball/Maps/L_MainMenu`
+- World Settings overrides:
+  - GameMode Override: `BP_MF_MenuGameMode`
+  - PlayerController Class: `BP_MF_MenuPlayerController`
+- Root widget: `WBP_MF_MainMenu`
+
+### L_MiniFootball
+
+- Map: `/P_MiniFootball/Maps/L_MiniFootball`
+- World Settings overrides:
+  - GameMode Override: `BP_MF_GameMode`
+  - PlayerController Class: `BP_MF_PlayerController`
+- Root widget: `WBP_MF_HUD`
+
+Menu UI is created by the menu PlayerController. Gameplay UI should be created by the gameplay PlayerController (Blueprint or C++ subclass).
 
 ---
 
@@ -152,7 +179,14 @@ P_MiniFootball/
             │   ├── MF_GameplayControls.h/.cpp
             │   ├── MF_VirtualJoystick.h/.cpp
             │   ├── MF_ActionButton.h/.cpp
-            │   ├── MF_SprintButton.h/.cpp
+            │   ├── MF_ToggleActionButton.h/.cpp
+            │   ├── MF_SprintButton.h/.cpp         # Legacy/compat widget (not used by default HUD)
+            │   ├── MF_MainMenu.h/.cpp
+            │   ├── MF_MainSettings.h/.cpp
+            │   ├── MF_InputSettings.h/.cpp
+            │   ├── MF_InputActionRow.h/.cpp      # Runtime-created row (NOT MWCS; no WBP asset)
+            │   ├── MF_AudioSettings.h/.cpp
+            │   ├── MF_GraphicsSettings.h/.cpp
             │   ├── MF_TeamSelectionPopup.h/.cpp
             │   ├── MF_TeamPanel.h/.cpp
             │   ├── MF_QuickTeamPanel.h/.cpp
@@ -300,7 +334,7 @@ UMF_HUD (Main Container)
 │       └── UMF_GameplayControls
 │           ├── UMF_VirtualJoystick
 │           ├── UMF_ActionButton
-│           └── UMF_SprintButton
+│           └── UMF_ToggleActionButton
 ├── UMF_TeamSelectionPopup (Modal)
 │   ├── UMF_TeamPanel (Team A)
 │   └── UMF_TeamPanel (Team B)
@@ -309,21 +343,21 @@ UMF_HUD (Main Container)
 
 ### Widget Classes Reference
 
-| Widget Class             | File                           | Description                             |
-| ------------------------ | ------------------------------ | --------------------------------------- |
-| `UMF_HUD`                | `MF_HUD.h/.cpp`                | Main HUD container with widget switcher |
-| `UMF_MatchInfo`          | `MF_MatchInfo.h/.cpp`          | Score and time display                  |
-| `UMF_TeamIndicator`      | `MF_TeamIndicator.h/.cpp`      | Current team indicator                  |
-| `UMF_TransitionOverlay`  | `MF_TransitionOverlay.h/.cpp`  | Loading/transition screen               |
-| `UMF_SpectatorControls`  | `MF_SpectatorControls.h/.cpp`  | Spectator mode UI                       |
-| `UMF_GameplayControls`   | `MF_GameplayControls.h/.cpp`   | Mobile touch controls container         |
-| `UMF_VirtualJoystick`    | `MF_VirtualJoystick.h/.cpp`    | Touch joystick for movement             |
-| `UMF_ActionButton`       | `MF_ActionButton.h/.cpp`       | Context-sensitive action button         |
-| `UMF_SprintButton`       | `MF_SprintButton.h/.cpp`       | Hold-to-sprint button                   |
-| `UMF_TeamSelectionPopup` | `MF_TeamSelectionPopup.h/.cpp` | Modal team selection dialog             |
-| `UMF_TeamPanel`          | `MF_TeamPanel.h/.cpp`          | Reusable team info panel                |
-| `UMF_QuickTeamPanel`     | `MF_QuickTeamPanel.h/.cpp`     | Compact team preview with quick join    |
-| `UMF_PauseMenu`          | `MF_PauseMenu.h/.cpp`          | In-game pause menu                      |
+| Widget Class             | File                           | Description                                     |
+| ------------------------ | ------------------------------ | ----------------------------------------------- |
+| `UMF_HUD`                | `MF_HUD.h/.cpp`                | Main HUD container with widget switcher         |
+| `UMF_MatchInfo`          | `MF_MatchInfo.h/.cpp`          | Score and time display                          |
+| `UMF_TeamIndicator`      | `MF_TeamIndicator.h/.cpp`      | Current team indicator                          |
+| `UMF_TransitionOverlay`  | `MF_TransitionOverlay.h/.cpp`  | Loading/transition screen                       |
+| `UMF_SpectatorControls`  | `MF_SpectatorControls.h/.cpp`  | Spectator mode UI                               |
+| `UMF_GameplayControls`   | `MF_GameplayControls.h/.cpp`   | Mobile touch controls container                 |
+| `UMF_VirtualJoystick`    | `MF_VirtualJoystick.h/.cpp`    | Touch joystick for movement                     |
+| `UMF_ActionButton`       | `MF_ActionButton.h/.cpp`       | Context-sensitive action button                 |
+| `UMF_ToggleActionButton` | `MF_ToggleActionButton.h/.cpp` | Generic hold/toggle action button (e.g. Sprint) |
+| `UMF_TeamSelectionPopup` | `MF_TeamSelectionPopup.h/.cpp` | Modal team selection dialog                     |
+| `UMF_TeamPanel`          | `MF_TeamPanel.h/.cpp`          | Reusable team info panel                        |
+| `UMF_QuickTeamPanel`     | `MF_QuickTeamPanel.h/.cpp`     | Compact team preview with quick join            |
+| `UMF_PauseMenu`          | `MF_PauseMenu.h/.cpp`          | In-game pause menu                              |
 
 > **📖 Full UI Documentation:** See [UI_WIDGETS.md](./UI_WIDGETS.md) for complete widget binding reference, visual design specs, and step-by-step creation guide.
 

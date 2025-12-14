@@ -6,6 +6,15 @@ This project uses **P_MWCS** (Modular Widget Creation System) as the **spec-driv
 
 ---
 
+## 🗺️ Where root widgets are spawned
+
+This project keeps menu UI and gameplay UI separate by using different PlayerControllers.
+
+- `L_MainMenu` (menu-only): use `BP_MF_MenuGameMode` + `BP_MF_MenuPlayerController`
+  - The menu controller creates `WBP_MF_MainMenu` in `BeginPlay()` and switches to UI-only input.
+- `L_MiniFootball` (gameplay): use `BP_MF_GameMode` + `BP_MF_PlayerController`
+  - Gameplay controller is responsible for creating `WBP_MF_HUD` (Blueprint or C++ subclass).
+
 ## 📝 Complete Widget Binding Reference
 
 Each widget has **REQUIRED** bindings (⚠️) that MUST exist and **OPTIONAL** bindings (✅) that can be omitted.
@@ -52,13 +61,68 @@ Each widget has **REQUIRED** bindings (⚠️) that MUST exist and **OPTIONAL** 
 | `ActionIcon`   | `Image`     | ✅ No    | Kick/Pass icon       |
 | `ActionText`   | `TextBlock` | ✅ No    | "KICK" / "PASS"      |
 
-### WBP_MF_SprintButton Bindings
+### WBP_MF_ToggleActionButton Bindings
+
+Generic hold/toggle button used for touch controls (e.g. Sprint).
 
 | Widget Name    | Type        | Required | Notes                |
 | -------------- | ----------- | -------- | -------------------- |
-| `SprintButton` | `Button`    | ⚠️ YES   | The clickable button |
-| `SprintIcon`   | `Image`     | ✅ No    | Sprint icon          |
-| `SprintText`   | `TextBlock` | ✅ No    | "SPRINT"             |
+| `ActionButton` | `Button`    | ⚠️ YES   | The clickable button |
+| `ActionIcon`   | `Image`     | ✅ No    | Optional icon        |
+| `ActionText`   | `TextBlock` | ✅ No    | Optional label       |
+
+### WBP_MF_MainMenu Bindings
+
+| Widget Name      | Type        | Required | Notes                              |
+| ---------------- | ----------- | -------- | ---------------------------------- |
+| `NewGameButton`  | `Button`    | ⚠️ YES   | Open settings-first New Game flow  |
+| `ContinueButton` | `Button`    | ⚠️ YES   | Continue with most recent template |
+| `SettingsButton` | `Button`    | ⚠️ YES   | Open settings overlay              |
+| `QuitButton`     | `Button`    | ⚠️ YES   | Quit game                          |
+| `VersionText`    | `TextBlock` | ✅ No    | Optional version label             |
+
+### WBP_MF_MainSettings Bindings
+
+| Widget Name      | Type     | Required | Notes                        |
+| ---------------- | -------- | -------- | ---------------------------- |
+| `InputButton`    | `Button` | ⚠️ YES   | Open InputSettings           |
+| `AudioButton`    | `Button` | ✅ No    | Open AudioSettings (stub)    |
+| `GraphicsButton` | `Button` | ✅ No    | Open GraphicsSettings (stub) |
+| `BackButton`     | `Button` | ⚠️ YES   | Close settings               |
+
+### WBP_MF_InputSettings Bindings
+
+| Widget Name          | Type        | Required | Notes                    |
+| -------------------- | ----------- | -------- | ------------------------ |
+| `InputSettingsTitle` | `TextBlock` | ✅ No    | Optional title text      |
+| `ActionListScroll`   | `ScrollBox` | ⚠️ YES   | Dynamic action/axis rows |
+| `SaveButton`         | `Button`    | ⚠️ YES   | Save + apply profile     |
+| `CancelButton`       | `Button`    | ⚠️ YES   | Close without applying   |
+
+### UMF_InputActionRow (Runtime-Created, Not MWCS)
+
+`UMF_InputActionRow` is instantiated via `NewObject<UMF_InputActionRow>()` by `UMF_InputSettings` and builds its widget tree in C++.
+
+- There is no MWCS-generated `WBP_MF_InputActionRow` asset.
+- It does not have `GetWidgetSpec()` and should not be added to `SpecProviderClasses`.
+
+Key API points:
+
+- `SetActionBinding(...)` / `SetAxisBinding(...)` configure the row contents.
+- `OnRebindRequested(bool bIsAxisBinding, FName BindingName)` is emitted when the user clicks Rebind.
+- `SetRebinding(true/false)` toggles the visual rebinding state.
+
+### WBP_MF_AudioSettings Bindings
+
+| Widget Name  | Type     | Required | Notes         |
+| ------------ | -------- | -------- | ------------- |
+| `BackButton` | `Button` | ⚠️ YES   | Close overlay |
+
+### WBP_MF_GraphicsSettings Bindings
+
+| Widget Name  | Type     | Required | Notes         |
+| ------------ | -------- | -------- | ------------- |
+| `BackButton` | `Button` | ⚠️ YES   | Close overlay |
 
 ### WBP_MF_TeamPanel Bindings
 
@@ -97,13 +161,13 @@ Each widget has **REQUIRED** bindings (⚠️) that MUST exist and **OPTIONAL** 
 
 ### WBP_MF_GameplayControls Bindings
 
-| Widget Name             | Type                     | Required | Notes              |
-| ----------------------- | ------------------------ | -------- | ------------------ |
-| `MovementJoystick`      | `WBP_MF_VirtualJoystick` | ⚠️ YES   | Touch movement     |
-| `ActionButton`          | `WBP_MF_ActionButton`    | ⚠️ YES   | Kick/Pass/Tackle   |
-| `SprintButton`          | `WBP_MF_SprintButton`    | ✅ No    | Sprint toggle      |
-| `LeftControlContainer`  | `Overlay`                | ✅ No    | Left side wrapper  |
-| `RightControlContainer` | `Overlay`                | ✅ No    | Right side wrapper |
+| Widget Name             | Type                        | Required | Notes                                   |
+| ----------------------- | --------------------------- | -------- | --------------------------------------- |
+| `MovementJoystick`      | `WBP_MF_VirtualJoystick`    | ⚠️ YES   | Touch movement                          |
+| `ActionButton`          | `WBP_MF_ActionButton`       | ⚠️ YES   | Kick/Pass/Tackle                        |
+| `SprintButton`          | `WBP_MF_ToggleActionButton` | ✅ No    | Toggle/hold action button (e.g. Sprint) |
+| `LeftControlContainer`  | `Overlay`                   | ✅ No    | Left side wrapper                       |
+| `RightControlContainer` | `Overlay`                   | ✅ No    | Right side wrapper                      |
 
 ### WBP_MF_TeamSelectionPopup Bindings
 
@@ -159,19 +223,30 @@ Use this workflow to **Create Missing**, **Repair**, and **Validate** UI Widget 
 
 Recommended baseline allowlist for the MiniFootball UI set:
 
+In this repo, the canonical list (and ordering) lives in `Config/DefaultEditor.ini`.
+
+Recommended allowlist order (leaf → containers):
+
+- `/Script/P_MiniFootball.MF_TransitionOverlay`
 - `/Script/P_MiniFootball.MF_MatchInfo`
 - `/Script/P_MiniFootball.MF_TeamIndicator`
-- `/Script/P_MiniFootball.MF_TransitionOverlay`
-- `/Script/P_MiniFootball.MF_VirtualJoystick`
+- `/Script/P_MiniFootball.MF_ScorePopup`
 - `/Script/P_MiniFootball.MF_ActionButton`
-- `/Script/P_MiniFootball.MF_SprintButton`
+- `/Script/P_MiniFootball.MF_ToggleActionButton`
+- `/Script/P_MiniFootball.MF_SprintButton` (legacy/compat)
+- `/Script/P_MiniFootball.MF_VirtualJoystick`
 - `/Script/P_MiniFootball.MF_TeamPanel`
 - `/Script/P_MiniFootball.MF_QuickTeamPanel`
-- `/Script/P_MiniFootball.MF_ScorePopup`
 - `/Script/P_MiniFootball.MF_SpectatorControls`
-- `/Script/P_MiniFootball.MF_GameplayControls`
 - `/Script/P_MiniFootball.MF_TeamSelectionPopup`
+- `/Script/P_MiniFootball.MF_InputSettings`
+- `/Script/P_MiniFootball.MF_AudioSettings`
+- `/Script/P_MiniFootball.MF_GraphicsSettings`
+- `/Script/P_MiniFootball.MF_MainSettings`
 - `/Script/P_MiniFootball.MF_PauseMenu`
+- `/Script/P_MiniFootball.MF_MainMenu`
+- `/Script/P_MiniFootball.MF_SettingsMenu`
+- `/Script/P_MiniFootball.MF_GameplayControls`
 - `/Script/P_MiniFootball.MF_HUD`
 
 4. Set **OutputRootPath** to where you want `WBP_MF_*` assets created.
@@ -326,29 +401,34 @@ When you place a widget **INSIDE a Canvas Panel**, that widget gets a **Slot** w
 | `WBP_MF_TransitionOverlay`  | **Fill Screen** | (auto) | (auto) | Full-screen overlay       |
 | `WBP_MF_VirtualJoystick`    | **Custom**      | 200 px | 200 px | Square touch area         |
 | `WBP_MF_ActionButton`       | **Custom**      | 120 px | 120 px | Large round button        |
-| `WBP_MF_SprintButton`       | **Custom**      | 80 px  | 80 px  | Medium round button       |
+| `WBP_MF_ToggleActionButton` | **Custom**      | 80 px  | 80 px  | Medium round button       |
 | `WBP_MF_TeamPanel`          | **Custom**      | 280 px | 350 px | Full team roster          |
 | `WBP_MF_QuickTeamPanel`     | **Custom**      | 220 px | 50 px  | Compact team bar          |
 | `WBP_MF_SpectatorControls`  | **Fill Screen** | (auto) | (auto) | Full-screen control layer |
 | `WBP_MF_GameplayControls`   | **Fill Screen** | (auto) | (auto) | Full-screen control layer |
 | `WBP_MF_TeamSelectionPopup` | **Fill Screen** | (auto) | (auto) | Full overlay with dialog  |
 | `WBP_MF_PauseMenu`          | **Fill Screen** | (auto) | (auto) | Full overlay with menu    |
+| `WBP_MF_MainMenu`           | **Fill Screen** | (auto) | (auto) | Main menu                 |
+| `WBP_MF_MainSettings`       | **Fill Screen** | (auto) | (auto) | Settings hub overlay      |
+| `WBP_MF_InputSettings`      | **Fill Screen** | (auto) | (auto) | Input rebinding overlay   |
+| `WBP_MF_AudioSettings`      | **Fill Screen** | (auto) | (auto) | Audio overlay (stub)      |
+| `WBP_MF_GraphicsSettings`   | **Fill Screen** | (auto) | (auto) | Graphics overlay (stub)   |
 
 #### Child Placement in HUD (Canvas Panel Slot)
 
 When these WBPs are added as children to `WBP_MF_HUD`'s Canvas Panel:
 
-| Child Widget               | Anchor (in HUD)      | Position Offset  | Alignment |
-| -------------------------- | -------------------- | ---------------- | --------- |
-| `WBP_MF_MatchInfo`         | Top-Center (0.5, 0)  | X: 0, Y: 20      | (0.5, 0)  |
-| `WBP_MF_TeamIndicator`     | Top-Left (0, 0)      | X: 20, Y: 110    | (0, 0)    |
-| `WBP_MF_TransitionOverlay` | Stretch (0,0)→(1,1)  | All: 0           | (0, 0)    |
-| `WBP_MF_VirtualJoystick`   | Bottom-Left (0, 1)   | X: 40, Y: -240   | (0, 1)    |
-| `WBP_MF_ActionButton`      | Bottom-Right (1, 1)  | X: -160, Y: -160 | (1, 1)    |
-| `WBP_MF_SprintButton`      | Bottom-Right (1, 1)  | X: -140, Y: -280 | (1, 1)    |
-| `WBP_MF_QuickTeamPanel`    | Center-Left (0, 0.5) | X: 10, Y: 0      | (0, 0.5)  |
-| `WBP_MF_SpectatorControls` | Stretch (0,0)→(1,1)  | All: 0           | (0, 0)    |
-| `WBP_MF_GameplayControls`  | Stretch (0,0)→(1,1)  | All: 0           | (0, 0)    |
+| Child Widget                | Anchor (in HUD)      | Position Offset  | Alignment |
+| --------------------------- | -------------------- | ---------------- | --------- |
+| `WBP_MF_MatchInfo`          | Top-Center (0.5, 0)  | X: 0, Y: 20      | (0.5, 0)  |
+| `WBP_MF_TeamIndicator`      | Top-Left (0, 0)      | X: 20, Y: 110    | (0, 0)    |
+| `WBP_MF_TransitionOverlay`  | Stretch (0,0)→(1,1)  | All: 0           | (0, 0)    |
+| `WBP_MF_VirtualJoystick`    | Bottom-Left (0, 1)   | X: 40, Y: -240   | (0, 1)    |
+| `WBP_MF_ActionButton`       | Bottom-Right (1, 1)  | X: -160, Y: -160 | (1, 1)    |
+| `WBP_MF_ToggleActionButton` | Bottom-Right (1, 1)  | X: -140, Y: -280 | (1, 1)    |
+| `WBP_MF_QuickTeamPanel`     | Center-Left (0, 0.5) | X: 10, Y: 0      | (0, 0.5)  |
+| `WBP_MF_SpectatorControls`  | Stretch (0,0)→(1,1)  | All: 0           | (0, 0)    |
+| `WBP_MF_GameplayControls`   | Stretch (0,0)→(1,1)  | All: 0           | (0, 0)    |
 
 ---
 

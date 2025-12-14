@@ -13,7 +13,7 @@
 // Forward declarations
 class UMF_VirtualJoystick;
 class UMF_ActionButton;
-class UMF_SprintButton;
+class UMF_ToggleActionButton;
 class UWidgetSwitcher;
 class UOverlay;
 class AMF_PlayerController;
@@ -77,7 +77,7 @@ protected:
 
     /** Sprint button for running */
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "MF|Components")
-    TObjectPtr<UMF_SprintButton> SprintButton;
+    TObjectPtr<UMF_ToggleActionButton> SprintButton;
 
     /** Container for left-side controls (joystick) */
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "MF|Components")

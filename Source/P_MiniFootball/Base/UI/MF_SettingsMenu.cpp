@@ -265,7 +265,7 @@ void UMF_SettingsMenu::HandleSprintModeChanged(FString SelectedItem, ESelectInfo
         else
         {
             PendingProfile.ToggleModeActions.Remove(MF_InputActions::Sprint);
-            PendingProfile.bActiveActionToggles.Remove(MF_InputActions::Sprint);
+            PendingProfile.ToggleActionStates.Remove(MF_InputActions::Sprint);
         }
     }
 }
@@ -302,7 +302,7 @@ void UMF_SettingsMenu::HandleSaveSettings()
             Profile->ActionBindings = PendingProfile.ActionBindings;
             Profile->AxisBindings = PendingProfile.AxisBindings;
             Profile->ToggleModeActions = PendingProfile.ToggleModeActions;
-            Profile->bActiveActionToggles = PendingProfile.bActiveActionToggles;
+            Profile->ToggleActionStates = PendingProfile.ToggleActionStates;
         }
         else
         {
@@ -314,7 +314,7 @@ void UMF_SettingsMenu::HandleSaveSettings()
             else
             {
                 Profile->ToggleModeActions.Remove(MF_InputActions::Sprint);
-                Profile->bActiveActionToggles.Remove(MF_InputActions::Sprint);
+                Profile->ToggleActionStates.Remove(MF_InputActions::Sprint);
             }
         }
 

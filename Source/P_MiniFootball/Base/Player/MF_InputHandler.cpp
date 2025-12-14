@@ -37,7 +37,28 @@ namespace
 
     static bool IsToggleActive(const FS_InputProfile *Profile, const FName &ActionName)
     {
-        return Profile && Profile->bActiveActionToggles.Contains(ActionName);
+        if (!Profile)
+        {
+            return false;
+        }
+
+        const bool *bState = Profile->ToggleActionStates.Find(ActionName);
+        return bState ? *bState : false;
+    }
+
+    static void SetToggleActive(FS_InputProfile *Profile, const FName &ActionName, bool bActive)
+    {
+        if (!Profile)
+        {
+            return;
+        }
+
+        if (ActionName.IsNone())
+        {
+            return;
+        }
+
+        Profile->ToggleActionStates.Add(ActionName, bActive);
     }
 }
 
@@ -409,17 +430,7 @@ void UMF_InputHandler::HandleSprintStarted(FName ActionName, FInputActionValue V
         const bool bWasActive = IsToggleActive(Profile, ActionName);
         const bool bNowActive = !bWasActive;
 
-        if (Profile)
-        {
-            if (bNowActive)
-            {
-                Profile->bActiveActionToggles.AddUnique(ActionName);
-            }
-            else
-            {
-                Profile->bActiveActionToggles.Remove(ActionName);
-            }
-        }
+        SetToggleActive(Profile, ActionName, bNowActive);
 
         if (bIsSprinting != bNowActive)
         {

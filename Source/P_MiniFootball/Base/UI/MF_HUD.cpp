@@ -180,7 +180,7 @@ FString UMF_HUD::GetWidgetSpec()
         {"Class": "UMF_TransitionOverlay", "Blueprint": "WBP_MF_TransitionOverlay", "Required": false, "Order": 3},
         {"Class": "UMF_VirtualJoystick", "Blueprint": "WBP_MF_VirtualJoystick", "Required": true, "Order": 4},
         {"Class": "UMF_ActionButton", "Blueprint": "WBP_MF_ActionButton", "Required": true, "Order": 5},
-        {"Class": "UMF_SprintButton", "Blueprint": "WBP_MF_SprintButton", "Required": false, "Order": 6},
+        {"Class": "UMF_ToggleActionButton", "Blueprint": "WBP_MF_ToggleActionButton", "Required": false, "Order": 6},
         {"Class": "UMF_QuickTeamPanel", "Blueprint": "WBP_MF_QuickTeamPanel", "Required": false, "Order": 7},
         {"Class": "UMF_TeamPanel", "Blueprint": "WBP_MF_TeamPanel", "Required": false, "Order": 8},
         {"Class": "UMF_SpectatorControls", "Blueprint": "WBP_MF_SpectatorControls", "Required": true, "Order": 9},
@@ -192,7 +192,7 @@ FString UMF_HUD::GetWidgetSpec()
     "BuildOrder": [
         "WBP_MF_ActionButton",
         "WBP_MF_VirtualJoystick",
-        "WBP_MF_SprintButton",
+        "WBP_MF_ToggleActionButton",
         "WBP_MF_MatchInfo",
         "WBP_MF_TeamIndicator",
         "WBP_MF_TransitionOverlay",

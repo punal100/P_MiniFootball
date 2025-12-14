@@ -12,7 +12,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Player/MF_PlayerController.h"
 #include "Match/MF_GameState.h"
-#include "MF_SettingsMenu.h"
+#include "MF_MainSettings.h"
 
 FString UMF_PauseMenu::GetWidgetSpec()
 {
@@ -417,36 +417,42 @@ void UMF_PauseMenu::HandleSettingsClicked()
         return;
     }
 
-    if (!SettingsMenu)
+    if (!MainSettings)
     {
-        TSubclassOf<UMF_SettingsMenu> ClassToCreate = SettingsMenuClass;
+        TSubclassOf<UMF_MainSettings> ClassToCreate = MainSettingsClass;
         if (!ClassToCreate)
         {
             // Prefer the MWCS-generated blueprint if available.
-            static const TCHAR *DefaultSettingsMenuClassPath =
-                TEXT("/Game/UI/Widgets/WBP_MF_SettingsMenu.WBP_MF_SettingsMenu_C");
-            ClassToCreate = LoadClass<UMF_SettingsMenu>(nullptr, DefaultSettingsMenuClassPath);
+            static const TCHAR *DefaultMainSettingsClassPathA =
+                TEXT("/Game/Generated/Widgets/WBP_MF_MainSettings.WBP_MF_MainSettings_C");
+            static const TCHAR *DefaultMainSettingsClassPathB =
+                TEXT("/Game/UI/Widgets/WBP_MF_MainSettings.WBP_MF_MainSettings_C");
+            ClassToCreate = LoadClass<UMF_MainSettings>(nullptr, DefaultMainSettingsClassPathA);
+            if (!ClassToCreate)
+            {
+                ClassToCreate = LoadClass<UMF_MainSettings>(nullptr, DefaultMainSettingsClassPathB);
+            }
         }
 
         if (!ClassToCreate)
         {
-            ClassToCreate = UMF_SettingsMenu::StaticClass();
+            ClassToCreate = UMF_MainSettings::StaticClass();
         }
 
-        SettingsMenu = CreateWidget<UMF_SettingsMenu>(PC, ClassToCreate);
-        if (SettingsMenu)
+        MainSettings = CreateWidget<UMF_MainSettings>(PC, ClassToCreate);
+        if (MainSettings)
         {
-            SettingsMenu->AddToViewport(1000); // above pause menu
-            SettingsMenu->OnSettingsClosed.AddDynamic(this, &UMF_PauseMenu::HandleSettingsClosed);
+            MainSettings->AddToViewport(2000); // settings overlay layer
+            MainSettings->OnClosed.AddDynamic(this, &UMF_PauseMenu::HandleSettingsClosed);
         }
     }
 
-    if (SettingsMenu)
+    if (MainSettings)
     {
-        SettingsMenu->SetVisibility(ESlateVisibility::Visible);
+        MainSettings->Show();
 
         FInputModeGameAndUI InputMode;
-        InputMode.SetWidgetToFocus(SettingsMenu->TakeWidget());
+        InputMode.SetWidgetToFocus(MainSettings->TakeWidget());
         InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
         InputMode.SetHideCursorDuringCapture(false);
         PC->SetInputMode(InputMode);
