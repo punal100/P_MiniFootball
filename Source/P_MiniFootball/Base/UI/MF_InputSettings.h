@@ -57,6 +57,10 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MF|UI|Input")
     FName TargetTemplateName = NAME_None;
 
+    /** Optional override for the action/axis row widget class. If unset, uses UMF_WidgetConfigurationSubsystem (InputActionRow). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MF|UI|Input")
+    TSubclassOf<UMF_InputActionRow> InputActionRowClassOverride;
+
 private:
     enum class ERebindMode : uint8
     {

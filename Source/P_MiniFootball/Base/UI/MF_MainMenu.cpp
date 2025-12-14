@@ -14,6 +14,9 @@
 #include "Manager/CPP_InputBindingManager.h"
 #include "MF_MainSettings.h"
 
+#include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
+#include "UI/Configuration/MF_WidgetTypes.h"
+
 namespace
 {
     static UCPP_InputBindingManager *GetMEISManager()
@@ -249,19 +252,17 @@ void UMF_MainMenu::HandleSettingsClicked()
     if (!MainSettings)
     {
         TSubclassOf<UMF_MainSettings> ClassToCreate = MainSettingsClass;
-        if (!ClassToCreate)
+        if (!ClassToCreate && GEngine)
         {
-            static const TCHAR *DefaultMainSettingsClassPathA =
-                TEXT("/Game/Generated/Widgets/WBP_MF_MainSettings.WBP_MF_MainSettings_C");
-            static const TCHAR *DefaultMainSettingsClassPathB =
-                TEXT("/Game/UI/Widgets/WBP_MF_MainSettings.WBP_MF_MainSettings_C");
-            ClassToCreate = LoadClass<UMF_MainSettings>(nullptr, DefaultMainSettingsClassPathA);
-            if (!ClassToCreate)
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
             {
-                ClassToCreate = LoadClass<UMF_MainSettings>(nullptr, DefaultMainSettingsClassPathB);
+                const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::MainSettings);
+                if (Resolved)
+                {
+                    ClassToCreate = Resolved.Get();
+                }
             }
         }
-
         if (!ClassToCreate)
         {
             ClassToCreate = UMF_MainSettings::StaticClass();

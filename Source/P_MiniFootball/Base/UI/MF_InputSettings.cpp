@@ -8,6 +8,9 @@
 
 #include "MF_InputActionRow.h"
 
+#include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
+#include "UI/Configuration/MF_WidgetTypes.h"
+
 #include "Components/Button.h"
 #include "Components/ScrollBox.h"
 #include "Components/TextBlock.h"
@@ -213,6 +216,26 @@ void UMF_InputSettings::RebuildRows()
         return;
     }
 
+    TSubclassOf<UMF_InputActionRow> RowClass = InputActionRowClassOverride;
+    if (!RowClass)
+    {
+        if (GEngine)
+        {
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
+            {
+                const TSubclassOf<UUserWidget> AnyRowClass = WidgetConfig->GetWidgetClass(EMF_WidgetType::InputActionRow);
+                if (AnyRowClass && AnyRowClass->IsChildOf(UMF_InputActionRow::StaticClass()))
+                {
+                    RowClass = AnyRowClass.Get();
+                }
+            }
+        }
+    }
+    if (!RowClass)
+    {
+        RowClass = UMF_InputActionRow::StaticClass();
+    }
+
     // Actions
     for (int32 Index = 0; Index < PendingProfile.ActionBindings.Num(); ++Index)
     {
@@ -222,7 +245,15 @@ void UMF_InputSettings::RebuildRows()
             continue;
         }
 
-        UMF_InputActionRow *Row = NewObject<UMF_InputActionRow>(this);
+        UMF_InputActionRow *Row = nullptr;
+        if (APlayerController *PC = GetOwningPlayer())
+        {
+            Row = CreateWidget<UMF_InputActionRow>(PC, RowClass);
+        }
+        else if (UWorld *World = GetWorld())
+        {
+            Row = CreateWidget<UMF_InputActionRow>(World, RowClass);
+        }
         if (!Row)
         {
             continue;
@@ -252,7 +283,15 @@ void UMF_InputSettings::RebuildRows()
             continue;
         }
 
-        UMF_InputActionRow *Row = NewObject<UMF_InputActionRow>(this);
+        UMF_InputActionRow *Row = nullptr;
+        if (APlayerController *PC = GetOwningPlayer())
+        {
+            Row = CreateWidget<UMF_InputActionRow>(PC, RowClass);
+        }
+        else if (UWorld *World = GetWorld())
+        {
+            Row = CreateWidget<UMF_InputActionRow>(World, RowClass);
+        }
         if (!Row)
         {
             continue;

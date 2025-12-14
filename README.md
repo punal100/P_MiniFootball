@@ -98,6 +98,17 @@ Notable generated widgets include:
 - `/Game/UI/Widgets/WBP_MF_ToggleActionButton` (generic hold/toggle action button)
 - `/Game/UI/Widgets/WBP_MF_HUD` (gameplay HUD)
 
+## ⚙️ Widget class configuration (no hard-coded asset paths)
+
+Widget Blueprint classes are resolved at runtime via:
+
+- Project Settings → **P_MiniFootball** → **MF Widget Class Settings** (`UMF_WidgetClassSettings`)
+- Optional JSON overrides (enabled by `bAutoLoadJsonConfig` + `JsonConfigPath`)
+
+You can also reload JSON at runtime via the console command:
+
+- `MF.WidgetConfig.Reload`
+
 ## 🗺️ Maps & UI setup (recommended)
 
 Separate menu vs gameplay by using different GameModes / PlayerControllers.
@@ -109,6 +120,8 @@ Separate menu vs gameplay by using different GameModes / PlayerControllers.
   - GameMode Override: `BP_MF_MenuGameMode`
   - PlayerController Class: `BP_MF_MenuPlayerController`
 - Root widget: `WBP_MF_MainMenu`
+
+Root widget is resolved from the widget configuration (default points at `WBP_MF_MainMenu`).
 
 ### L_MiniFootball
 

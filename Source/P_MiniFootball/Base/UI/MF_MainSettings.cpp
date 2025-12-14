@@ -7,10 +7,14 @@
 #include "MF_MainSettings.h"
 
 #include "Components/Button.h"
+#include "Engine/Engine.h"
 #include "UObject/UObjectGlobals.h"
 #include "MF_AudioSettings.h"
 #include "MF_GraphicsSettings.h"
 #include "MF_InputSettings.h"
+
+#include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
+#include "UI/Configuration/MF_WidgetTypes.h"
 
 FString UMF_MainSettings::GetWidgetSpec()
 {
@@ -129,19 +133,17 @@ void UMF_MainSettings::HandleInputClicked()
     if (!InputSettings)
     {
         TSubclassOf<UMF_InputSettings> ClassToCreate = InputSettingsClass;
-        if (!ClassToCreate)
+        if (!ClassToCreate && GEngine)
         {
-            static const TCHAR *DefaultInputSettingsClassPathA =
-                TEXT("/Game/Generated/Widgets/WBP_MF_InputSettings.WBP_MF_InputSettings_C");
-            static const TCHAR *DefaultInputSettingsClassPathB =
-                TEXT("/Game/UI/Widgets/WBP_MF_InputSettings.WBP_MF_InputSettings_C");
-            ClassToCreate = LoadClass<UMF_InputSettings>(nullptr, DefaultInputSettingsClassPathA);
-            if (!ClassToCreate)
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
             {
-                ClassToCreate = LoadClass<UMF_InputSettings>(nullptr, DefaultInputSettingsClassPathB);
+                const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::InputSettings);
+                if (Resolved)
+                {
+                    ClassToCreate = Resolved.Get();
+                }
             }
         }
-
         if (!ClassToCreate)
         {
             ClassToCreate = UMF_InputSettings::StaticClass();
@@ -166,19 +168,17 @@ void UMF_MainSettings::HandleAudioClicked()
     if (!AudioSettings)
     {
         TSubclassOf<UMF_AudioSettings> ClassToCreate = AudioSettingsClass;
-        if (!ClassToCreate)
+        if (!ClassToCreate && GEngine)
         {
-            static const TCHAR *DefaultAudioSettingsClassPathA =
-                TEXT("/Game/Generated/Widgets/WBP_MF_AudioSettings.WBP_MF_AudioSettings_C");
-            static const TCHAR *DefaultAudioSettingsClassPathB =
-                TEXT("/Game/UI/Widgets/WBP_MF_AudioSettings.WBP_MF_AudioSettings_C");
-            ClassToCreate = LoadClass<UMF_AudioSettings>(nullptr, DefaultAudioSettingsClassPathA);
-            if (!ClassToCreate)
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
             {
-                ClassToCreate = LoadClass<UMF_AudioSettings>(nullptr, DefaultAudioSettingsClassPathB);
+                const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::AudioSettings);
+                if (Resolved)
+                {
+                    ClassToCreate = Resolved.Get();
+                }
             }
         }
-
         if (!ClassToCreate)
         {
             ClassToCreate = UMF_AudioSettings::StaticClass();
@@ -203,19 +203,17 @@ void UMF_MainSettings::HandleGraphicsClicked()
     if (!GraphicsSettings)
     {
         TSubclassOf<UMF_GraphicsSettings> ClassToCreate = GraphicsSettingsClass;
-        if (!ClassToCreate)
+        if (!ClassToCreate && GEngine)
         {
-            static const TCHAR *DefaultGraphicsSettingsClassPathA =
-                TEXT("/Game/Generated/Widgets/WBP_MF_GraphicsSettings.WBP_MF_GraphicsSettings_C");
-            static const TCHAR *DefaultGraphicsSettingsClassPathB =
-                TEXT("/Game/UI/Widgets/WBP_MF_GraphicsSettings.WBP_MF_GraphicsSettings_C");
-            ClassToCreate = LoadClass<UMF_GraphicsSettings>(nullptr, DefaultGraphicsSettingsClassPathA);
-            if (!ClassToCreate)
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
             {
-                ClassToCreate = LoadClass<UMF_GraphicsSettings>(nullptr, DefaultGraphicsSettingsClassPathB);
+                const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::GraphicsSettings);
+                if (Resolved)
+                {
+                    ClassToCreate = Resolved.Get();
+                }
             }
         }
-
         if (!ClassToCreate)
         {
             ClassToCreate = UMF_GraphicsSettings::StaticClass();

@@ -8,6 +8,9 @@
 
 #include "MF_MainMenu.h"
 
+#include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
+#include "UI/Configuration/MF_WidgetTypes.h"
+
 #include "Engine/Engine.h"
 
 #include "Manager/CPP_InputBindingManager.h"
@@ -26,17 +29,16 @@ namespace
             return InClass;
         }
 
-        static const TCHAR *PathA = TEXT("/Game/Generated/Widgets/WBP_MF_MainMenu.WBP_MF_MainMenu_C");
-        static const TCHAR *PathB = TEXT("/Game/UI/Widgets/WBP_MF_MainMenu.WBP_MF_MainMenu_C");
-
-        if (TSubclassOf<UMF_MainMenu> Loaded = LoadClass<UMF_MainMenu>(nullptr, PathA))
+        if (GEngine)
         {
-            return Loaded;
-        }
-
-        if (TSubclassOf<UMF_MainMenu> Loaded = LoadClass<UMF_MainMenu>(nullptr, PathB))
-        {
-            return Loaded;
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
+            {
+                const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::MainMenu);
+                if (Resolved)
+                {
+                    return Resolved.Get();
+                }
+            }
         }
 
         return UMF_MainMenu::StaticClass();

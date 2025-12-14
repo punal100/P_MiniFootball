@@ -45,6 +45,7 @@ Path.Combine(ModulePath, "Base", "UI"),
 "Core",
 "CoreUObject",
 "Engine",
+"DeveloperSettings",
 "InputCore",
 "EnhancedInput",     // UE5 Enhanced Input System
 "P_MEIS",            // Modular Enhanced Input System plugin
@@ -59,6 +60,8 @@ Path.Combine(ModulePath, "Base", "UI"),
                 {
 "Slate",
 "SlateCore",
+"Json",
+"JsonUtilities",
 "UMG",               // Unreal Motion Graphics (Widget system)
 "AIModule",          // AI support (deferred but included)
 "NavigationSystem",  // Navigation for AI (deferred)

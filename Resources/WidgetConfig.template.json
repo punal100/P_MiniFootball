@@ -1,0 +1,31 @@
+{
+  "Version": 1,
+  "WidgetClasses": {
+    "MainHUD": "/P_MiniFootball/BP/WBP/Main/WBP_MF_HUD.WBP_MF_HUD_C",
+    "MainMenu": "/P_MiniFootball/BP/WBP/Main/WBP_MF_MainMenu.WBP_MF_MainMenu_C",
+    "PauseMenu": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_PauseMenu.WBP_MF_PauseMenu_C",
+
+    "MainSettings": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_MainSettings.WBP_MF_MainSettings_C",
+    "InputSettings": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_InputSettings.WBP_MF_InputSettings_C",
+    "AudioSettings": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_AudioSettings.WBP_MF_AudioSettings_C",
+    "GraphicsSettings": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_GraphicsSettings.WBP_MF_GraphicsSettings_C",
+
+    "MatchInfo": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_MatchInfo.WBP_MF_MatchInfo_C",
+    "TeamIndicator": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_TeamIndicator.WBP_MF_TeamIndicator_C",
+    "GameplayControls": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_GameplayControls.WBP_MF_GameplayControls_C",
+    "SpectatorControls": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_SpectatorControls.WBP_MF_SpectatorControls_C",
+
+    "TeamSelectionPopup": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_TeamSelectionPopup.WBP_MF_TeamSelectionPopup_C",
+    "TransitionOverlay": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_TransitionOverlay.WBP_MF_TransitionOverlay_C",
+    "ScorePopup": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_ScorePopup.WBP_MF_ScorePopup_C",
+
+    "VirtualJoystick": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_VirtualJoystick.WBP_MF_VirtualJoystick_C",
+    "ActionButton": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_ActionButton.WBP_MF_ActionButton_C",
+    "ToggleActionButton": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_ToggleActionButton.WBP_MF_ToggleActionButton_C",
+
+    "TeamPanel": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_TeamPanel.WBP_MF_TeamPanel_C",
+    "QuickTeamPanel": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_QuickTeamPanel.WBP_MF_QuickTeamPanel_C",
+
+    "MyCustomPopup": "/P_MiniFootball/BP/WBP/Sub/WBP_MF_ScorePopup.WBP_MF_ScorePopup_C"
+  }
+}

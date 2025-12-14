@@ -16,7 +16,7 @@ For implementation details, see [README.md](./README.md).
 
 Recommended per-level overrides:
 
-- `L_MainMenu`: GameMode `BP_MF_MenuGameMode`, PlayerController `BP_MF_MenuPlayerController` (spawns `WBP_MF_MainMenu`).
+- `L_MainMenu`: GameMode `BP_MF_MenuGameMode`, PlayerController `BP_MF_MenuPlayerController` (spawns the configured Main Menu widget).
 - `L_MiniFootball`: GameMode `BP_MF_GameMode`, PlayerController `BP_MF_PlayerController` (gameplay PC is responsible for spawning `WBP_MF_HUD`).
 
 ## 3) Multiplayer (fastest)
@@ -39,9 +39,11 @@ Dedicated server needs to start on the gameplay map.
 
 The Pause menu opens the Settings menu.
 
-In this project, settings are implemented as overlays and MWCS generates the main settings hub as:
+In this project, settings are implemented as overlays and MWCS commonly generates the main settings hub as:
 
 - `/Game/UI/Widgets/WBP_MF_MainSettings`
+
+At runtime, the class used for Main Menu / Settings widgets is resolved via `UMF_WidgetClassSettings` (Project Settings) and can optionally be overridden via JSON (see plugin README).
 
 If you change widget specs, regenerate the widget assets via MWCS (see the top-level project docs or P_MWCS docs).
 

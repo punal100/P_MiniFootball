@@ -11,9 +11,22 @@ This project uses **P_MWCS** (Modular Widget Creation System) as the **spec-driv
 This project keeps menu UI and gameplay UI separate by using different PlayerControllers.
 
 - `L_MainMenu` (menu-only): use `BP_MF_MenuGameMode` + `BP_MF_MenuPlayerController`
-  - The menu controller creates `WBP_MF_MainMenu` in `BeginPlay()` and switches to UI-only input.
+  - The menu controller creates the configured **Main Menu** widget in `BeginPlay()` and switches to UI-only input.
 - `L_MiniFootball` (gameplay): use `BP_MF_GameMode` + `BP_MF_PlayerController`
-  - Gameplay controller is responsible for creating `WBP_MF_HUD` (Blueprint or C++ subclass).
+  - Gameplay controller is responsible for creating the configured HUD widget (typically `MainHUDClass` / `MainHUD`).
+
+Widget classes are resolved via Project Settings (`UMF_WidgetClassSettings`) and can optionally be overridden from JSON (console: `MF.WidgetConfig.Reload`).
+
+An example JSON file is provided at `Plugins/P_MiniFootball/Resources/WidgetConfig.template.json`.
+
+### Dynamic widgets (Blueprint string keys)
+
+For widgets that are not part of the built-in `EMF_WidgetType` list, you can register and resolve them by **string key**:
+
+- In Blueprint, get the Engine Subsystem `MF_WidgetConfigurationSubsystem` and call `RegisterWidgetClassByKey("MyWidgetKey", SomeWidgetClass)`.
+- Resolve later via `GetWidgetClassByKey("MyWidgetKey")`.
+
+JSON also supports arbitrary keys under `WidgetClasses` (unknown keys are treated as string-key widgets).
 
 ## 📝 Complete Widget Binding Reference
 
@@ -101,7 +114,12 @@ Generic hold/toggle button used for touch controls (e.g. Sprint).
 
 ### UMF_InputActionRow (Runtime-Created, Not MWCS)
 
-`UMF_InputActionRow` is instantiated via `NewObject<UMF_InputActionRow>()` by `UMF_InputSettings` and builds its widget tree in C++.
+`UMF_InputActionRow` is instantiated at runtime by `UMF_InputSettings` and builds its widget tree in C++.
+
+By default the row uses the native `UMF_InputActionRow` class, but it can be overridden:
+
+- Per-widget-instance via `UMF_InputSettings.InputActionRowClassOverride`.
+- Globally via `UMF_WidgetClassSettings.InputActionRowClass` (or JSON key `"InputActionRow"`).
 
 - There is no MWCS-generated `WBP_MF_InputActionRow` asset.
 - It does not have `GetWidgetSpec()` and should not be added to `SpecProviderClasses`.

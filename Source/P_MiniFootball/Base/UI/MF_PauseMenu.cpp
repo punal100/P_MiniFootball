@@ -14,6 +14,10 @@
 #include "Match/MF_GameState.h"
 #include "MF_MainSettings.h"
 
+#include "Engine/Engine.h"
+#include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
+#include "UI/Configuration/MF_WidgetTypes.h"
+
 FString UMF_PauseMenu::GetWidgetSpec()
 {
     static FString Spec = R"JSON({
@@ -420,20 +424,17 @@ void UMF_PauseMenu::HandleSettingsClicked()
     if (!MainSettings)
     {
         TSubclassOf<UMF_MainSettings> ClassToCreate = MainSettingsClass;
-        if (!ClassToCreate)
+        if (!ClassToCreate && GEngine)
         {
-            // Prefer the MWCS-generated blueprint if available.
-            static const TCHAR *DefaultMainSettingsClassPathA =
-                TEXT("/Game/Generated/Widgets/WBP_MF_MainSettings.WBP_MF_MainSettings_C");
-            static const TCHAR *DefaultMainSettingsClassPathB =
-                TEXT("/Game/UI/Widgets/WBP_MF_MainSettings.WBP_MF_MainSettings_C");
-            ClassToCreate = LoadClass<UMF_MainSettings>(nullptr, DefaultMainSettingsClassPathA);
-            if (!ClassToCreate)
+            if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
             {
-                ClassToCreate = LoadClass<UMF_MainSettings>(nullptr, DefaultMainSettingsClassPathB);
+                const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::MainSettings);
+                if (Resolved)
+                {
+                    ClassToCreate = Resolved.Get();
+                }
             }
         }
-
         if (!ClassToCreate)
         {
             ClassToCreate = UMF_MainSettings::StaticClass();
