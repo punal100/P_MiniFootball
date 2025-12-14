@@ -424,7 +424,7 @@ void UMF_PauseMenu::HandleSettingsClicked()
         {
             // Prefer the MWCS-generated blueprint if available.
             static const TCHAR *DefaultSettingsMenuClassPath =
-                TEXT("/P_MiniFootball/BP/WBP/Sub/WBP_MF_SettingsMenu.WBP_MF_SettingsMenu_C");
+                TEXT("/Game/UI/Widgets/WBP_MF_SettingsMenu.WBP_MF_SettingsMenu_C");
             ClassToCreate = LoadClass<UMF_SettingsMenu>(nullptr, DefaultSettingsMenuClassPath);
         }
 

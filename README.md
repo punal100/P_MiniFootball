@@ -2,6 +2,8 @@
 
 A gameplay plugin for Unreal Engine 5.5 implementing a fast-paced arcade-style mini football game with full multiplayer support.
 
+For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
+
 ---
 
 ## 🎮 Key Features
@@ -80,6 +82,16 @@ A gameplay plugin for Unreal Engine 5.5 implementing a fast-paced arcade-style m
 - Unreal Engine 5.5+
 - P_MEIS Plugin (Modular Enhanced Input System)
 - P_MWCS Plugin (Modular Widget Creation System) for editor-time Widget Blueprint generation/validation (editor-only)
+
+## 🧩 MWCS-generated UI (this project)
+
+This plugin’s UI widgets are implemented as C++ `UUserWidget` classes with a `static FString GetWidgetSpec()` JSON spec.
+
+MWCS generates/repairs Blueprint assets under the project output root (commonly `/Game/UI/Widgets`).
+
+Notable generated widgets include:
+
+- `/Game/UI/Widgets/WBP_MF_SettingsMenu` (opened from the Pause menu)
 
 ---
 
