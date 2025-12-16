@@ -9,11 +9,14 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "InputBinding/FS_InputProfile.h"
+#include "Types/SlateEnums.h"
 #include "MF_InputSettings.generated.h"
 
 class UButton;
+class UComboBoxString;
 class UScrollBox;
 class UTextBlock;
+class UVerticalBox;
 class UMF_InputActionRow;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_OnInputSettingsClosed);
@@ -40,12 +43,34 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "MiniFootball|WidgetSpec")
     static FString GetWidgetSpec();
 
+    UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
+    void PopulateProfileList();
+
+    UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
+    void LoadPreset(FName PresetName);
+
+    UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
+    void ResetToDefaults();
+
 protected:
     UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UTextBlock> InputSettingsTitle;
 
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UComboBoxString> ProfileSelector;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UButton> ResetDefaultsButton;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> EmptyStateText;
+
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UScrollBox> ActionListScroll;
+
+    /** Optional inner container for ActionListScroll (MWCS pattern to ensure proper sizing). */
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UVerticalBox> ActionListContentBox;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UButton> SaveButton;
@@ -82,8 +107,16 @@ private:
     void CancelRebind();
     void ApplyCapturedKey(const FKey &PressedKey);
 
+    void SyncProfileSelectorToPlayer();
+
     UFUNCTION()
     void HandleRowRebindRequested(bool bIsAxisBinding, FName BindingName);
+
+    UFUNCTION()
+    void HandleProfileSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
+
+    UFUNCTION()
+    void HandleResetDefaultsClicked();
 
     UFUNCTION()
     void HandleSaveClicked();
@@ -94,6 +127,8 @@ private:
     // Editing state
     bool bHasPendingProfile = false;
     FS_InputProfile PendingProfile;
+
+    bool bSuppressProfileSelectionChanged = false;
 
     ERebindMode RebindMode = ERebindMode::None;
     int32 PendingIndex = INDEX_NONE;

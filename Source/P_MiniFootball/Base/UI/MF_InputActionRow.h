@@ -10,6 +10,7 @@
 #include "Blueprint/UserWidget.h"
 #include "InputBinding/FS_InputActionBinding.h"
 #include "InputBinding/FS_InputAxisBinding.h"
+#include "InputCoreTypes.h"
 #include "MF_InputActionRow.generated.h"
 
 class UButton;
@@ -41,6 +42,18 @@ public:
     /** Highlight rebinding state. */
     UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
     void SetRebinding(bool bInRebinding);
+
+    /** Called when user clicks Rebind button (or otherwise initiates rebinding). */
+    UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
+    virtual void StartRebinding();
+
+    /** Called when a key is received during rebinding (UI-only helper; parent widget owns profile editing). */
+    UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
+    virtual void OnInputReceived(FKey Key);
+
+    /** Cancel rebinding. */
+    UFUNCTION(BlueprintCallable, Category = "MF|UI|Input")
+    virtual void CancelRebinding();
 
     UPROPERTY(BlueprintAssignable, Category = "MF|UI|Input")
     FMF_OnRebindRequested OnRebindRequested;

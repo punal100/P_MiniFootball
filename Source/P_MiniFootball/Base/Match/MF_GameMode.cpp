@@ -57,6 +57,9 @@ void AMF_GameMode::BeginPlay()
     SpawnTeams();
     SpawnBall();
 
+    // Optional hook for global UI creation.
+    CreateGlobalUI();
+
     // NOTE: Auto-possession disabled - call these manually from Blueprint:
     // 1. AssignPlayerToTeam(PC, Team) - Assign controller to a team
     // 2. RegisterTeamCharactersToController(PC) - Give controller access to team characters
@@ -96,6 +99,19 @@ void AMF_GameMode::PostLogin(APlayerController *NewPlayer)
     // Available functions for widgets to call:
     // - Server_RequestJoinTeam(TeamID) - Request to join a team
     // - Server_RequestLeaveTeam() - Request to leave current team
+
+    // Optional hook for per-player UI creation.
+    CreatePlayerUI(MFPC);
+}
+
+void AMF_GameMode::CreateGlobalUI_Implementation()
+{
+    // Intentionally empty by default. GameMode is server-only.
+}
+
+void AMF_GameMode::CreatePlayerUI_Implementation(AMF_PlayerController *PlayerController)
+{
+    // Intentionally empty by default. GameMode is server-only.
 }
 
 void AMF_GameMode::Logout(AController *Exiting)
@@ -103,15 +119,16 @@ void AMF_GameMode::Logout(AController *Exiting)
     AMF_PlayerController *MFPC = Cast<AMF_PlayerController>(Exiting);
     if (MFPC)
     {
+        const EMF_TeamID ExitingTeam = MFPC->GetAssignedTeam();
         // Handle player leaving team
-        if (MFPC->AssignedTeam != EMF_TeamID::None)
+        if (ExitingTeam != EMF_TeamID::None)
         {
             // Remove from team list
-            if (MFPC->AssignedTeam == EMF_TeamID::TeamA)
+            if (ExitingTeam == EMF_TeamID::TeamA)
             {
                 TeamAHumanPlayers.Remove(MFPC);
             }
-            else if (MFPC->AssignedTeam == EMF_TeamID::TeamB)
+            else if (ExitingTeam == EMF_TeamID::TeamB)
             {
                 TeamBHumanPlayers.Remove(MFPC);
             }
@@ -120,7 +137,7 @@ void AMF_GameMode::Logout(AController *Exiting)
             ReleaseCharacterFromPlayer(MFPC);
 
             UE_LOG(LogTemp, Log, TEXT("MF_GameMode::Logout - %s removed from team %d"),
-                   *MFPC->GetName(), static_cast<int32>(MFPC->AssignedTeam));
+                   *MFPC->GetName(), static_cast<int32>(ExitingTeam));
         }
     }
 
@@ -341,13 +358,13 @@ bool AMF_GameMode::PossessCharacterWithController(AMF_PlayerController *PC, AMF_
     }
 
     // Ensure character is registered to this controller
-    if (!PC->TeamCharacters.Contains(Character))
+    if (!PC->GetRegisteredTeamCharacters().Contains(Character))
     {
         PC->RegisterTeamCharacter(Character);
     }
 
     // Find index and switch
-    int32 Index = PC->TeamCharacters.IndexOfByKey(Character);
+    int32 Index = PC->GetRegisteredTeamCharacterIndex(Character);
     if (Index != INDEX_NONE)
     {
         PC->SwitchToCharacter(Index);
@@ -366,7 +383,8 @@ bool AMF_GameMode::PossessFirstAvailableTeamCharacter(AMF_PlayerController *PC)
         return false;
     }
 
-    if (PC->TeamCharacters.Num() == 0)
+    const TArray<AMF_PlayerCharacter *> &RegisteredCharacters = PC->GetRegisteredTeamCharacters();
+    if (RegisteredCharacters.Num() == 0)
     {
         UE_LOG(LogTemp, Warning, TEXT("MF_GameMode::PossessFirstAvailableTeamCharacter - No team characters for %s"),
                *PC->GetName());
@@ -374,9 +392,9 @@ bool AMF_GameMode::PossessFirstAvailableTeamCharacter(AMF_PlayerController *PC)
     }
 
     // Find first valid character
-    for (int32 i = 0; i < PC->TeamCharacters.Num(); ++i)
+    for (int32 i = 0; i < RegisteredCharacters.Num(); ++i)
     {
-        AMF_PlayerCharacter *Character = PC->TeamCharacters[i];
+        AMF_PlayerCharacter *Character = RegisteredCharacters[i];
         if (Character && !Character->IsPendingKillPending())
         {
             PC->SwitchToCharacter(i);
@@ -396,14 +414,14 @@ bool AMF_GameMode::PossessTeamCharacterByIndex(AMF_PlayerController *PC, int32 P
         return false;
     }
 
-    AMF_PlayerCharacter *Character = FindCharacterByTeamAndIndex(PC->AssignedTeam, PlayerIndex);
+    AMF_PlayerCharacter *Character = FindCharacterByTeamAndIndex(PC->GetAssignedTeam(), PlayerIndex);
     if (Character)
     {
         return PossessCharacterWithController(PC, Character);
     }
 
     UE_LOG(LogTemp, Warning, TEXT("MF_GameMode::PossessTeamCharacterByIndex - No character found for Team %d, Index %d"),
-           static_cast<int32>(PC->AssignedTeam), PlayerIndex);
+           static_cast<int32>(PC->GetAssignedTeam()), PlayerIndex);
     return false;
 }
 
@@ -452,15 +470,16 @@ AMF_PlayerCharacter *AMF_GameMode::FindCharacterByTeamAndIndex(EMF_TeamID Team, 
 
 void AMF_GameMode::RegisterTeamCharactersToController(AMF_PlayerController *PC)
 {
-    if (!PC || PC->AssignedTeam == EMF_TeamID::None)
+    if (!PC || PC->GetAssignedTeam() == EMF_TeamID::None)
     {
         return;
     }
 
-    TArray<AMF_PlayerCharacter *> TeamCharacters = GetSpawnedTeamCharacters(PC->AssignedTeam);
+    const EMF_TeamID Team = PC->GetAssignedTeam();
+    TArray<AMF_PlayerCharacter *> TeamCharacters = GetSpawnedTeamCharacters(Team);
 
     UE_LOG(LogTemp, Log, TEXT("MF_GameMode::RegisterTeamCharactersToController - Registering %d characters to %s (Team %d)"),
-           TeamCharacters.Num(), *PC->GetName(), static_cast<int32>(PC->AssignedTeam));
+           TeamCharacters.Num(), *PC->GetName(), static_cast<int32>(Team));
 
     for (AMF_PlayerCharacter *Character : TeamCharacters)
     {
@@ -479,7 +498,7 @@ FMF_TeamAssignmentResult AMF_GameMode::HandleJoinTeamRequest_Implementation(APla
     }
 
     // Check if player is already on a team
-    if (MFPC->AssignedTeam != EMF_TeamID::None)
+    if (MFPC->GetAssignedTeam() != EMF_TeamID::None)
     {
         return FMF_TeamAssignmentResult::Failure(TEXT("Already on a team. Leave current team first."));
     }
@@ -550,7 +569,7 @@ bool AMF_GameMode::HandleLeaveTeamRequest_Implementation(APlayerController *Requ
     }
 
     // Check if player is on a team
-    EMF_TeamID CurrentTeam = MFPC->AssignedTeam;
+    EMF_TeamID CurrentTeam = MFPC->GetAssignedTeam();
     if (CurrentTeam == EMF_TeamID::None)
     {
         return false;
@@ -733,7 +752,7 @@ void AMF_GameMode::ReleaseCharacterFromPlayer(AMF_PlayerController *PC)
         PC->UnPossess();
 
         // Clear team characters list
-        PC->TeamCharacters.Empty();
+        PC->ResetRegisteredTeamCharacters();
 
         UE_LOG(LogTemp, Log, TEXT("MF_GameMode::ReleaseCharacterFromPlayer - %s released %s"),
                *PC->GetName(), *CurrentCharacter->GetName());

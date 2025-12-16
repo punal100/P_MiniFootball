@@ -105,12 +105,15 @@ Generic hold/toggle button used for touch controls (e.g. Sprint).
 
 ### WBP_MF_InputSettings Bindings
 
-| Widget Name          | Type        | Required | Notes                    |
-| -------------------- | ----------- | -------- | ------------------------ |
-| `InputSettingsTitle` | `TextBlock` | ✅ No    | Optional title text      |
-| `ActionListScroll`   | `ScrollBox` | ⚠️ YES   | Dynamic action/axis rows |
-| `SaveButton`         | `Button`    | ⚠️ YES   | Save + apply profile     |
-| `CancelButton`       | `Button`    | ⚠️ YES   | Close without applying   |
+| Widget Name            | Type             | Required | Notes                                                                 |
+| ---------------------- | ---------------- | -------- | --------------------------------------------------------------------- |
+| `InputSettingsTitle`   | `TextBlock`      | ✅ No    | Optional title text                                                   |
+| `ProfileSelector`      | `ComboBoxString` | ✅ No    | Profile/template picker (templates are provided by P_MEIS)            |
+| `ResetDefaultsButton`  | `Button`         | ✅ No    | Resets to `Default` template                                          |
+| `ActionListScroll`     | `ScrollBox`      | ⚠️ YES   | Dynamic action/axis rows                                              |
+| `ActionListContentBox` | `VerticalBox`    | ✅ No    | Optional inner container inside the ScrollBox (SizeToContent pattern) |
+| `SaveButton`           | `Button`         | ⚠️ YES   | Save + apply profile                                                  |
+| `CancelButton`         | `Button`         | ⚠️ YES   | Close without applying                                                |
 
 ### UMF_InputActionRow (Runtime-Created, Not MWCS)
 

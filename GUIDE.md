@@ -35,6 +35,20 @@ Dedicated server needs to start on the gameplay map.
 - Gameplay input is handled via **P_MEIS**.
 - Mobile UI (virtual joystick/buttons) injects into P_MEIS so keyboard/gamepad and UI share the same gameplay path.
 
+Critical init order (prevents empty Input Settings list):
+
+- Initialize P_MEIS for the local PlayerController and load/apply a template (typically `Default`) before opening Settings → Input.
+
+Recommended (single-call):
+
+- Call `EnsureInputProfileReady("Default")` on the local `AMF_PlayerController`.
+
+Behavior:
+
+- Registers the local player with P_MEIS if needed
+- Creates `Saved/InputProfiles/Default.json` if it doesn't exist yet
+- Applies the template to the local player (and applies to Enhanced Input)
+
 ## 6) Settings → Input
 
 The Pause menu opens the Settings menu.
@@ -50,3 +64,21 @@ If you change widget specs, regenerate the widget assets via MWCS (see the top-l
 Note:
 
 - `WBP_MF_InputSettings` builds its action list using `UMF_InputActionRow` instances created at runtime (no MWCS-generated `WBP_MF_InputActionRow`, and it does not appear in `Config/DefaultEditor.ini`).
+
+Input Settings UX:
+
+- `WBP_MF_InputSettings` includes a profile dropdown (templates from P_MEIS) and a **DEFAULT** button.
+- If the list is empty, select `Default` (or click **DEFAULT**) and confirm the local PlayerController has initialized P_MEIS.
+
+## Spectator ↔ Player transitions (client UI)
+
+If your HUD needs to react cleanly when a player joins/leaves a team (spectator → playing and back), bind to events on `AMF_PlayerController`:
+
+- `OnSpectatorStateChanged(Controller, NewState)`
+- `OnPlayerRoleChanged(Controller, bIsPlaying)` (high-level “spectating vs playing” switch)
+- `OnMFPossessedPawnChanged(Controller, NewPawn)` (fires for OnPossess/OnUnPossess)
+
+## UI ownership (recommended)
+
+- Prefer spawning/owning widgets on the local `AMF_PlayerController` (client) using `CreateGameplayUI`, `CreateSpectatorUI`, and `ClearUI`.
+- `AMF_GameMode` also exposes optional Blueprint hooks (`CreateGlobalUI`, `CreatePlayerUI`) but GameMode is server-only; keep client widget creation on the owning client.

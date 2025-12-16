@@ -164,14 +164,14 @@ void UMF_TeamIndicator::RefreshFromController()
     }
 
     // Check spectator state first
-    if (PC->CurrentSpectatorState == EMF_SpectatorState::Spectating)
+    if (PC->GetSpectatorState() == EMF_SpectatorState::Spectating)
     {
         SetSpectating();
         return;
     }
 
     // Show assigned team
-    EMF_TeamID Team = PC->AssignedTeam;
+    EMF_TeamID Team = PC->GetAssignedTeam();
     if (Team == EMF_TeamID::None)
     {
         SetSpectating();

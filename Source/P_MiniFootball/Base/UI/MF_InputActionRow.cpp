@@ -152,7 +152,34 @@ void UMF_InputActionRow::SetRebinding(bool bInRebinding)
     }
 }
 
+void UMF_InputActionRow::StartRebinding()
+{
+    if (bIsRebinding)
+    {
+        return;
+    }
+
+    SetRebinding(true);
+    OnRebindRequested.Broadcast(bIsAxis, BindingName);
+}
+
+void UMF_InputActionRow::OnInputReceived(FKey Key)
+{
+    if (!bIsRebinding)
+    {
+        return;
+    }
+
+    SetKeyDisplay(Key.GetDisplayName());
+    CancelRebinding();
+}
+
+void UMF_InputActionRow::CancelRebinding()
+{
+    SetRebinding(false);
+}
+
 void UMF_InputActionRow::HandleRebindClicked()
 {
-    OnRebindRequested.Broadcast(bIsAxis, BindingName);
+    StartRebinding();
 }

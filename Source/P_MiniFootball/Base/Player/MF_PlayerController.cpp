@@ -17,6 +17,33 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/GameModeBase.h"
 
+#include "Engine/Engine.h"
+
+#include "Manager/CPP_InputBindingManager.h"
+
+#include "InputCoreTypes.h"
+
+#include "Input/MF_DefaultInputTemplates.h"
+
+#include "MF_HUD.h"
+
+#include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
+#include "UI/Configuration/MF_WidgetTypes.h"
+
+#include "Blueprint/WidgetBlueprintLibrary.h"
+
+#include "EnhancedInputComponent.h"
+
+namespace
+{
+    static UCPP_InputBindingManager *GetMEISManager()
+    {
+        return GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
+    }
+
+    static const FName MF_DefaultInputTemplateName(TEXT("Default"));
+}
+
 AMF_PlayerController::AMF_PlayerController()
 {
     bReplicates = true;
@@ -24,6 +51,12 @@ AMF_PlayerController::AMF_PlayerController()
     ActiveCharacterIndex = -1;
     bIsSpectator = true;                                    // Start as spectator by default
     CurrentSpectatorState = EMF_SpectatorState::Spectating; // Start spectating
+}
+
+void AMF_PlayerController::CreateInputComponent(TSubclassOf<UInputComponent> InputComponentToCreate)
+{
+    // Always prefer Enhanced Input on controllers (stable across pawn switching)
+    Super::CreateInputComponent(UEnhancedInputComponent::StaticClass());
 }
 
 void AMF_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
@@ -43,6 +76,75 @@ void AMF_PlayerController::BeginPlay()
 
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::BeginPlay - HasAuthority: %d, IsLocalController: %d, SpectatorState: %d"),
            HasAuthority(), IsLocalController(), static_cast<int32>(CurrentSpectatorState));
+
+    if (IsLocalController())
+    {
+        // One-call path: ensures a usable template exists and gets applied.
+        EnsureInputProfileReady(MF_DefaultInputTemplateName, /*bCreateTemplateIfMissing*/ true, /*bApplyEvenIfNotEmpty*/ false);
+
+        // Ensure a HUD exists early (safe: reuses existing HUD if already created in BP).
+        CreateSpectatorUI();
+    }
+
+    UpdatePlayerRole();
+}
+
+bool AMF_PlayerController::EnsureInputProfileReady(const FName TemplateName, bool bCreateTemplateIfMissing, bool bApplyEvenIfNotEmpty)
+{
+    if (!IsLocalController())
+    {
+        return false;
+    }
+
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    if (!Manager)
+    {
+        return false;
+    }
+
+    // Ensure registered.
+    if (!Manager->HasPlayerRegistered(this))
+    {
+        Manager->RegisterPlayer(this);
+    }
+
+    // Decide which template name to use.
+    const FName EffectiveTemplateName = TemplateName.IsNone() ? MF_DefaultInputTemplateName : TemplateName;
+
+    // If missing, optionally create the built-in Default template.
+    if (bCreateTemplateIfMissing && !Manager->DoesTemplateExist(EffectiveTemplateName))
+    {
+        if (EffectiveTemplateName == MF_DefaultInputTemplateName)
+        {
+            const FS_InputProfile DefaultTemplate = MF_DefaultInputTemplates::BuildDefaultInputTemplate(MF_DefaultInputTemplateName);
+            Manager->SaveProfileTemplate(MF_DefaultInputTemplateName, DefaultTemplate);
+        }
+    }
+
+    // Apply only if requested, or if profile is empty.
+    bool bShouldApply = bApplyEvenIfNotEmpty;
+    if (!bShouldApply)
+    {
+        const FS_InputProfile CurrentProfile = Manager->GetProfileForPlayer(this);
+        bShouldApply = (CurrentProfile.ActionBindings.Num() == 0 && CurrentProfile.AxisBindings.Num() == 0);
+    }
+
+    if (bShouldApply)
+    {
+        if (!Manager->ApplyTemplateToPlayer(this, EffectiveTemplateName))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        // Even if we didn't re-apply, ensure Enhanced Input reflects current profile.
+        Manager->ApplyPlayerProfileToEnhancedInput(this);
+    }
+
+    bInputSystemInitialized = true;
+    bInputProfileLoaded = true;
+    return true;
 }
 
 void AMF_PlayerController::OnPossess(APawn *InPawn)
@@ -51,12 +153,20 @@ void AMF_PlayerController::OnPossess(APawn *InPawn)
 
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnPossess - Pawn: %s"),
            InPawn ? *InPawn->GetName() : TEXT("null"));
+
+    OnMFPossessedPawnChanged.Broadcast(this, InPawn);
+    Execute_OnPossessedPawnChanged(this, InPawn);
+    UpdatePlayerRole();
 }
 
 void AMF_PlayerController::OnUnPossess()
 {
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnUnPossess"));
     Super::OnUnPossess();
+
+    OnMFPossessedPawnChanged.Broadcast(this, nullptr);
+    Execute_OnPossessedPawnChanged(this, nullptr);
+    UpdatePlayerRole();
 }
 
 // ==================== Team Management ====================
@@ -84,6 +194,8 @@ void AMF_PlayerController::OnRep_AssignedTeam()
     OnTeamAssigned.Broadcast(this, AssignedTeam);
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnRep_AssignedTeam - Team: %d"),
            static_cast<int32>(AssignedTeam));
+
+    UpdatePlayerRole();
 }
 
 void AMF_PlayerController::OnRep_SpectatorState()
@@ -98,6 +210,177 @@ void AMF_PlayerController::OnRep_SpectatorState()
 
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnRep_SpectatorState - State: %d"),
            static_cast<int32>(CurrentSpectatorState));
+
+    UpdatePlayerRole();
+}
+
+void AMF_PlayerController::InitializeInputSystem()
+{
+    if (bInputSystemInitialized)
+    {
+        return;
+    }
+
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    if (!Manager)
+    {
+        return;
+    }
+
+    if (!Manager->HasPlayerRegistered(this))
+    {
+        Manager->RegisterPlayer(this);
+    }
+
+    bInputSystemInitialized = true;
+}
+
+void AMF_PlayerController::LoadInputProfile(const FName &TemplateName)
+{
+    if (bInputProfileLoaded)
+    {
+        return;
+    }
+
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    if (!Manager)
+    {
+        return;
+    }
+
+    // Ensure registered first.
+    if (!Manager->HasPlayerRegistered(this))
+    {
+        Manager->RegisterPlayer(this);
+        bInputSystemInitialized = true;
+    }
+
+    // If profile is empty, try to load a template.
+    if (FS_InputProfile *Profile = Manager->GetProfileRefForPlayer(this))
+    {
+        if (Profile->ActionBindings.Num() == 0 && Profile->AxisBindings.Num() == 0)
+        {
+            if (!TemplateName.IsNone())
+            {
+                Manager->ApplyTemplateToPlayer(this, TemplateName);
+            }
+        }
+    }
+
+    bInputProfileLoaded = true;
+}
+
+void AMF_PlayerController::FinalizeInputSetup()
+{
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    if (!Manager)
+    {
+        return;
+    }
+
+    // Apply active profile to Enhanced Input.
+    Manager->ApplyPlayerProfileToEnhancedInput(this);
+}
+
+void AMF_PlayerController::UpdatePlayerRole()
+{
+    const bool bIsPlayingNow = (AssignedTeam != EMF_TeamID::None) &&
+                               (CurrentSpectatorState == EMF_SpectatorState::Playing) &&
+                               (GetPawn() != nullptr);
+
+    if (bIsPlayingNow != bLastKnownIsPlaying)
+    {
+        bLastKnownIsPlaying = bIsPlayingNow;
+        OnPlayerRoleChanged.Broadcast(this, bIsPlayingNow);
+    }
+}
+
+void AMF_PlayerController::HandlePlayerRoleChanged(AMF_PlayerController *Controller, bool bIsPlaying)
+{
+    if (Controller != this)
+    {
+        return;
+    }
+
+    if (CurrentHUD)
+    {
+        CurrentHUD->SetHUDMode(bIsPlaying ? EMF_HUDMode::Gameplay : EMF_HUDMode::Spectator);
+        CurrentHUD->RefreshFromPlayerState();
+    }
+}
+
+static TSubclassOf<UMF_HUD> ResolveHUDClass()
+{
+    if (GEngine)
+    {
+        if (UMF_WidgetConfigurationSubsystem *WidgetConfig = GEngine->GetEngineSubsystem<UMF_WidgetConfigurationSubsystem>())
+        {
+            const TSubclassOf<UUserWidget> Resolved = WidgetConfig->GetWidgetClass(EMF_WidgetType::MainHUD);
+            if (Resolved)
+            {
+                return Resolved.Get();
+            }
+        }
+    }
+
+    return UMF_HUD::StaticClass();
+}
+
+void AMF_PlayerController::CreateGameplayUI_Implementation()
+{
+    if (!IsLocalController())
+    {
+        return;
+    }
+
+    CreateSpectatorUI();
+    HandlePlayerRoleChanged(this, true);
+}
+
+void AMF_PlayerController::CreateSpectatorUI_Implementation()
+{
+    if (!IsLocalController())
+    {
+        return;
+    }
+
+    // Reuse an already-created HUD if Blueprint or another system spawned it.
+    if (!CurrentHUD)
+    {
+        TArray<UUserWidget *> Found;
+        UWidgetBlueprintLibrary::GetAllWidgetsOfClass(this, Found, UMF_HUD::StaticClass(), false);
+        if (Found.Num() > 0)
+        {
+            CurrentHUD = Cast<UMF_HUD>(Found[0]);
+        }
+    }
+
+    if (!CurrentHUD)
+    {
+        const TSubclassOf<UMF_HUD> HUDClass = ResolveHUDClass();
+        CurrentHUD = CreateWidget<UMF_HUD>(this, HUDClass);
+        if (CurrentHUD)
+        {
+            CurrentHUD->AddToViewport(HUDZOrder);
+        }
+    }
+
+    // Bind role changes once.
+    if (!OnPlayerRoleChanged.IsAlreadyBound(this, &AMF_PlayerController::HandlePlayerRoleChanged))
+    {
+        OnPlayerRoleChanged.AddDynamic(this, &AMF_PlayerController::HandlePlayerRoleChanged);
+    }
+
+    HandlePlayerRoleChanged(this, false);
+}
+
+void AMF_PlayerController::ClearUI_Implementation()
+{
+    if (CurrentHUD)
+    {
+        CurrentHUD->RemoveFromParent();
+        CurrentHUD = nullptr;
+    }
 }
 
 void AMF_PlayerController::SetSpectatorState(EMF_SpectatorState NewState)

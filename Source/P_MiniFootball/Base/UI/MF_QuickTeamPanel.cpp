@@ -30,61 +30,53 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
     
     "Hierarchy": {
         "Root": {
-            "Type": "CanvasPanel",
-            "Name": "RootCanvas",
+            "Type": "Border",
+            "Name": "PanelBorder",
+            "BindingType": "Optional",
             "Children": [
                 {
-                    "Type": "Border",
-                    "Name": "PanelBorder",
-                    "BindingType": "Optional",
-                    "Slot": {
-                        "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
-                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
-                    },
+                    "Type": "VerticalBox",
+                    "Name": "QuickPanelContent",
+                    "Properties": {"SizeToContent": true, "Spacing": 4},
                     "Children": [
                         {
+                            "Type": "TextBlock",
+                            "Name": "TeamNameText",
+                            "BindingType": "Required",
+                            "Text": "TEAM",
+                            "FontSize": 16,
+                            "Justification": "Center",
+                            "Slot": {"HAlign": "Center"}
+                        },
+                        {
+                            "Type": "TextBlock",
+                            "Name": "PlayerCountText",
+                            "BindingType": "Required",
+                            "Text": "0/3",
+                            "FontSize": 12,
+                            "Justification": "Center",
+                            "Slot": {"HAlign": "Center"}
+                        },
+                        {
                             "Type": "VerticalBox",
-                            "Name": "QuickPanelContent",
+                            "Name": "PlayerListBox",
+                            "BindingType": "Optional",
+                            "Properties": {"SizeToContent": true, "Spacing": 2}
+                        },
+                        {
+                            "Type": "Button",
+                            "Name": "QuickJoinButton",
+                            "BindingType": "Required",
+                            "Slot": {"HAlign": "Fill"},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
-                                    "Name": "TeamNameText",
-                                    "BindingType": "Required",
-                                    "Text": "TEAM",
-                                    "FontSize": 16,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center"}
-                                },
-                                {
-                                    "Type": "TextBlock",
-                                    "Name": "PlayerCountText",
-                                    "BindingType": "Required",
-                                    "Text": "0/3",
+                                    "Name": "ShortcutHintText",
+                                    "BindingType": "Optional",
+                                    "Text": "JOIN",
                                     "FontSize": 12,
                                     "Justification": "Center",
-                                    "Slot": {"HAlign": "Center"}
-                                },
-                                {
-                                    "Type": "VerticalBox",
-                                    "Name": "PlayerListBox",
-                                    "BindingType": "Optional"
-                                },
-                                {
-                                    "Type": "Button",
-                                    "Name": "QuickJoinButton",
-                                    "BindingType": "Required",
-                                    "Slot": {"HAlign": "Stretch"},
-                                    "Children": [
-                                        {
-                                            "Type": "TextBlock",
-                                            "Name": "ShortcutHintText",
-                                            "BindingType": "Optional",
-                                            "Text": "JOIN",
-                                            "FontSize": 12,
-                                            "Justification": "Center",
-                                            "Slot": {"HAlign": "Center", "VAlign": "Center"}
-                                        }
-                                    ]
+                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
                                 }
                             ]
                         }

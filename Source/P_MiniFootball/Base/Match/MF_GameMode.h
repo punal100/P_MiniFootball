@@ -21,6 +21,7 @@ class AMF_PlayerController;
 class AMF_Ball;
 class AMF_GameState;
 class AMF_Spectator;
+class UUserWidget;
 
 /**
  * MF_GameMode - Server-Only Game Mode for Mini Football
@@ -166,6 +167,22 @@ protected:
     virtual TArray<EMF_TeamID> GetAvailableTeams_Implementation(APlayerController *PC) override;
     virtual int32 GetMaxPlayersPerTeam_Implementation() override;
     virtual bool IsMidMatchJoinAllowed_Implementation() override;
+
+    // ==================== UI Creation Hooks (Optional) ====================
+    /** Create global UI (match info, spectators display, etc). Server-only hook; typically calls into PlayerControllers for client UI. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MF|UI")
+    void CreateGlobalUI();
+
+    /** Create player-specific UI for a newly logged-in controller. Server-only hook; typically calls client-side PC UI creation via RPC/Blueprint. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MF|UI")
+    void CreatePlayerUI(AMF_PlayerController *PlayerController);
+
+protected:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MF|UI")
+    TSubclassOf<UUserWidget> GlobalHUDClass;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MF|UI")
+    TSubclassOf<UUserWidget> PlayerHUDClass;
 
 private:
     /** Track spawned characters */

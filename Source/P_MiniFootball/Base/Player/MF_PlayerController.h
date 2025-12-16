@@ -18,11 +18,14 @@
 
 class AMF_PlayerCharacter;
 class AMF_Spectator;
+class UMF_HUD;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnControlledCharacterChanged, AMF_PlayerController *, Controller, AMF_PlayerCharacter *, NewCharacter);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTeamAssigned, AMF_PlayerController *, Controller, EMF_TeamID, Team);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnTeamAssignmentResponseDelegate, bool, bSuccess, EMF_TeamID, Team, const FString &, ErrorMessage);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSpectatorStateChanged, AMF_PlayerController *, Controller, EMF_SpectatorState, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerRoleChanged, AMF_PlayerController *, Controller, bool, bIsPlaying);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPossessedPawnChangedDelegate, AMF_PlayerController *, Controller, APawn *, NewPawn);
 
 /**
  * MF_PlayerController - Networked Player Controller for Mini Football
@@ -43,6 +46,9 @@ class P_MINIFOOTBALL_API AMF_PlayerController : public APlayerController, public
 public:
     AMF_PlayerController();
 
+protected:
+    virtual void CreateInputComponent(TSubclassOf<UInputComponent> InputComponentToCreate) override;
+
     // ==================== Replication ====================
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const override;
 
@@ -60,6 +66,13 @@ public:
     UPROPERTY(ReplicatedUsing = OnRep_AssignedTeam, BlueprintReadOnly, Category = "Team")
     EMF_TeamID AssignedTeam;
 
+public:
+    UFUNCTION(BlueprintPure, Category = "Team")
+    EMF_TeamID GetAssignedTeam() const { return AssignedTeam; }
+
+    UFUNCTION(BlueprintPure, Category = "Spectator")
+    EMF_SpectatorState GetSpectatorState() const { return CurrentSpectatorState; }
+
     /** Server-side: Assign this controller to a team */
     UFUNCTION(BlueprintCallable, Category = "Team")
     void AssignToTeam(EMF_TeamID NewTeam);
@@ -69,6 +82,7 @@ public:
 
     // ==================== Team Request Server RPCs (Called from Widgets) ====================
 
+public:
     /**
      * Request to join a team - Called from Widget buttons
      * This is the MAIN entry point for team joining from UI
@@ -154,7 +168,44 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Events")
     FOnSpectatorStateChanged OnSpectatorStateChanged;
 
+    /** Fired when role changes between playing and spectating (derived from team/state/possession). */
+    UPROPERTY(BlueprintAssignable, Category = "Events")
+    FOnPlayerRoleChanged OnPlayerRoleChanged;
+
+    /** Fired when possessed pawn changes (OnPossess/OnUnPossess). */
+    UPROPERTY(BlueprintAssignable, Category = "Events")
+    FOnPossessedPawnChangedDelegate OnMFPossessedPawnChanged;
+
+    // ==================== UI Management (PHASE 11-5) ====================
+
+    /** Create (or show) gameplay UI. Default implementation uses MainHUD widget. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MF|UI")
+    void CreateGameplayUI();
+
+    /** Create (or show) spectator UI. Default implementation uses MainHUD widget. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MF|UI")
+    void CreateSpectatorUI();
+
+    /** Remove all UI widgets created/owned by this controller. */
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MF|UI")
+    void ClearUI();
+
+    /** Returns the currently active HUD widget, if any. */
+    UFUNCTION(BlueprintPure, Category = "MF|UI")
+    UMF_HUD *GetCurrentHUD() const { return CurrentHUD; }
+
     // ==================== Input Handling ====================
+
+public:
+    /**
+     * One-call helper to ensure input bindings exist and the Input Settings list can populate.
+     * - Registers this controller with P_MEIS if needed
+     * - Optionally creates the template if missing (only supports auto-creating the built-in "Default" template)
+     * - Applies the template to this player (also applies to Enhanced Input)
+     */
+    UFUNCTION(BlueprintCallable, Category = "MF|Input")
+    bool EnsureInputProfileReady(const FName TemplateName = FName(TEXT("Default")), bool bCreateTemplateIfMissing = true, bool bApplyEvenIfNotEmpty = false);
+
     /** Request player switch via input */
     UFUNCTION(BlueprintCallable, Category = "Input")
     void RequestPlayerSwitch();
@@ -180,6 +231,9 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Possession")
     bool bIsSpectator;
 
+    UFUNCTION(BlueprintPure, Category = "Possession")
+    bool IsSpectator() const { return bIsSpectator; }
+
     // ==================== Interface Implementation Helpers ====================
 
     /** Set the spectator state (Server only) */
@@ -189,6 +243,22 @@ protected:
     virtual void BeginPlay() override;
     virtual void OnPossess(APawn *InPawn) override;
     virtual void OnUnPossess() override;
+
+    // ==================== Input System Init (P_MEIS) ====================
+    /** Ensure P_MEIS is registered for this local controller. */
+    void InitializeInputSystem();
+
+    /** Load an input template/profile for this local controller (e.g. "Default"). */
+    void LoadInputProfile(const FName &TemplateName);
+
+    /** Apply the active profile to Enhanced Input. */
+    void FinalizeInputSetup();
+
+    /** Recompute role and broadcast if changed. */
+    void UpdatePlayerRole();
+
+    UFUNCTION()
+    void HandlePlayerRoleChanged(AMF_PlayerController *Controller, bool bIsPlaying);
 
     /** Internal: Switch to specified character (Server side) */
     void Internal_SwitchToCharacter(int32 CharacterIndex);
@@ -206,6 +276,19 @@ protected:
 
 public:
     // ==================== Mobile Input Functions (UI Widget Support) ====================
+
+    /** C++ access to registered team characters (server/game logic). */
+    const TArray<AMF_PlayerCharacter *> &GetRegisteredTeamCharacters() const { return TeamCharacters; }
+
+    /** Find index of a registered character (or INDEX_NONE). */
+    int32 GetRegisteredTeamCharacterIndex(AMF_PlayerCharacter *InCharacter) const { return TeamCharacters.IndexOfByKey(InCharacter); }
+
+    /** Clear all registered team characters (server/game logic). */
+    void ResetRegisteredTeamCharacters()
+    {
+        TeamCharacters.Empty();
+        ActiveCharacterIndex = INDEX_NONE;
+    }
 
     /** Get current team (convenience wrapper for widgets) */
     UFUNCTION(BlueprintPure, Category = "Team")
@@ -234,4 +317,18 @@ private:
 
     /** Current mobile sprint state */
     bool bMobileSprinting = false;
+
+    // Input init state
+    bool bInputSystemInitialized = false;
+    bool bInputProfileLoaded = false;
+
+    // Role state
+    bool bLastKnownIsPlaying = false;
+
+    // UI state
+    UPROPERTY(Transient)
+    TObjectPtr<UMF_HUD> CurrentHUD;
+
+    UPROPERTY(EditDefaultsOnly, Category = "MF|UI")
+    int32 HUDZOrder = 100;
 };

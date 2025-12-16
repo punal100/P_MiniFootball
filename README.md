@@ -290,6 +290,14 @@ FOnTeamAssignmentResponseDelegate OnTeamAssignmentResponseReceived;
 UPROPERTY(BlueprintAssignable)
 FOnSpectatorStateChanged OnSpectatorStateChanged;
 // Params: AMF_PlayerController* Controller, EMF_SpectatorState NewState
+
+UPROPERTY(BlueprintAssignable)
+FOnPlayerRoleChanged OnPlayerRoleChanged;
+// Params: AMF_PlayerController* Controller, bool bIsPlaying
+
+UPROPERTY(BlueprintAssignable)
+FOnPossessedPawnChangedDelegate OnMFPossessedPawnChanged;
+// Params: AMF_PlayerController* Controller, APawn* NewPawn
 ```
 
 ### Team Balance Rules

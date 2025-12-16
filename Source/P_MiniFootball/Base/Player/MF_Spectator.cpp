@@ -16,11 +16,20 @@ AMF_Spectator::AMF_Spectator()
     // Disable default movement
     bAddDefaultMovementBindings = false;
 
+    // Spectator camera should never inherit controller roll (prevents upside-down flipping)
+    bUseControllerRotationPitch = false;
+    bUseControllerRotationYaw = false;
+    bUseControllerRotationRoll = false;
+
     // Setup camera boom
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
     CameraBoom->TargetArmLength = 2000.0f;
     CameraBoom->SetRelativeRotation(FRotator(-60.0f, 0.0f, 0.0f));
+    CameraBoom->bUsePawnControlRotation = false;
+    CameraBoom->bInheritPitch = false;
+    CameraBoom->bInheritYaw = false;
+    CameraBoom->bInheritRoll = false;
     CameraBoom->bDoCollisionTest = false;
     CameraBoom->bEnableCameraLag = true;
     CameraBoom->CameraLagSpeed = 3.0f;
@@ -60,7 +69,7 @@ void AMF_Spectator::Tick(float DeltaTime)
     }
 }
 
-void AMF_Spectator::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AMF_Spectator::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
@@ -88,7 +97,7 @@ void AMF_Spectator::MoveToLocation(FVector Location)
     SetActorLocation(Location);
 }
 
-AMF_Ball* AMF_Spectator::GetBall() const
+AMF_Ball *AMF_Spectator::GetBall() const
 {
     return CachedBall.Get();
 }
@@ -100,7 +109,7 @@ void AMF_Spectator::FindBall()
         return;
     }
 
-    TArray<AActor*> FoundBalls;
+    TArray<AActor *> FoundBalls;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AMF_Ball::StaticClass(), FoundBalls);
 
     if (FoundBalls.Num() > 0)

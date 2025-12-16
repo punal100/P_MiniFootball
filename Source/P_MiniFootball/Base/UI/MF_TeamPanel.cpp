@@ -43,6 +43,7 @@ FString UMF_TeamPanel::GetWidgetSpec()
                         {
                             "Type": "VerticalBox",
                             "Name": "PanelContent",
+                            "Properties": {"SizeToContent": true, "Spacing": 8},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
@@ -66,7 +67,8 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                     "Type": "VerticalBox",
                                     "Name": "PlayerListBox",
                                     "BindingType": "Required",
-                                    "Slot": {"Fill": 1.0}
+                                    "Properties": {"SizeToContent": true, "Spacing": 4},
+                                    "Slot": {"Padding": {"Bottom": 8}}
                                 },
                                 {
                                     "Type": "Button",

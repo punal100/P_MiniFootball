@@ -15,6 +15,21 @@
 
 #include "Manager/CPP_InputBindingManager.h"
 
+#include "InputBinding/FS_InputProfile.h"
+
+#include "Input/MF_DefaultInputTemplates.h"
+
+#include "EnhancedInputComponent.h"
+
+AMF_MenuPlayerController::AMF_MenuPlayerController()
+{
+}
+
+void AMF_MenuPlayerController::CreateInputComponent(TSubclassOf<UInputComponent> InputComponentToCreate)
+{
+    Super::CreateInputComponent(UEnhancedInputComponent::StaticClass());
+}
+
 namespace
 {
     static UCPP_InputBindingManager *GetMEISManager()
@@ -60,6 +75,27 @@ void AMF_MenuPlayerController::BeginPlay()
         {
             Manager->RegisterPlayer(this);
         }
+
+        static const FName DefaultTemplateName(TEXT("Default"));
+
+        // Menu maps can open settings before gameplay controllers ever run.
+        // Ensure the built-in Default template exists on disk before attempting to apply it.
+        if (!Manager->DoesTemplateExist(DefaultTemplateName))
+        {
+            const FS_InputProfile DefaultTemplate = MF_DefaultInputTemplates::BuildDefaultInputTemplate(DefaultTemplateName);
+            Manager->SaveProfileTemplate(DefaultTemplateName, DefaultTemplate);
+        }
+
+        // Ensure we have at least the Default template loaded, so menu UI and settings can read bindings.
+        if (FS_InputProfile *Profile = Manager->GetProfileRefForPlayer(this))
+        {
+            if (Profile->ActionBindings.Num() == 0 && Profile->AxisBindings.Num() == 0)
+            {
+                Manager->ApplyTemplateToPlayer(this, DefaultTemplateName);
+            }
+        }
+
+        Manager->ApplyPlayerProfileToEnhancedInput(this);
     }
 
     if (!MainMenu)

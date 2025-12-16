@@ -22,6 +22,11 @@ class P_MINIFOOTBALL_API AMF_MenuPlayerController : public APlayerController
     GENERATED_BODY()
 
 public:
+    AMF_MenuPlayerController();
+
+protected:
+    virtual void CreateInputComponent(TSubclassOf<UInputComponent> InputComponentToCreate) override;
+
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 

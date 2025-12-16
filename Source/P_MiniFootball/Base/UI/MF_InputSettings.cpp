@@ -8,12 +8,16 @@
 
 #include "MF_InputActionRow.h"
 
+#include "Player/MF_PlayerController.h"
+
 #include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
 #include "UI/Configuration/MF_WidgetTypes.h"
 
 #include "Components/Button.h"
+#include "Components/ComboBoxString.h"
 #include "Components/ScrollBox.h"
 #include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
 #include "Engine/Engine.h"
 #include "Input/Reply.h"
 #include "InputCoreTypes.h"
@@ -69,10 +73,31 @@ FString UMF_InputSettings::GetWidgetSpec()
                 {
                     "Type": "VerticalBox",
                     "Name": "InputContainer",
-                    "Slot": {"Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}}, "Alignment": {"X": 0.5, "Y": 0.5}},
+                    "Slot": {"Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}}, "Alignment": {"X": 0.5, "Y": 0.5}, "Size": {"X": 900, "Y": 650}},
                     "Children": [
                         {"Type": "TextBlock", "Name": "InputSettingsTitle", "BindingType": "Optional", "Text": "INPUT SETTINGS", "Font": {"Size": 28, "Typeface": "Bold"}, "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}},
-                        {"Type": "ScrollBox", "Name": "ActionListScroll", "BindingType": "Required", "Slot": {"HAlign": "Fill", "Padding": {"Bottom": 12}}},
+                        {
+                            "Type": "HorizontalBox",
+                            "Name": "ProfileRow",
+                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 12}},
+                            "Children": [
+                                {"Type": "ComboBoxString", "Name": "ProfileSelector", "BindingType": "Optional", "Slot": {"HAlign": "Fill", "Padding": {"Right": 10}}},
+                                {"Type": "Button", "Name": "ResetDefaultsButton", "BindingType": "Optional", "Children": [
+                                    {"Type": "TextBlock", "Name": "ResetDefaultsLabel", "Text": "DEFAULT", "Justification": "Center", "Slot": {"HAlign": "Center", "VAlign": "Center"}}
+                                ]}
+                            ]
+                        },
+                        {"Type": "TextBlock", "Name": "EmptyStateText", "BindingType": "Optional", "Text": "No input bindings loaded.", "Justification": "Center", "Slot": {"HAlign": "Center", "Padding": {"Bottom": 12}}},
+                        {
+                            "Type": "ScrollBox",
+                            "Name": "ActionListScroll",
+                            "BindingType": "Required",
+                            "Properties": {"ConsumeMouseWheel": "IfScrollingPossible", "AlwaysShowScrollbar": false},
+                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Fill": 1.0, "Padding": {"Bottom": 12}},
+                            "Children": [
+                                {"Type": "VerticalBox", "Name": "ActionListContentBox", "BindingType": "Optional", "Properties": {"SizeToContent": true, "Spacing": 6}}
+                            ]
+                        },
                         {
                             "Type": "HorizontalBox",
                             "Name": "ButtonRow",
@@ -95,7 +120,11 @@ FString UMF_InputSettings::GetWidgetSpec()
             {"Name": "CancelButton", "Type": "UButton"}
         ],
         "Optional": [
-            {"Name": "InputSettingsTitle", "Type": "UTextBlock"}
+            {"Name": "InputSettingsTitle", "Type": "UTextBlock"},
+            {"Name": "EmptyStateText", "Type": "UTextBlock"},
+            {"Name": "ActionListContentBox", "Type": "UVerticalBox"},
+            {"Name": "ProfileSelector", "Type": "UComboBoxString"},
+            {"Name": "ResetDefaultsButton", "Type": "UButton"}
         ]
     }
 })JSON";
@@ -118,6 +147,19 @@ void UMF_InputSettings::NativeConstruct()
         CancelButton->OnClicked.AddDynamic(this, &UMF_InputSettings::HandleCancelClicked);
     }
 
+    if (ProfileSelector)
+    {
+        ProfileSelector->OnSelectionChanged.AddDynamic(this, &UMF_InputSettings::HandleProfileSelectionChanged);
+    }
+
+    if (ResetDefaultsButton)
+    {
+        ResetDefaultsButton->OnClicked.AddDynamic(this, &UMF_InputSettings::HandleResetDefaultsClicked);
+    }
+
+    PopulateProfileList();
+    SyncProfileSelectorToPlayer();
+
     LoadProfileForEditing();
     RebuildRows();
 
@@ -126,6 +168,16 @@ void UMF_InputSettings::NativeConstruct()
 
 void UMF_InputSettings::NativeDestruct()
 {
+    if (ProfileSelector)
+    {
+        ProfileSelector->OnSelectionChanged.RemoveDynamic(this, &UMF_InputSettings::HandleProfileSelectionChanged);
+    }
+
+    if (ResetDefaultsButton)
+    {
+        ResetDefaultsButton->OnClicked.RemoveDynamic(this, &UMF_InputSettings::HandleResetDefaultsClicked);
+    }
+
     if (SaveButton)
     {
         SaveButton->OnClicked.RemoveDynamic(this, &UMF_InputSettings::HandleSaveClicked);
@@ -164,9 +216,129 @@ FReply UMF_InputSettings::NativeOnKeyDown(const FGeometry &InGeometry, const FKe
 void UMF_InputSettings::Show()
 {
     SetVisibility(ESlateVisibility::Visible);
+    PopulateProfileList();
+    SyncProfileSelectorToPlayer();
     LoadProfileForEditing();
     RebuildRows();
     SetKeyboardFocus();
+}
+
+void UMF_InputSettings::PopulateProfileList()
+{
+    if (!ProfileSelector)
+    {
+        return;
+    }
+
+    ProfileSelector->ClearOptions();
+
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    if (!Manager)
+    {
+        return;
+    }
+
+    TArray<FName> Templates;
+    Manager->GetAvailableTemplates(Templates);
+
+    Templates.Sort([](const FName &A, const FName &B)
+                   { return A.LexicalLess(B); });
+
+    // Prefer Default first if present.
+    const FName DefaultName(TEXT("Default"));
+    if (Templates.Contains(DefaultName))
+    {
+        ProfileSelector->AddOption(DefaultName.ToString());
+        Templates.Remove(DefaultName);
+    }
+
+    for (const FName &TemplateName : Templates)
+    {
+        ProfileSelector->AddOption(TemplateName.ToString());
+    }
+}
+
+void UMF_InputSettings::LoadPreset(FName PresetName)
+{
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    APlayerController *PC = GetOwningPlayer();
+    if (!Manager || !PC)
+    {
+        return;
+    }
+
+    if (!Manager->HasPlayerRegistered(PC))
+    {
+        Manager->RegisterPlayer(PC);
+    }
+
+    TargetTemplateName = PresetName;
+
+    if (Manager->ApplyTemplateToPlayer(PC, PresetName))
+    {
+        Manager->ApplyPlayerProfileToEnhancedInput(PC);
+    }
+
+    LoadProfileForEditing();
+    RebuildRows();
+    SetKeyboardFocus();
+}
+
+void UMF_InputSettings::ResetToDefaults()
+{
+    LoadPreset(FName(TEXT("Default")));
+}
+
+void UMF_InputSettings::SyncProfileSelectorToPlayer()
+{
+    if (!ProfileSelector)
+    {
+        return;
+    }
+
+    UCPP_InputBindingManager *Manager = GetMEISManager();
+    APlayerController *PC = GetOwningPlayer();
+    if (!Manager || !PC)
+    {
+        return;
+    }
+
+    FName LoadedTemplate = Manager->GetPlayerLoadedTemplateName(PC);
+    if (LoadedTemplate.IsNone())
+    {
+        LoadedTemplate = TargetTemplateName.IsNone() ? FName(TEXT("Default")) : TargetTemplateName;
+    }
+
+    const FString Option = LoadedTemplate.ToString();
+    if (ProfileSelector->FindOptionIndex(Option) == INDEX_NONE)
+    {
+        ProfileSelector->AddOption(Option);
+    }
+
+    bSuppressProfileSelectionChanged = true;
+    ProfileSelector->SetSelectedOption(Option);
+    bSuppressProfileSelectionChanged = false;
+}
+
+void UMF_InputSettings::HandleProfileSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType)
+{
+    if (bSuppressProfileSelectionChanged)
+    {
+        return;
+    }
+
+    const FString Trimmed = SelectedItem.TrimStartAndEnd();
+    if (Trimmed.IsEmpty())
+    {
+        return;
+    }
+
+    LoadPreset(FName(*Trimmed));
+}
+
+void UMF_InputSettings::HandleResetDefaultsClicked()
+{
+    ResetToDefaults();
 }
 
 void UMF_InputSettings::Hide()
@@ -184,37 +356,112 @@ void UMF_InputSettings::LoadProfileForEditing()
     APlayerController *PC = GetOwningPlayer();
     if (!Manager || !PC)
     {
+        UE_LOG(LogTemp, Warning, TEXT("UMF_InputSettings::LoadProfileForEditing - Missing %s%s"),
+               Manager ? TEXT("") : TEXT("Manager "),
+               PC ? TEXT("") : TEXT("OwningPlayer"));
         return;
     }
 
+    UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - PC=%s Registered=%d"),
+           *PC->GetName(), Manager->HasPlayerRegistered(PC) ? 1 : 0);
+
     if (!Manager->HasPlayerRegistered(PC))
     {
+        UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - Registering player %s"), *PC->GetName());
         Manager->RegisterPlayer(PC);
     }
 
     FS_InputProfile *Profile = Manager->GetProfileRefForPlayer(PC);
     if (!Profile)
     {
+        UE_LOG(LogTemp, Warning, TEXT("UMF_InputSettings::LoadProfileForEditing - No profile ref for %s"), *PC->GetName());
         return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - Initial profile: Actions=%d Axes=%d"),
+           Profile->ActionBindings.Num(), Profile->AxisBindings.Num());
+
+    // If the player is registered but has no bindings yet, try to load the Default template.
+    if (Profile->ActionBindings.Num() == 0 && Profile->AxisBindings.Num() == 0)
+    {
+        UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - Empty profile; attempting to load/apply Default template"));
+        // Prefer the one-call helper on our MF controller (it can auto-create Default if missing).
+        if (AMF_PlayerController *MFPC = Cast<AMF_PlayerController>(PC))
+        {
+            const bool bReady = MFPC->EnsureInputProfileReady(FName(TEXT("Default")), /*bCreateTemplateIfMissing*/ true, /*bApplyEvenIfNotEmpty*/ false);
+            UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - EnsureInputProfileReady returned %d"), bReady ? 1 : 0);
+        }
+        else
+        {
+            Manager->ApplyTemplateToPlayer(PC, FName(TEXT("Default")));
+        }
+        Profile = Manager->GetProfileRefForPlayer(PC);
+        if (!Profile)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("UMF_InputSettings::LoadProfileForEditing - Still no profile ref after applying Default"));
+            return;
+        }
+
+        UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - After Default: Actions=%d Axes=%d"),
+               Profile->ActionBindings.Num(), Profile->AxisBindings.Num());
     }
 
     PendingProfile = *Profile;
     bHasPendingProfile = true;
+
+    UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::LoadProfileForEditing - PendingProfile ready: Actions=%d Axes=%d"),
+           PendingProfile.ActionBindings.Num(), PendingProfile.AxisBindings.Num());
 }
 
 void UMF_InputSettings::RebuildRows()
 {
     if (!ActionListScroll)
     {
+        UE_LOG(LogTemp, Warning, TEXT("UMF_InputSettings::RebuildRows - ActionListScroll is null"));
         return;
     }
 
-    ActionListScroll->ClearChildren();
+    UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::RebuildRows - HasPending=%d Actions=%d Axes=%d"),
+           bHasPendingProfile ? 1 : 0,
+           PendingProfile.ActionBindings.Num(),
+           PendingProfile.AxisBindings.Num());
+
+    if (ActionListContentBox)
+    {
+        ActionListContentBox->ClearChildren();
+    }
+    else
+    {
+        ActionListScroll->ClearChildren();
+    }
+
+    if (EmptyStateText)
+    {
+        EmptyStateText->SetVisibility(ESlateVisibility::Collapsed);
+    }
 
     if (!bHasPendingProfile)
     {
+        if (EmptyStateText)
+        {
+            EmptyStateText->SetText(FText::FromString(TEXT("Input profile not available yet.")));
+            EmptyStateText->SetVisibility(ESlateVisibility::Visible);
+        }
         return;
     }
+
+    if (PendingProfile.ActionBindings.Num() == 0 && PendingProfile.AxisBindings.Num() == 0)
+    {
+        if (EmptyStateText)
+        {
+            EmptyStateText->SetText(FText::FromString(TEXT("No input bindings found. Ensure a profile/template is loaded (e.g. 'Default').")));
+            EmptyStateText->SetVisibility(ESlateVisibility::Visible);
+        }
+        return;
+    }
+
+    int32 CreatedActionRows = 0;
+    int32 CreatedAxisRows = 0;
 
     TSubclassOf<UMF_InputActionRow> RowClass = InputActionRowClassOverride;
     if (!RowClass)
@@ -264,7 +511,16 @@ void UMF_InputSettings::RebuildRows()
         Row->SetKeyDisplay(MakeActionKeyDisplay(Binding.KeyBindings));
         Row->OnRebindRequested.AddDynamic(this, &UMF_InputSettings::HandleRowRebindRequested);
 
-        ActionListScroll->AddChild(Row);
+        if (ActionListContentBox)
+        {
+            ActionListContentBox->AddChild(Row);
+        }
+        else
+        {
+            ActionListScroll->AddChild(Row);
+        }
+
+        ++CreatedActionRows;
 
         if (RebindMode == ERebindMode::Action && PendingIndex == Index)
         {
@@ -301,7 +557,16 @@ void UMF_InputSettings::RebuildRows()
         Row->SetKeyDisplay(MakeAxisKeyDisplay(Binding.AxisBindings));
         Row->OnRebindRequested.AddDynamic(this, &UMF_InputSettings::HandleRowRebindRequested);
 
-        ActionListScroll->AddChild(Row);
+        if (ActionListContentBox)
+        {
+            ActionListContentBox->AddChild(Row);
+        }
+        else
+        {
+            ActionListScroll->AddChild(Row);
+        }
+
+        ++CreatedAxisRows;
 
         if (RebindMode == ERebindMode::Axis && PendingIndex == AxisIndex)
         {
@@ -309,6 +574,8 @@ void UMF_InputSettings::RebuildRows()
             PendingRow = Row;
         }
     }
+
+    UE_LOG(LogTemp, Log, TEXT("UMF_InputSettings::RebuildRows - Created rows: Actions=%d Axes=%d"), CreatedActionRows, CreatedAxisRows);
 }
 
 FText UMF_InputSettings::MakeActionKeyDisplay(const TArray<FS_KeyBinding> &Keys) const
