@@ -60,40 +60,44 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                                 {
                                     "Type": "HorizontalBox",
                                     "Name": "HeaderRow",
+                                    "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                                     "Children": [
-                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Text": "SELECT TEAM", "FontSize": 28, "Justification": "Left", "Slot": {"Fill": 1.0, "VAlign": "Center"}},
-                                        {"Type": "Button", "Name": "CloseButton", "BindingType": "Required", "Slot": {"HAlign": "Right", "VAlign": "Center"}, "Children": [
-                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Text": "X", "FontSize": 18, "Justification": "Center", "Slot": {"HAlign": "Center", "VAlign": "Center"}}
+                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Text": "SELECT TEAM", "FontSize": 28, "Justification": "Left", "Slot": {"Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}},
+                                        {"Type": "Button", "Name": "CloseButton", "BindingType": "Required", "Slot": {"HAlign": "Right", "VAlign": "Center", "Size": {"Rule": "Auto"}}, "Children": [
+                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Text": "X", "FontSize": 18, "Justification": "Center"}
                                         ]}
                                     ]
                                 },
                                 {
                                     "Type": "HorizontalBox",
                                     "Name": "TeamPanelsRow",
-                                    "Slot": {"FillHeight": 1.0},
+                                    "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}},
                                     "Children": [
                                         {
                                             "Type": "UserWidget",
                                             "Name": "TeamAPanel",
                                             "BindingType": "Required",
-                                            "WidgetClass": "/Script/P_MiniFootball.MF_TeamPanel"
+                                            "WidgetClass": "/Script/P_MiniFootball.MF_TeamPanel",
+                                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}, "Padding": {"Right": 10}}
                                         },
                                         {
                                             "Type": "UserWidget",
                                             "Name": "TeamBPanel",
                                             "BindingType": "Required",
-                                            "WidgetClass": "/Script/P_MiniFootball.MF_TeamPanel"
+                                            "WidgetClass": "/Script/P_MiniFootball.MF_TeamPanel",
+                                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}, "Padding": {"Left": 10}}
                                         }
                                     ]
                                 },
                                 {
                                     "Type": "HorizontalBox",
                                     "Name": "FooterRow",
+                                    "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                                     "Children": [
-                                        {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional", "Children": [
-                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Text": "AUTO", "FontSize": 14, "Justification": "Center", "Slot": {"HAlign": "Center", "VAlign": "Center"}}
+                                        {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional", "Slot": {"Size": {"Rule": "Auto"}}, "Children": [
+                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Text": "AUTO", "FontSize": 14, "Justification": "Center"}
                                         ]},
-                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional", "Text": "", "FontSize": 14, "Justification": "Left", "Slot": {"Fill": 1.0, "VAlign": "Center"}}
+                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional", "Text": "", "FontSize": 14, "Justification": "Left", "Slot": {"Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}}
                                     ]
                                 }
                             ]
@@ -114,16 +118,36 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
         },
         "TitleText": {
             "Font": {"Size": 28, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "SELECT TEAM"
         },
         "CloseButton": {
-            "Style": {"Normal": {"TintColor": {"R": 0.6, "G": 0.2, "B": 0.2, "A": 1.0}}}
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.6, "G": 0.2, "B": 0.2, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
+        },
+        "CloseButtonLabel": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         },
         "AutoAssignButton": {
-            "Style": {"Normal": {"TintColor": {"R": 0.3, "G": 0.5, "B": 0.3, "A": 1.0}}}
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.3, "G": 0.5, "B": 0.3, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
+        },
+        "AutoAssignButtonLabel": {
+            "Font": {"Size": 14, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         },
         "StatusText": {
-            "Font": {"Size": 14, "Typeface": "Regular"}
+            "Font": {"Size": 14, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         }
     },
     
@@ -157,7 +181,8 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
     ],
     
     "Dependencies": [
-        {"Class": "UMF_TeamPanel", "Blueprint": "WBP_MF_TeamPanel", "Required": true}
+        {"Class": "UMF_TeamPanel", "Blueprint": "WBP_MF_TeamPanel", "Required": true},
+        "/Engine/EngineFonts/Roboto.Roboto"
     ],
     
     "Comments": {

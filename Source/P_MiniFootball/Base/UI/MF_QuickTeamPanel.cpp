@@ -46,7 +46,7 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
                             "Text": "TEAM",
                             "FontSize": 16,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center"}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         },
                         {
                             "Type": "TextBlock",
@@ -55,19 +55,20 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
                             "Text": "0/3",
                             "FontSize": 12,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center"}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         },
                         {
                             "Type": "VerticalBox",
                             "Name": "PlayerListBox",
                             "BindingType": "Optional",
-                            "Properties": {"SizeToContent": true, "Spacing": 2}
+                            "Properties": {"SizeToContent": true, "Spacing": 2},
+                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         },
                         {
                             "Type": "Button",
                             "Name": "QuickJoinButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Fill"},
+                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
@@ -75,8 +76,7 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
                                     "BindingType": "Optional",
                                     "Text": "JOIN",
                                     "FontSize": 12,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         }
@@ -92,19 +92,25 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
             "Padding": {"Left": 8, "Top": 6, "Right": 8, "Bottom": 6}
         },
         "TeamNameText": {
-            "Font": {"Size": 16, "Typeface": "Bold"}
+            "Font": {"Size": 16, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         },
         "PlayerCountText": {
             "Font": {"Size": 12, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "0/5"
         },
         "QuickJoinButton": {
             "Style": {
-                "Normal": {"TintColor": {"R": 0.3, "G": 0.5, "B": 0.3, "A": 1.0}}
-            }
+                "Normal": {"TintColor": {"R": 0.3, "G": 0.5, "B": 0.3, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
         },
         "ShortcutHintText": {
             "Font": {"Size": 10, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "Press 1"
         }
     },
@@ -131,7 +137,9 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
         }
     ],
     
-    "Dependencies": [],
+    "Dependencies": [
+        "/Engine/EngineFonts/Roboto.Roboto"
+    ],
     
     "Comments": {
         "Header": "MF Quick Team Panel - Compact spectator team join",

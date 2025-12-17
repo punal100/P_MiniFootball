@@ -52,7 +52,7 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                     "Text": "TEAM",
                                     "FontSize": 24,
                                     "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "Padding": {"Top": 10, "Bottom": 5}}
+                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 10, "Bottom": 5}}
                                 },
                                 {
                                     "Type": "TextBlock",
@@ -61,20 +61,20 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                     "Text": "0/3 PLAYERS",
                                     "FontSize": 14,
                                     "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}
+                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 10}}
                                 },
                                 {
                                     "Type": "VerticalBox",
                                     "Name": "PlayerListBox",
                                     "BindingType": "Required",
                                     "Properties": {"SizeToContent": true, "Spacing": 4},
-                                    "Slot": {"Padding": {"Bottom": 8}}
+                                    "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 8}}
                                 },
                                 {
                                     "Type": "Button",
                                     "Name": "JoinButton",
                                     "BindingType": "Required",
-                                    "Slot": {"HAlign": "Center", "Padding": {"Top": 10, "Bottom": 10}},
+                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 10, "Bottom": 10}},
                                     "Children": [
                                         {
                                             "Type": "TextBlock",
@@ -82,8 +82,7 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                             "BindingType": "Optional",
                                             "Text": "JOIN TEAM",
                                             "FontSize": 16,
-                                            "Justification": "Center",
-                                            "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                            "Justification": "Center"
                                         }
                                     ]
                                 }
@@ -102,19 +101,25 @@ FString UMF_TeamPanel::GetWidgetSpec()
         },
         "TeamNameText": {
             "Font": {"Size": 24, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "Team A"
         },
         "PlayerCountText": {
             "Font": {"Size": 14, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "0/5 Players"
         },
         "JoinButton": {
             "Style": {
-                "Normal": {"TintColor": {"R": 0.2, "G": 0.6, "B": 0.2, "A": 1.0}}
-            }
+                "Normal": {"TintColor": {"R": 0.2, "G": 0.6, "B": 0.2, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
         },
         "JoinButtonText": {
             "Font": {"Size": 16, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "JOIN TEAM"
         }
     },
@@ -141,7 +146,9 @@ FString UMF_TeamPanel::GetWidgetSpec()
         }
     ],
     
-    "Dependencies": [],
+    "Dependencies": [
+        "/Engine/EngineFonts/Roboto.Roboto"
+    ],
     
     "Comments": {
         "Header": "MF Team Panel - Full team selection with player list",

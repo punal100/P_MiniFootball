@@ -43,18 +43,20 @@ FString UMF_MatchInfo::GetWidgetSpec()
                         {
                             "Type": "VerticalBox",
                             "Name": "TeamABox",
+                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}},
                             "Children": [
-                                {"Type": "TextBlock", "Name": "TeamANameText", "BindingType": "Optional", "Text": "TEAM A", "FontSize": 14, "Justification": "Center"},
-                                {"Type": "TextBlock", "Name": "TeamAScoreText", "BindingType": "Required", "Text": "0", "FontSize": 36, "Justification": "Center"}
+                                {"Type": "TextBlock", "Name": "TeamANameText", "BindingType": "Optional", "Text": "TEAM A", "FontSize": 14, "Justification": "Center", "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}},
+                                {"Type": "TextBlock", "Name": "TeamAScoreText", "BindingType": "Required", "Text": "0", "FontSize": 36, "Justification": "Center", "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}}
                             ]
                         },
-                        {"Type": "TextBlock", "Name": "MatchTimerText", "BindingType": "Required", "Text": "00:00", "FontSize": 28, "Justification": "Center"},
+                        {"Type": "TextBlock", "Name": "MatchTimerText", "BindingType": "Required", "Text": "00:00", "FontSize": 28, "Justification": "Center", "Slot": {"Padding": {"Left": 15, "Right": 15}, "HAlign": "Center", "VAlign": "Center", "Size": {"Rule": "Auto"}}},
                         {
                             "Type": "VerticalBox",
                             "Name": "TeamBBox",
+                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}},
                             "Children": [
-                                {"Type": "TextBlock", "Name": "TeamBNameText", "BindingType": "Optional", "Text": "TEAM B", "FontSize": 14, "Justification": "Center"},
-                                {"Type": "TextBlock", "Name": "TeamBScoreText", "BindingType": "Required", "Text": "0", "FontSize": 36, "Justification": "Center"}
+                                {"Type": "TextBlock", "Name": "TeamBNameText", "BindingType": "Optional", "Text": "TEAM B", "FontSize": 14, "Justification": "Center", "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}},
+                                {"Type": "TextBlock", "Name": "TeamBScoreText", "BindingType": "Required", "Text": "0", "FontSize": 36, "Justification": "Center", "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}}
                             ]
                         }
                     ]
@@ -77,14 +79,13 @@ FString UMF_MatchInfo::GetWidgetSpec()
     },
     
     "Design": {
+        "TeamANameText": {
+            "Font": {"Size": 14, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
+        },
         "TeamAScoreText": {
             "Font": {"Size": 36, "Typeface": "Bold"},
             "ColorAndOpacity": {"R": 0.2, "G": 0.6, "B": 1.0, "A": 1.0},
-            "Justification": "Center"
-        },
-        "TeamBScoreText": {
-            "Font": {"Size": 36, "Typeface": "Bold"},
-            "ColorAndOpacity": {"R": 1.0, "G": 0.3, "B": 0.3, "A": 1.0},
             "Justification": "Center"
         },
         "MatchTimerText": {
@@ -92,6 +93,15 @@ FString UMF_MatchInfo::GetWidgetSpec()
             "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Justification": "Center",
             "Text": "00:00"
+        },
+        "TeamBNameText": {
+            "Font": {"Size": 14, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
+        },
+        "TeamBScoreText": {
+            "Font": {"Size": 36, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 0.3, "B": 0.3, "A": 1.0},
+            "Justification": "Center"
         },
         "MatchPhaseText": {
             "Font": {"Size": 16, "Typeface": "Regular"},
@@ -114,7 +124,9 @@ FString UMF_MatchInfo::GetWidgetSpec()
     
     "Delegates": [],
     
-    "Dependencies": [],
+    "Dependencies": [
+        "/Engine/EngineFonts/Roboto.Roboto"
+    ],
     
     "Comments": {
         "Header": "MF Match Info - Score and timer display for HUD",

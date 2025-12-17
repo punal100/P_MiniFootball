@@ -64,7 +64,7 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Text": "PAUSED",
                             "FontSize": 32,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 20}}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 20}}
                         },
                         {
                             "Type": "TextBlock",
@@ -73,21 +73,20 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Text": "Team: None",
                             "FontSize": 18,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 30}}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 30}}
                         },
                         {
                             "Type": "Button",
                             "Name": "ResumeButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 10}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
                                     "Name": "ResumeButtonLabel",
                                     "Text": "RESUME",
                                     "FontSize": 18,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         },
@@ -95,15 +94,14 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Type": "Button",
                             "Name": "ChangeTeamButton",
                             "BindingType": "Optional",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 10}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
                                     "Name": "ChangeTeamButtonLabel",
                                     "Text": "CHANGE TEAM",
                                     "FontSize": 18,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         },
@@ -111,15 +109,14 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Type": "Button",
                             "Name": "LeaveTeamButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 10}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
                                     "Name": "LeaveTeamButtonLabel",
                                     "Text": "LEAVE TEAM",
                                     "FontSize": 18,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         },
@@ -127,15 +124,14 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Type": "Button",
                             "Name": "SettingsButton",
                             "BindingType": "Optional",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}},
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 10}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
                                     "Name": "SettingsButtonLabel",
                                     "Text": "SETTINGS",
                                     "FontSize": 18,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         },
@@ -143,15 +139,14 @@ FString UMF_PauseMenu::GetWidgetSpec()
                             "Type": "Button",
                             "Name": "QuitButton",
                             "BindingType": "Required",
-                            "Slot": {"HAlign": "Center", "Padding": {"Top": 20}},
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 20}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
                                     "Name": "QuitButtonLabel",
                                     "Text": "QUIT",
                                     "FontSize": 18,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         }
@@ -167,23 +162,76 @@ FString UMF_PauseMenu::GetWidgetSpec()
         },
         "TitleText": {
             "Font": {"Size": 32, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "PAUSED"
         },
         "CurrentTeamText": {
             "Font": {"Size": 18, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "Team: None"
         },
         "ResumeButton": {
-            "Style": {"Normal": {"TintColor": {"R": 0.2, "G": 0.5, "B": 0.2, "A": 1.0}}},
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.2, "G": 0.5, "B": 0.2, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true,
             "Size": {"X": 200, "Y": 50}
+        },
+        "ResumeButtonLabel": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
+        },
+        "ChangeTeamButton": {
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.4, "G": 0.4, "B": 0.4, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
+        },
+        "ChangeTeamButtonLabel": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         },
         "LeaveTeamButton": {
-            "Style": {"Normal": {"TintColor": {"R": 0.6, "G": 0.4, "B": 0.1, "A": 1.0}}},
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.6, "G": 0.4, "B": 0.1, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true,
             "Size": {"X": 200, "Y": 50}
         },
+        "LeaveTeamButtonLabel": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
+        },
+        "SettingsButton": {
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.4, "G": 0.4, "B": 0.4, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
+        },
+        "SettingsButtonLabel": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
+        },
         "QuitButton": {
-            "Style": {"Normal": {"TintColor": {"R": 0.6, "G": 0.2, "B": 0.2, "A": 1.0}}},
+            "Style": {
+                "Normal": {"TintColor": {"R": 0.6, "G": 0.2, "B": 0.2, "A": 1.0}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true,
             "Size": {"X": 200, "Y": 50}
+        },
+        "QuitButtonLabel": {
+            "Font": {"Size": 18, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         }
     },
     
@@ -224,7 +272,9 @@ FString UMF_PauseMenu::GetWidgetSpec()
         }
     ],
     
-    "Dependencies": [],
+    "Dependencies": [
+        "/Engine/EngineFonts/Roboto.Roboto"
+    ],
     
     "Comments": {
         "Header": "MF Pause Menu - In-game pause/options menu",

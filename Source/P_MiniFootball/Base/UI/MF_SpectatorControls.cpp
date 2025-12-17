@@ -49,7 +49,7 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                             "Text": "SPECTATING",
                             "FontSize": 24,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center"}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         },
                         {
                             "Type": "TextBlock",
@@ -58,7 +58,7 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                             "Text": "FREE CAMERA",
                             "FontSize": 14,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center"}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         }
                     ]
                 },
@@ -76,20 +76,20 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                             "Name": "QuickTeamA",
                             "BindingType": "Optional",
                             "WidgetClass": "/Script/P_MiniFootball.MF_QuickTeamPanel",
-                            "Slot": {"Padding": {"Right": 20}}
+                            "Slot": {"Padding": {"Right": 20}, "HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         },
                         {
                             "Type": "Button",
                             "Name": "OpenTeamSelectButton",
                             "BindingType": "Optional",
+                            "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                             "Children": [
                                 {
                                     "Type": "TextBlock",
                                     "Name": "OpenTeamSelectButtonLabel",
                                     "Text": "TEAM SELECT",
                                     "FontSize": 14,
-                                    "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Center"}
+                                    "Justification": "Center"
                                 }
                             ]
                         },
@@ -98,7 +98,7 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                             "Name": "QuickTeamB",
                             "BindingType": "Optional",
                             "WidgetClass": "/Script/P_MiniFootball.MF_QuickTeamPanel",
-                            "Slot": {"Padding": {"Left": 20}}
+                            "Slot": {"Padding": {"Left": 20}, "HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         }
                     ]
                 },
@@ -127,15 +127,24 @@ FString UMF_SpectatorControls::GetWidgetSpec()
         },
         "CameraModeText": {
             "Font": {"Size": 14, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "Free Camera"
         },
         "OpenTeamSelectButton": {
             "Style": {
-                "Normal": {"TintColor": {"R": 0.4, "G": 0.4, "B": 0.4, "A": 0.8}}
-            }
+                "Normal": {"TintColor": {"R": 0.4, "G": 0.4, "B": 0.4, "A": 0.8}},
+                "Hovered": {"TintColor": {"R": 0.72, "G": 0.72, "B": 0.72, "A": 1.0}},
+                "Pressed": {"TintColor": {"R": 0.38, "G": 0.38, "B": 0.38, "A": 1.0}}
+            },
+            "IsFocusable": true
+        },
+        "OpenTeamSelectButtonLabel": {
+            "Font": {"Size": 14, "Typeface": "Bold"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         },
         "ControlHintsText": {
             "Font": {"Size": 12, "Typeface": "Regular"},
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "Press T for Team Selection"
         }
     },
@@ -162,7 +171,8 @@ FString UMF_SpectatorControls::GetWidgetSpec()
     ],
     
     "Dependencies": [
-        {"Class": "UMF_QuickTeamPanel", "Blueprint": "WBP_MF_QuickTeamPanel", "Required": false}
+        {"Class": "UMF_QuickTeamPanel", "Blueprint": "WBP_MF_QuickTeamPanel", "Required": false},
+        "/Engine/EngineFonts/Roboto.Roboto"
     ],
     
     "Comments": {
