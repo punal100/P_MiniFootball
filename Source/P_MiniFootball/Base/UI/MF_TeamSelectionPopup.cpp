@@ -26,7 +26,7 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
     
     "DesignerPreview": {
         "SizeMode": "FillScreen",
-        "ZoomLevel": 12,
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
     
@@ -50,27 +50,34 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
                         "Alignment": {"X": 0.5, "Y": 0.5},
-                        "Size": {"X": 800, "Y": 600}
+                        "Size": {"X": 100, "Y": 30},
+                        "AutoSize": true
                     },
                     "Children": [
                         {
                             "Type": "VerticalBox",
                             "Name": "PopupContent",
+                            "Slot": {
+                                "Padding": {"Left": 20, "Top": 15, "Right": 20, "Bottom": 15},
+                                "HAlign": "Fill",
+                                "VAlign": "Fill"
+                            },
                             "Children": [
                                 {
                                     "Type": "HorizontalBox",
                                     "Name": "HeaderRow",
                                     "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                                     "Children": [
-                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Text": "SELECT TEAM", "FontSize": 28, "Justification": "Left", "Slot": {"Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}},
+                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Slot": {"HAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}},
                                         {"Type": "Button", "Name": "CloseButton", "BindingType": "Required", "Slot": {"HAlign": "Right", "VAlign": "Center", "Size": {"Rule": "Auto"}}, "Children": [
-                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Text": "X", "FontSize": 18, "Justification": "Center"}
+                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Slot": {"Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2}, "HAlign": "Center", "VAlign": "Center"}}
                                         ]}
                                     ]
                                 },
                                 {
                                     "Type": "HorizontalBox",
                                     "Name": "TeamPanelsRow",
+                                    "Properties": {"Spacing": 10},
                                     "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}},
                                     "Children": [
                                         {
@@ -95,9 +102,9 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                                     "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                                     "Children": [
                                         {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional", "Slot": {"Size": {"Rule": "Auto"}}, "Children": [
-                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Text": "AUTO", "FontSize": 14, "Justification": "Center"}
+                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Slot": {"Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2}, "HAlign": "Center", "VAlign": "Center"}}
                                         ]},
-                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional", "Text": "", "FontSize": 14, "Justification": "Left", "Slot": {"Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}}
+                                        {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional", "Slot": {"Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}}
                                     ]
                                 }
                             ]
@@ -110,6 +117,7 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
     
     "Design": {
         "BackgroundOverlay": {
+            "Size": {"X": 32, "Y": 32},
             "ColorAndOpacity": {"R": 0, "G": 0, "B": 0, "A": 0.7}
         },
         "PopupContainer": {

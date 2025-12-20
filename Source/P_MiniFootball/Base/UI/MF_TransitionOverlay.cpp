@@ -22,8 +22,8 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
     
     "DesignerPreview": {
         "SizeMode": "FillScreen",
-        "ZoomLevel": 12,
-        "ShowGrid": false
+        "ZoomLevel": 14,
+        "ShowGrid": true
     },
     
     "Hierarchy": {
@@ -37,22 +37,29 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
                     "BindingType": "Optional",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
-                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0},
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 0, "Y": 0},
+                        "Alignment": {"X": 0, "Y": 0}
                     }
                 },
                 {
                     "Type": "VerticalBox",
                     "Name": "ContentBox",
+                    "Properties": {"SizeToContent": true},
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}},
-                        "Alignment": {"X": 0.5, "Y": 0.5}
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 100, "Y": 30},
+                        "Alignment": {"X": 0.5, "Y": 0.5},
+                        "AutoSize": true
                     },
                     "Children": [
                         {
                             "Type": "Throbber",
                             "Name": "LoadingThrobber",
                             "BindingType": "Optional",
-                            "Slot": {"HAlign": "Center", "Padding": {"Bottom": 20}}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 20}}
                         },
                         {
                             "Type": "TextBlock",
@@ -61,7 +68,7 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
                             "Text": "LOADING...",
                             "FontSize": 24,
                             "Justification": "Center",
-                            "Slot": {"HAlign": "Center"}
+                            "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}}
                         }
                     ]
                 }
@@ -72,16 +79,12 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
     "Design": {
         "BackgroundOverlay": {
             "Brush": {"DrawAs": "Box"},
+            "Size": {"X": 32, "Y": 32},
             "ColorAndOpacity": {"R": 0, "G": 0, "B": 0, "A": 0.85}
-        },
-        "LoadingThrobber": {
-            "NumberOfPieces": 8
         },
         "StatusText": {
             "Font": {"Size": 24, "Typeface": "Regular"},
-            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
-            "Justification": "Center",
-            "Text": "Loading..."
+            "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         }
     },
     
@@ -97,7 +100,9 @@ FString UMF_TransitionOverlay::GetWidgetSpec()
     
     "Delegates": [],
     
-    "Dependencies": [],
+    "Dependencies": [
+        "/Engine/EngineFonts/Roboto.Roboto"
+    ],
     
     "Comments": {
         "Header": "MF Transition Overlay - Blocking loading screen",

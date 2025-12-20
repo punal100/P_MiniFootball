@@ -44,7 +44,7 @@ FString UMF_HUD::GetWidgetSpec()
 
     "DesignerPreview": {
         "SizeMode": "FillScreen",
-        "ZoomLevel": 10,
+        "ZoomLevel": 14,
         "ShowGrid": true
     },
 
@@ -62,6 +62,7 @@ FString UMF_HUD::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
                         "Position": {"X": 0, "Y": 20},
+                        "Size": {"X": 0, "Y": 0},
                         "Alignment": {"X": 0.5, "Y": 0},
                         "AutoSize": true
                     }
@@ -74,6 +75,7 @@ FString UMF_HUD::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 0, "Y": 0}},
                         "Position": {"X": 20, "Y": 20},
+                        "Size": {"X": 0, "Y": 0},
                         "Alignment": {"X": 0, "Y": 0},
                         "AutoSize": true
                     }
@@ -84,6 +86,7 @@ FString UMF_HUD::GetWidgetSpec()
                     "BindingType": "Required",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Position": {"X": 0, "Y": 0},
                         "Offsets": {"Left": 0, "Top": 100, "Right": 0, "Bottom": 0}
                     },
                     "Children": [
@@ -112,6 +115,9 @@ FString UMF_HUD::GetWidgetSpec()
                     "WidgetClass": "/Script/P_MiniFootball.MF_TransitionOverlay",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 0, "Y": 0},
+                        "Alignment": {"X": 0, "Y": 0},
                         "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0},
                         "ZOrder": 100
                     }
@@ -123,6 +129,9 @@ FString UMF_HUD::GetWidgetSpec()
                     "WidgetClass": "/Script/P_MiniFootball.MF_TeamSelectionPopup",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 0, "Y": 0},
+                        "Alignment": {"X": 0, "Y": 0},
                         "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0},
                         "ZOrder": 200
                     }
@@ -134,6 +143,9 @@ FString UMF_HUD::GetWidgetSpec()
                     "WidgetClass": "/Script/P_MiniFootball.MF_PauseMenu",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 0, "Y": 0},
+                        "Alignment": {"X": 0, "Y": 0},
                         "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0},
                         "ZOrder": 300
                     }

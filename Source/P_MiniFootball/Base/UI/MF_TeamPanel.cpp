@@ -37,13 +37,22 @@ FString UMF_TeamPanel::GetWidgetSpec()
                     "BindingType": "Optional",
                     "Slot": {
                         "Anchors": {"Min": {"X": 0, "Y": 0}, "Max": {"X": 1, "Y": 1}},
-                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0}
+                        "Offsets": {"Left": 0, "Top": 0, "Right": 0, "Bottom": 0},
+                        "Position": {"X": 0, "Y": 0},
+                        "Size": {"X": 0, "Y": 0},
+                        "Alignment": {"X": 0, "Y": 0},
+                        "AutoSize": true
                     },
                     "Children": [
                         {
                             "Type": "VerticalBox",
                             "Name": "PanelContent",
                             "Properties": {"SizeToContent": true, "Spacing": 8},
+                            "Slot": {
+                                "Padding": {"Left": 15, "Top": 10, "Right": 15, "Bottom": 10},
+                                "HAlign": "Fill",
+                                "VAlign": "Fill"
+                            },
                             "Children": [
                                 {
                                     "Type": "TextBlock",
@@ -61,20 +70,20 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                     "Text": "0/3 PLAYERS",
                                     "FontSize": 14,
                                     "Justification": "Center",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 10}}
+                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 8, "Bottom": 10}}
                                 },
                                 {
                                     "Type": "VerticalBox",
                                     "Name": "PlayerListBox",
                                     "BindingType": "Required",
                                     "Properties": {"SizeToContent": true, "Spacing": 4},
-                                    "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Bottom": 8}}
+                                    "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 8, "Bottom": 8}}
                                 },
                                 {
                                     "Type": "Button",
                                     "Name": "JoinButton",
                                     "BindingType": "Required",
-                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 10, "Bottom": 10}},
+                                    "Slot": {"HAlign": "Center", "VAlign": "Fill", "Size": {"Rule": "Auto"}, "Padding": {"Top": 8, "Bottom": 10}},
                                     "Children": [
                                         {
                                             "Type": "TextBlock",
@@ -82,7 +91,12 @@ FString UMF_TeamPanel::GetWidgetSpec()
                                             "BindingType": "Optional",
                                             "Text": "JOIN TEAM",
                                             "FontSize": 16,
-                                            "Justification": "Center"
+                                            "Justification": "Center",
+                                            "Slot": {
+                                                "Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2},
+                                                "HAlign": "Center",
+                                                "VAlign": "Center"
+                                            }
                                         }
                                     ]
                                 }

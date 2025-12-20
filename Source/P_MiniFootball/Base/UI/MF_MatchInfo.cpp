@@ -37,12 +37,14 @@ FString UMF_MatchInfo::GetWidgetSpec()
                         "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
                         "Position": {"X": 0, "Y": 10},
                         "Size": {"X": 400, "Y": 80},
-                        "Alignment": {"X": 0.5, "Y": 0}
+                        "Alignment": {"X": 0.5, "Y": 0},
+                        "AutoSize": true
                     },
                     "Children": [
                         {
                             "Type": "VerticalBox",
                             "Name": "TeamABox",
+                            "Properties": {"SizeToContent": true},
                             "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}},
                             "Children": [
                                 {"Type": "TextBlock", "Name": "TeamANameText", "BindingType": "Optional", "Text": "TEAM A", "FontSize": 14, "Justification": "Center", "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}},
@@ -53,6 +55,7 @@ FString UMF_MatchInfo::GetWidgetSpec()
                         {
                             "Type": "VerticalBox",
                             "Name": "TeamBBox",
+                            "Properties": {"SizeToContent": true},
                             "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}},
                             "Children": [
                                 {"Type": "TextBlock", "Name": "TeamBNameText", "BindingType": "Optional", "Text": "TEAM B", "FontSize": 14, "Justification": "Center", "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}}},
@@ -71,6 +74,7 @@ FString UMF_MatchInfo::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
                         "Position": {"X": 0, "Y": 95},
+                        "Size": {"X": 0, "Y": 0},
                         "Alignment": {"X": 0.5, "Y": 0}
                     }
                 }

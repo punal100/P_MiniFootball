@@ -39,7 +39,8 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 0}, "Max": {"X": 0.5, "Y": 0}},
                         "Alignment": {"X": 0.5, "Y": 0},
-                        "Position": {"X": 0, "Y": 50}
+                        "Position": {"X": 0, "Y": 50},                        
+                        "AutoSize": true
                     },
                     "Children": [
                         {
@@ -68,7 +69,8 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 1}, "Max": {"X": 0.5, "Y": 1}},
                         "Alignment": {"X": 0.5, "Y": 1},
-                        "Position": {"X": 0, "Y": -100}
+                        "Position": {"X": 0, "Y": -100},                        
+                        "AutoSize": true
                     },
                     "Children": [
                         {
@@ -112,7 +114,8 @@ FString UMF_SpectatorControls::GetWidgetSpec()
                     "Slot": {
                         "Anchors": {"Min": {"X": 0.5, "Y": 1}, "Max": {"X": 0.5, "Y": 1}},
                         "Alignment": {"X": 0.5, "Y": 1},
-                        "Position": {"X": 0, "Y": -20}
+                        "Position": {"X": 0, "Y": -20},                        
+                        "AutoSize": true
                     }
                 }
             ]
