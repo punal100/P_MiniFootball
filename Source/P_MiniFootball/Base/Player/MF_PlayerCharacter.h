@@ -50,6 +50,7 @@ public:
     virtual void SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent) override;
     virtual void PossessedBy(AController *NewController) override;
     virtual void UnPossessed() override;
+    virtual void OnRep_Owner() override;  // Called on client when possessed
     virtual void OnRep_PlayerState() override;
 
     // ==================== Team & Identity ====================

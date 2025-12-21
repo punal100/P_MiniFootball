@@ -13,31 +13,34 @@
 
 AMF_Spectator::AMF_Spectator()
 {
-    // Disable default movement
-    bAddDefaultMovementBindings = false;
+    // Enable default movement bindings for WASD and look controls
+    bAddDefaultMovementBindings = true;
 
-    // Spectator camera should never inherit controller roll (prevents upside-down flipping)
-    bUseControllerRotationPitch = false;
-    bUseControllerRotationYaw = false;
-    bUseControllerRotationRoll = false;
+    // Enable controller rotation for mouse look
+    // This makes the pawn face the direction the controller (mouse) is pointing
+    bUseControllerRotationPitch = true;  // Allow looking up/down
+    bUseControllerRotationYaw = true;    // Allow looking left/right
+    bUseControllerRotationRoll = false;  // Keep roll disabled to prevent flipping
 
     // Setup camera boom
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
     CameraBoom->TargetArmLength = 2000.0f;
-    CameraBoom->SetRelativeRotation(FRotator(-60.0f, 0.0f, 0.0f));
-    CameraBoom->bUsePawnControlRotation = false;
-    CameraBoom->bInheritPitch = false;
-    CameraBoom->bInheritYaw = false;
+    CameraBoom->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));  // Slightly less steep angle
+    
+    // Use pawn control rotation so mouse look works
+    CameraBoom->bUsePawnControlRotation = true;
+    CameraBoom->bInheritPitch = true;
+    CameraBoom->bInheritYaw = true;
     CameraBoom->bInheritRoll = false;
     CameraBoom->bDoCollisionTest = false;
     CameraBoom->bEnableCameraLag = true;
-    CameraBoom->CameraLagSpeed = 3.0f;
+    CameraBoom->CameraLagSpeed = 5.0f;  // Slightly faster lag for responsiveness
 
     // Setup camera
     SpectatorCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("SpectatorCamera"));
     SpectatorCamera->SetupAttachment(CameraBoom);
-    SpectatorCamera->bUsePawnControlRotation = false;
+    SpectatorCamera->bUsePawnControlRotation = false;  // Camera inherits from boom, not controller
 
     // Default settings
     bFollowBall = true;
@@ -73,8 +76,13 @@ void AMF_Spectator::SetupPlayerInputComponent(UInputComponent *PlayerInputCompon
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-    // Basic spectator input can be added here or via Blueprint
-    // For now, we rely on default spectator movement
+    UE_LOG(LogTemp, Log, TEXT("MF_Spectator::SetupPlayerInputComponent - Setting up spectator inputs"));
+
+    // Bind F key to toggle ball follow
+    PlayerInputComponent->BindAction("ToggleBallFollow", IE_Pressed, this, &AMF_Spectator::ToggleFollowBall);
+    
+    // Simple fallback: Also bind F key directly in case action mapping doesn't exist
+    PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMF_Spectator::ToggleFollowBall);
 }
 
 void AMF_Spectator::ToggleFollowBall()

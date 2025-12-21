@@ -73,7 +73,7 @@ FString UMF_InputSettings::GetWidgetSpec()
                 {
                     "Type": "VerticalBox",
                     "Name": "InputContainer",
-                    "Slot": {"Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}}, "Alignment": {"X": 0.5, "Y": 0.5}, "Size": {"X": 900, "Y": 650}},
+                    "Slot": {"Anchors": {"Min": {"X": 0.5, "Y": 0.5}, "Max": {"X": 0.5, "Y": 0.5}}, "Alignment": {"X": 0.5, "Y": 0.5}, "Size": {"X": 900, "Y": 650}, "AutoSize": true},
                     "Children": [
                         {"Type": "TextBlock", "Name": "InputSettingsTitle", "BindingType": "Optional", "Text": "INPUT SETTINGS", "Font": {"Size": 28, "Typeface": "Bold"}, "Slot": {"HAlign": "Center", "Padding": {"Bottom": 10}}},
                         {

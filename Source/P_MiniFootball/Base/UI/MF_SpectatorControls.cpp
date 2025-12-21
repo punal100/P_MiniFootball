@@ -196,6 +196,8 @@ void UMF_SpectatorControls::NativeConstruct()
 {
     Super::NativeConstruct();
 
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_SpectatorControls::NativeConstruct ==="));
+
     // Set initial spectating label
     if (SpectatingLabel)
     {
@@ -207,18 +209,33 @@ void UMF_SpectatorControls::NativeConstruct()
     {
         QuickTeamA->SetTeamID(EMF_TeamID::TeamA);
         QuickTeamA->OnQuickJoinClicked.AddDynamic(this, &UMF_SpectatorControls::HandleQuickJoinTeamA);
+        UE_LOG(LogTemp, Warning, TEXT("  QuickTeamA: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  QuickTeamA: NULL"));
     }
 
     if (QuickTeamB)
     {
         QuickTeamB->SetTeamID(EMF_TeamID::TeamB);
         QuickTeamB->OnQuickJoinClicked.AddDynamic(this, &UMF_SpectatorControls::HandleQuickJoinTeamB);
+        UE_LOG(LogTemp, Warning, TEXT("  QuickTeamB: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  QuickTeamB: NULL"));
     }
 
     // Bind open team selection button
     if (OpenTeamSelectButton)
     {
         OpenTeamSelectButton->OnClicked.AddDynamic(this, &UMF_SpectatorControls::HandleOpenTeamSelectionClicked);
+        UE_LOG(LogTemp, Warning, TEXT("  OpenTeamSelectButton: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  OpenTeamSelectButton: NULL - Team Select button will NOT work!"));
     }
 
     // Set control hints
@@ -229,6 +246,20 @@ void UMF_SpectatorControls::NativeConstruct()
 
     // Initial data refresh
     RefreshTeamData();
+
+    // Subscribe to GameState team roster changes for auto-refresh on clients
+    AMF_GameState *GS = GetGameState();
+    if (GS)
+    {
+        GS->OnTeamRosterChanged.AddDynamic(this, &UMF_SpectatorControls::HandleTeamRosterChanged);
+        UE_LOG(LogTemp, Warning, TEXT("  Subscribed to OnTeamRosterChanged"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  GameState NULL - cannot subscribe to roster changes"));
+    }
+    
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_SpectatorControls::NativeConstruct END ==="));
 }
 
 void UMF_SpectatorControls::NativeDestruct()
@@ -249,7 +280,20 @@ void UMF_SpectatorControls::NativeDestruct()
         OpenTeamSelectButton->OnClicked.RemoveDynamic(this, &UMF_SpectatorControls::HandleOpenTeamSelectionClicked);
     }
 
+    // Unbind from GameState
+    AMF_GameState *GS = GetGameState();
+    if (GS)
+    {
+        GS->OnTeamRosterChanged.RemoveDynamic(this, &UMF_SpectatorControls::HandleTeamRosterChanged);
+    }
+
     Super::NativeDestruct();
+}
+
+void UMF_SpectatorControls::HandleTeamRosterChanged(EMF_TeamID Team)
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_SpectatorControls::HandleTeamRosterChanged - Team: %d"), static_cast<int32>(Team));
+    RefreshTeamData();
 }
 
 void UMF_SpectatorControls::RefreshTeamData()
@@ -280,25 +324,35 @@ void UMF_SpectatorControls::UpdateCameraModeDisplay(bool bFollowingBall)
 
 void UMF_SpectatorControls::HandleQuickJoinTeamA(EMF_TeamID TeamID)
 {
+    UE_LOG(LogTemp, Warning, TEXT("MF_SpectatorControls::HandleQuickJoinTeamA called"));
     RequestJoinTeam(EMF_TeamID::TeamA);
 }
 
 void UMF_SpectatorControls::HandleQuickJoinTeamB(EMF_TeamID TeamID)
 {
+    UE_LOG(LogTemp, Warning, TEXT("MF_SpectatorControls::HandleQuickJoinTeamB called"));
     RequestJoinTeam(EMF_TeamID::TeamB);
 }
 
 void UMF_SpectatorControls::HandleOpenTeamSelectionClicked()
 {
+    UE_LOG(LogTemp, Warning, TEXT("MF_SpectatorControls::HandleOpenTeamSelectionClicked - Broadcasting OnOpenTeamSelection"));
     OnOpenTeamSelection.Broadcast();
 }
 
 void UMF_SpectatorControls::RequestJoinTeam(EMF_TeamID TeamID)
 {
+    UE_LOG(LogTemp, Warning, TEXT("MF_SpectatorControls::RequestJoinTeam - TeamID: %d"), static_cast<int32>(TeamID));
+    
     AMF_PlayerController *PC = GetMFPlayerController();
     if (PC)
     {
+        UE_LOG(LogTemp, Warning, TEXT("  → Calling Server_RequestJoinTeam"));
         PC->Server_RequestJoinTeam(TeamID);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("  → PlayerController is NULL!"));
     }
 }
 

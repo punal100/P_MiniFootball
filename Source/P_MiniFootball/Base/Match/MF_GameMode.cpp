@@ -510,6 +510,19 @@ FMF_TeamAssignmentResult AMF_GameMode::HandleJoinTeamRequest_Implementation(APla
         return FMF_TeamAssignmentResult::Failure(TEXT("Mid-match joining is not allowed"));
     }
 
+    // AUTO-ASSIGN: If RequestedTeam is None, server picks the best team
+    if (RequestedTeam == EMF_TeamID::None)
+    {
+        TArray<EMF_TeamID> AvailableTeams = GetAvailableTeams_Implementation(RequestingPlayer);
+        if (AvailableTeams.Num() == 0)
+        {
+            return FMF_TeamAssignmentResult::Failure(TEXT("Both teams are full"));
+        }
+        RequestedTeam = AvailableTeams[0];
+        UE_LOG(LogTemp, Log, TEXT("MF_GameMode::HandleJoinTeamRequest - Auto-assigning to %s"),
+               (RequestedTeam == EMF_TeamID::TeamA) ? TEXT("Team A") : TEXT("Team B"));
+    }
+
     // Validate team request based on team balance
     if (!CanPlayerJoinTeam_Implementation(RequestingPlayer, RequestedTeam))
     {

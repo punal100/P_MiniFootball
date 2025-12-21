@@ -200,6 +200,26 @@ void AMF_PlayerCharacter::UnPossessed()
     Super::UnPossessed();
 }
 
+void AMF_PlayerCharacter::OnRep_Owner()
+{
+    Super::OnRep_Owner();
+
+    // This is called on clients when ownership/possession replicates
+    // Check if we're now locally controlled and set up input
+    AController* NewController = GetController();
+    
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::OnRep_Owner - %s, Controller: %s, IsLocallyControlled: %d"),
+           *GetName(),
+           NewController ? *NewController->GetName() : TEXT("null"),
+           IsLocallyControlled());
+
+    if (IsLocallyControlled())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::OnRep_Owner - Setting up input bindings for LOCAL player"));
+        SetupInputBindings();
+    }
+}
+
 void AMF_PlayerCharacter::OnRep_PlayerState()
 {
     Super::OnRep_PlayerState();
@@ -285,6 +305,13 @@ bool AMF_PlayerCharacter::Server_RequestShoot_Validate(FVector Direction, float 
 
 void AMF_PlayerCharacter::Server_RequestShoot_Implementation(FVector Direction, float Power)
 {
+    UE_LOG(LogTemp, Warning, TEXT("=== Server_RequestShoot ==="));
+    UE_LOG(LogTemp, Warning, TEXT("  Character: %s"), *GetName());
+    UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetNameSafe(GetController()));
+    UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
+    UE_LOG(LogTemp, Warning, TEXT("  HasAuthority: %d"), HasAuthority());
+    UE_LOG(LogTemp, Warning, TEXT("  Direction: %s, Power: %.1f"), *Direction.ToString(), Power);
+    
     ExecuteShoot(Direction, Power);
 }
 
@@ -295,6 +322,12 @@ bool AMF_PlayerCharacter::Server_RequestPass_Validate(FVector Direction, float P
 
 void AMF_PlayerCharacter::Server_RequestPass_Implementation(FVector Direction, float Power)
 {
+    UE_LOG(LogTemp, Warning, TEXT("=== Server_RequestPass ==="));
+    UE_LOG(LogTemp, Warning, TEXT("  Character: %s"), *GetName());
+    UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetNameSafe(GetController()));
+    UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
+    UE_LOG(LogTemp, Warning, TEXT("  Direction: %s, Power: %.1f"), *Direction.ToString(), Power);
+    
     ExecutePass(Direction, Power);
 }
 
@@ -305,6 +338,11 @@ bool AMF_PlayerCharacter::Server_RequestTackle_Validate()
 
 void AMF_PlayerCharacter::Server_RequestTackle_Implementation()
 {
+    UE_LOG(LogTemp, Warning, TEXT("=== Server_RequestTackle ==="));
+    UE_LOG(LogTemp, Warning, TEXT("  Character: %s"), *GetName());
+    UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetNameSafe(GetController()));
+    UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
+    
     ExecuteTackle();
 }
 

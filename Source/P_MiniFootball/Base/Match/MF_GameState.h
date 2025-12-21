@@ -20,6 +20,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnScoreChanged, EMF_TeamID, Team, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchPhaseChanged, EMF_MatchPhase, NewPhase);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchTimeUpdated, float, RemainingTime);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchEnded, EMF_TeamID, WinningTeam);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTeamRosterChanged, EMF_TeamID, Team);
 
 /**
  * MF_GameState - Networked Game State for Mini Football
@@ -77,11 +78,11 @@ public:
 
     // ==================== Team Rosters ====================
     /** Team A players */
-    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Teams")
+    UPROPERTY(ReplicatedUsing = OnRep_TeamAPlayers, BlueprintReadOnly, Category = "Teams")
     TArray<AMF_PlayerCharacter *> TeamAPlayers;
 
     /** Team B players */
-    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Teams")
+    UPROPERTY(ReplicatedUsing = OnRep_TeamBPlayers, BlueprintReadOnly, Category = "Teams")
     TArray<AMF_PlayerCharacter *> TeamBPlayers;
 
     // ==================== Ball Reference ====================
@@ -173,6 +174,10 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Events")
     FOnMatchEnded OnMatchEnded;
 
+    /** Fired when team roster changes (on server and clients via RepNotify) */
+    UPROPERTY(BlueprintAssignable, Category = "Events")
+    FOnTeamRosterChanged OnTeamRosterChanged;
+
 protected:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
@@ -189,6 +194,12 @@ protected:
 
     UFUNCTION()
     void OnRep_MatchTimeRemaining();
+
+    UFUNCTION()
+    void OnRep_TeamAPlayers();
+
+    UFUNCTION()
+    void OnRep_TeamBPlayers();
 
     // ==================== Internal Functions ====================
     void UpdateMatchTimer(float DeltaTime);

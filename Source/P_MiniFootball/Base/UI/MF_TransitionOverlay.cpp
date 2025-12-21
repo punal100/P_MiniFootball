@@ -122,7 +122,10 @@ void UMF_TransitionOverlay::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    // Set default message
+    // CRITICAL: Start hidden by default - only show when explicitly requested
+    SetVisibility(ESlateVisibility::Hidden);
+
+    // Set default message (for when it does get shown)
     SetStatusText(DefaultStatusMessage);
 }
 

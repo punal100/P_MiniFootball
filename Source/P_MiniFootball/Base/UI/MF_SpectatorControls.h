@@ -64,6 +64,10 @@ protected:
     UFUNCTION()
     void HandleOpenTeamSelectionClicked();
 
+    /** Handle team roster changed from GameState (for auto-refresh on clients) */
+    UFUNCTION()
+    void HandleTeamRosterChanged(EMF_TeamID Team);
+
     // ==================== Widget Bindings ====================
 
     /** Spectating label */

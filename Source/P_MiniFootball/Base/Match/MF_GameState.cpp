@@ -316,18 +316,18 @@ TArray<FString> AMF_GameState::GetTeamPlayerNames(EMF_TeamID Team) const
     {
         if (Player)
         {
-            // Get player name from PlayerState if available
-            APlayerState *PS = nullptr;
-            if (Player->GetController())
-            {
-                PS = Player->GetController()->PlayerState;
-            }
+            // Use explicit APawn:: scope since AMF_PlayerCharacter has its own GetPlayerState() 
+            // that returns EMF_PlayerState (game state), not APlayerState*
+            // APawn::GetPlayerState<T>() IS replicated to all clients
+            APawn* PawnPtr = Player;
+            APlayerState *PS = PawnPtr->GetPlayerState<APlayerState>();
             if (PS)
             {
                 Names.Add(PS->GetPlayerName());
             }
             else
             {
+                // Fallback to actor name if no PlayerState (shouldn't happen for possessed pawns)
                 Names.Add(Player->GetName());
             }
         }
@@ -409,6 +409,18 @@ void AMF_GameState::OnRep_ScoreTeamB()
 void AMF_GameState::OnRep_MatchTimeRemaining()
 {
     OnMatchTimeUpdated.Broadcast(MatchTimeRemaining);
+}
+
+void AMF_GameState::OnRep_TeamAPlayers()
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_GameState::OnRep_TeamAPlayers - Count: %d"), TeamAPlayers.Num());
+    OnTeamRosterChanged.Broadcast(EMF_TeamID::TeamA);
+}
+
+void AMF_GameState::OnRep_TeamBPlayers()
+{
+    UE_LOG(LogTemp, Log, TEXT("MF_GameState::OnRep_TeamBPlayers - Count: %d"), TeamBPlayers.Num());
+    OnTeamRosterChanged.Broadcast(EMF_TeamID::TeamB);
 }
 
 // ==================== Internal Functions ====================

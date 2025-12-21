@@ -68,9 +68,9 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                                     "Name": "HeaderRow",
                                     "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                                     "Children": [
-                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Slot": {"HAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}},
+                                        {"Type": "TextBlock", "Name": "TitleText", "BindingType": "Optional", "Text": "SELECT TEAM", "Slot": {"HAlign": "Fill", "Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}},
                                         {"Type": "Button", "Name": "CloseButton", "BindingType": "Required", "Slot": {"HAlign": "Right", "VAlign": "Center", "Size": {"Rule": "Auto"}}, "Children": [
-                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Slot": {"Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2}, "HAlign": "Center", "VAlign": "Center"}}
+                                            {"Type": "TextBlock", "Name": "CloseButtonLabel", "Text": "X", "Slot": {"Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2}, "HAlign": "Center", "VAlign": "Center"}}
                                         ]}
                                     ]
                                 },
@@ -102,7 +102,7 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
                                     "Slot": {"HAlign": "Fill", "VAlign": "Fill", "Size": {"Rule": "Auto"}},
                                     "Children": [
                                         {"Type": "Button", "Name": "AutoAssignButton", "BindingType": "Optional", "Slot": {"Size": {"Rule": "Auto"}}, "Children": [
-                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Slot": {"Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2}, "HAlign": "Center", "VAlign": "Center"}}
+                                            {"Type": "TextBlock", "Name": "AutoAssignButtonLabel", "Text": "AUTO ASSIGN", "Slot": {"Padding": {"Left": 4, "Top": 2, "Right": 4, "Bottom": 2}, "HAlign": "Center", "VAlign": "Center"}}
                                         ]},
                                         {"Type": "TextBlock", "Name": "StatusText", "BindingType": "Optional", "Slot": {"Size": {"Rule": "Fill", "Value": 1}, "VAlign": "Center"}}
                                     ]
@@ -151,6 +151,7 @@ FString UMF_TeamSelectionPopup::GetWidgetSpec()
         },
         "AutoAssignButtonLabel": {
             "Font": {"Size": 14, "Typeface": "Bold"},
+            "Text": "AUTO ASSIGN",
             "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0}
         },
         "StatusText": {
@@ -212,6 +213,8 @@ void UMF_TeamSelectionPopup::NativeConstruct()
 {
     Super::NativeConstruct();
 
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_TeamSelectionPopup::NativeConstruct ==="));
+
     // Set title
     if (TitleText)
     {
@@ -223,28 +226,50 @@ void UMF_TeamSelectionPopup::NativeConstruct()
     {
         TeamAPanel->SetTeamID(EMF_TeamID::TeamA);
         TeamAPanel->OnJoinClicked.AddDynamic(this, &UMF_TeamSelectionPopup::HandleTeamAJoinClicked);
+        UE_LOG(LogTemp, Warning, TEXT("  TeamAPanel: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  TeamAPanel: NULL"));
     }
 
     if (TeamBPanel)
     {
         TeamBPanel->SetTeamID(EMF_TeamID::TeamB);
         TeamBPanel->OnJoinClicked.AddDynamic(this, &UMF_TeamSelectionPopup::HandleTeamBJoinClicked);
+        UE_LOG(LogTemp, Warning, TEXT("  TeamBPanel: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  TeamBPanel: NULL"));
     }
 
     // Bind button events
     if (AutoAssignButton)
     {
         AutoAssignButton->OnClicked.AddDynamic(this, &UMF_TeamSelectionPopup::HandleAutoAssignClicked);
+        UE_LOG(LogTemp, Warning, TEXT("  AutoAssignButton: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  AutoAssignButton: NULL - Auto assign will NOT work!"));
     }
 
     if (CloseButton)
     {
         CloseButton->OnClicked.AddDynamic(this, &UMF_TeamSelectionPopup::HandleCloseClicked);
+        UE_LOG(LogTemp, Warning, TEXT("  CloseButton: BOUND"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  CloseButton: NULL"));
     }
 
     // Start hidden
     SetVisibility(ESlateVisibility::Collapsed);
     bIsVisible = false;
+
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_TeamSelectionPopup::NativeConstruct END ==="));
 }
 
 void UMF_TeamSelectionPopup::NativeDestruct()
@@ -368,20 +393,21 @@ void UMF_TeamSelectionPopup::HandleTeamBJoinClicked(EMF_TeamID TeamID)
 
 void UMF_TeamSelectionPopup::HandleAutoAssignClicked()
 {
-    AMF_GameState *GS = GetGameState();
-    if (!GS)
+    // Check if player is already on a team
+    AMF_PlayerController *PC = GetMFPlayerController();
+    if (PC && PC->GetAssignedTeam() != EMF_TeamID::None)
     {
+        UE_LOG(LogTemp, Warning, TEXT("TeamSelectionPopup::HandleAutoAssignClicked - Already on team %d, ignoring"),
+               static_cast<int32>(PC->GetAssignedTeam()));
+        ShowStatus(TEXT("Already on a team!"));
         return;
     }
 
-    // Pick team with fewer players (or Team A if equal)
-    int32 CountA = GS->GetTeamPlayerCount(EMF_TeamID::TeamA);
-    int32 CountB = GS->GetTeamPlayerCount(EMF_TeamID::TeamB);
+    UE_LOG(LogTemp, Log, TEXT("TeamSelectionPopup::HandleAutoAssignClicked - Requesting server auto-assign"));
 
-    EMF_TeamID SelectedTeam = (CountB < CountA) ? EMF_TeamID::TeamB : EMF_TeamID::TeamA;
-
-    OnTeamSelected.Broadcast(SelectedTeam);
-    RequestJoinTeam(SelectedTeam);
+    // Let server pick the best team by sending None
+    OnTeamSelected.Broadcast(EMF_TeamID::None);
+    RequestJoinTeam(EMF_TeamID::None);
 }
 
 void UMF_TeamSelectionPopup::HandleCloseClicked()

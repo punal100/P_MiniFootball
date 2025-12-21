@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 
 #include "Manager/CPP_InputBindingManager.h"
+#include "Integration/CPP_EnhancedInputIntegration.h"
 
 #include "InputCoreTypes.h"
 
@@ -59,6 +60,53 @@ void AMF_PlayerController::CreateInputComponent(TSubclassOf<UInputComponent> Inp
     Super::CreateInputComponent(UEnhancedInputComponent::StaticClass());
 }
 
+void AMF_PlayerController::SetupInputComponent()
+{
+    Super::SetupInputComponent();
+   
+    // === ENHANCED LOGGING FOR CLIENT INPUT DEBUG ===
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_PlayerController::SetupInputComponent ==="));
+    UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetName());
+    UE_LOG(LogTemp, Warning, TEXT("  IsLocalController: %d"), IsLocalController());
+    UE_LOG(LogTemp, Warning, TEXT("  InputComponent: %s"), *GetNameSafe(InputComponent));
+    UE_LOG(LogTemp, Warning, TEXT("  bInputSystemInitialized: %d"), bInputSystemInitialized);
+    
+    if (!IsLocalController())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  → Not local controller, skipping deferred binding"));
+        return;
+    }
+    
+    if (!InputComponent)
+    {
+        UE_LOG(LogTemp, Error, TEXT("  → InputComponent is NULL after SetupInputComponent!"));
+        return;
+    }
+    
+    // Attempt deferred binding if P_MEIS integration exists
+    UCPP_InputBindingManager* Manager = GetMEISManager();
+    if (Manager)
+    {
+        if (UCPP_EnhancedInputIntegration* Integration = Manager->GetIntegrationForPlayer(this))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("  → Attempting deferred P_MEIS bindings..."));
+            int32 BoundCount = Integration->TryBindPendingActions();
+            UE_LOG(LogTemp, Warning, TEXT("  → Bound %d pending actions"), BoundCount);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("  → No Integration found (will be created on first input profile load)"));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("  → No P_MEIS Manager found!"));
+    }
+    
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_PlayerController::SetupInputComponent END ==="));
+}
+
+
 void AMF_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -74,50 +122,88 @@ void AMF_PlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
-    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::BeginPlay - HasAuthority: %d, IsLocalController: %d, SpectatorState: %d"),
-           HasAuthority(), IsLocalController(), static_cast<int32>(CurrentSpectatorState));
+    // === ENHANCED LOGGING FOR CLIENT INPUT DEBUG ===
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_PlayerController::BeginPlay ==="));
+    UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetName());
+    UE_LOG(LogTemp, Warning, TEXT("  LocalRole: %d"), static_cast<int32>(GetLocalRole()));
+    UE_LOG(LogTemp, Warning, TEXT("  RemoteRole: %d"), static_cast<int32>(GetRemoteRole()));
+    UE_LOG(LogTemp, Warning, TEXT("  IsLocalController: %d"), IsLocalController());
+    UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
+    UE_LOG(LogTemp, Warning, TEXT("  HasAuthority: %d"), HasAuthority());
+    UE_LOG(LogTemp, Warning, TEXT("  InputComponent: %s"), InputComponent ? TEXT("EXISTS") : TEXT("NULL"));
+    UE_LOG(LogTemp, Warning, TEXT("  SpectatorState: %d"), static_cast<int32>(CurrentSpectatorState));
 
+    // CRITICAL: Only initialize input on LOCAL controllers
+    // On each client machine, THEIR PlayerController IS local (IsLocalController() = true)
     if (IsLocalController())
     {
+        UE_LOG(LogTemp, Warning, TEXT("  → LOCAL CONTROLLER - Initializing P_MEIS input system"));
+        
         // One-call path: ensures a usable template exists and gets applied.
-        EnsureInputProfileReady(MF_DefaultInputTemplateName, /*bCreateTemplateIfMissing*/ true, /*bApplyEvenIfNotEmpty*/ false);
+        bool bInputReady = EnsureInputProfileReady(MF_DefaultInputTemplateName, /*bCreateTemplateIfMissing*/ true, /*bApplyEvenIfNotEmpty*/ false);
+        UE_LOG(LogTemp, Warning, TEXT("  → EnsureInputProfileReady result: %d"), bInputReady);
 
         // Ensure a HUD exists early (safe: reuses existing HUD if already created in BP).
         CreateSpectatorUI();
     }
+    else
+    {
+        // This should NOT appear on the client machine for the client's own PlayerController
+        // If you see this log on a client, there's a network/replication bug
+        UE_LOG(LogTemp, Error, TEXT("  → NOT LOCAL CONTROLLER - Skipping input init (this is expected ONLY on server for remote players)"));
+    }
 
     UpdatePlayerRole();
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_PlayerController::BeginPlay END ==="));
 }
 
 bool AMF_PlayerController::EnsureInputProfileReady(const FName TemplateName, bool bCreateTemplateIfMissing, bool bApplyEvenIfNotEmpty)
 {
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_PlayerController::EnsureInputProfileReady ==="));
+    UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetName());
+    UE_LOG(LogTemp, Warning, TEXT("  TemplateName: %s"), *TemplateName.ToString());
+    UE_LOG(LogTemp, Warning, TEXT("  bCreateTemplateIfMissing: %d"), bCreateTemplateIfMissing);
+    UE_LOG(LogTemp, Warning, TEXT("  bApplyEvenIfNotEmpty: %d"), bApplyEvenIfNotEmpty);
+    
     if (!IsLocalController())
     {
+        UE_LOG(LogTemp, Error, TEXT("  → NOT LOCAL CONTROLLER - Aborting (this is a bug if called from client's own PC!)"));
         return false;
     }
 
     UCPP_InputBindingManager *Manager = GetMEISManager();
     if (!Manager)
     {
+        UE_LOG(LogTemp, Error, TEXT("  → No MEIS Manager found!"));
         return false;
     }
+    UE_LOG(LogTemp, Log, TEXT("  → MEIS Manager: %s"), *GetNameSafe(Manager));
 
     // Ensure registered.
     if (!Manager->HasPlayerRegistered(this))
     {
-        Manager->RegisterPlayer(this);
+        UE_LOG(LogTemp, Warning, TEXT("  → Player NOT registered, registering now..."));
+        UCPP_EnhancedInputIntegration* Integration = Manager->RegisterPlayer(this);
+        UE_LOG(LogTemp, Warning, TEXT("  → Registered, Integration: %s"), *GetNameSafe(Integration));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("  → Player already registered"));
     }
 
     // Decide which template name to use.
     const FName EffectiveTemplateName = TemplateName.IsNone() ? MF_DefaultInputTemplateName : TemplateName;
+    UE_LOG(LogTemp, Log, TEXT("  → Effective template name: %s"), *EffectiveTemplateName.ToString());
 
     // If missing, optionally create the built-in Default template.
     if (bCreateTemplateIfMissing && !Manager->DoesTemplateExist(EffectiveTemplateName))
     {
+        UE_LOG(LogTemp, Warning, TEXT("  → Template doesn't exist, creating..."));
         if (EffectiveTemplateName == MF_DefaultInputTemplateName)
         {
             const FS_InputProfile DefaultTemplate = MF_DefaultInputTemplates::BuildDefaultInputTemplate(MF_DefaultInputTemplateName);
             Manager->SaveProfileTemplate(MF_DefaultInputTemplateName, DefaultTemplate);
+            UE_LOG(LogTemp, Warning, TEXT("  → Created default template with %d actions"), DefaultTemplate.ActionBindings.Num());
         }
     }
 
@@ -127,23 +213,30 @@ bool AMF_PlayerController::EnsureInputProfileReady(const FName TemplateName, boo
     {
         const FS_InputProfile CurrentProfile = Manager->GetProfileForPlayer(this);
         bShouldApply = (CurrentProfile.ActionBindings.Num() == 0 && CurrentProfile.AxisBindings.Num() == 0);
+        UE_LOG(LogTemp, Log, TEXT("  → Current profile has %d actions, %d axes, bShouldApply: %d"), 
+            CurrentProfile.ActionBindings.Num(), CurrentProfile.AxisBindings.Num(), bShouldApply);
     }
 
     if (bShouldApply)
     {
+        UE_LOG(LogTemp, Warning, TEXT("  → Applying template to player..."));
         if (!Manager->ApplyTemplateToPlayer(this, EffectiveTemplateName))
         {
+            UE_LOG(LogTemp, Error, TEXT("  → FAILED to apply template!"));
             return false;
         }
+        UE_LOG(LogTemp, Warning, TEXT("  → Template applied successfully"));
     }
     else
     {
+        UE_LOG(LogTemp, Log, TEXT("  → Skipping template apply (profile not empty)"));
         // Even if we didn't re-apply, ensure Enhanced Input reflects current profile.
         Manager->ApplyPlayerProfileToEnhancedInput(this);
     }
 
     bInputSystemInitialized = true;
     bInputProfileLoaded = true;
+    UE_LOG(LogTemp, Warning, TEXT("=== MF_PlayerController::EnsureInputProfileReady SUCCESS ==="));
     return true;
 }
 
@@ -151,8 +244,11 @@ void AMF_PlayerController::OnPossess(APawn *InPawn)
 {
     Super::OnPossess(InPawn);
 
-    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::OnPossess - Pawn: %s"),
-           InPawn ? *InPawn->GetName() : TEXT("null"));
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::OnPossess - Pawn: %s, IsLocalController: %d, HasAuthority: %d, Role: %s"),
+           InPawn ? *InPawn->GetName() : TEXT("null"),
+           IsLocalController(),
+           HasAuthority(),
+           *UEnum::GetValueAsString(GetLocalRole()));
 
     OnMFPossessedPawnChanged.Broadcast(this, InPawn);
     Execute_OnPossessedPawnChanged(this, InPawn);
