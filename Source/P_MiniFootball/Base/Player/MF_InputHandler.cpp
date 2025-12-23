@@ -293,12 +293,12 @@ void UMF_InputHandler::SetupDefaultBindings()
         PauseBinding.InputActionName = MF_InputActions::Pause;
         PauseBinding.DisplayName = FText::FromString(TEXT("Pause"));
 
-        // Escape for keyboard, Start for gamepad
-        FS_KeyBinding KeyEsc;
-        KeyEsc.Key = EKeys::Escape;
+        // P for keyboard (not Escape - it exits the game), Start for gamepad
+        FS_KeyBinding KeyP;
+        KeyP.Key = EKeys::P;
         FS_KeyBinding KeyStart;
         KeyStart.Key = EKeys::Gamepad_Special_Right;
-        PauseBinding.KeyBindings.Add(KeyEsc);
+        PauseBinding.KeyBindings.Add(KeyP);
         PauseBinding.KeyBindings.Add(KeyStart);
 
         Manager->SetPlayerActionBinding(PC, MF_InputActions::Pause, PauseBinding);
@@ -319,8 +319,6 @@ void UMF_InputHandler::BindP_MEISEvents()
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandleMoveAction);
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandleActionTriggered);
     Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandleSprintAction);
-    Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandleSwitchPlayerAction);
-    Integration->OnActionTriggered.AddDynamic(this, &UMF_InputHandler::HandlePauseAction);
 
     // Started events for toggle/hold semantics that should not repeat every tick
     Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandleSprintStarted);
@@ -332,6 +330,10 @@ void UMF_InputHandler::BindP_MEISEvents()
     // Started/Completed for action hold detection
     Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandleActionStarted);
     Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleActionCompleted);
+
+    // Pause and SwitchPlayer fire on RELEASE (Completed) to prevent repeat firing
+    Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleSwitchPlayerAction);
+    Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandlePauseAction);
 
     UE_LOG(LogTemp, Log, TEXT("MF_InputHandler: P_MEIS events bound"));
 }
@@ -477,10 +479,8 @@ void UMF_InputHandler::HandleSwitchPlayerAction(FName ActionName, FInputActionVa
         return;
     }
 
-    if (Value.Get<bool>())
-    {
-        OnSwitchPlayerInput.Broadcast();
-    }
+    // This now fires on release (Completed) - always broadcast
+    OnSwitchPlayerInput.Broadcast();
 }
 
 void UMF_InputHandler::HandlePauseAction(FName ActionName, FInputActionValue Value)
@@ -490,8 +490,6 @@ void UMF_InputHandler::HandlePauseAction(FName ActionName, FInputActionValue Val
         return;
     }
 
-    if (Value.Get<bool>())
-    {
-        OnPauseInput.Broadcast();
-    }
+    // This now fires on release (Completed) - always broadcast
+    OnPauseInput.Broadcast();
 }

@@ -86,6 +86,18 @@ public:
     /** Set the ball reference (Server only) */
     void SetPossessedBall(AMF_Ball *Ball);
 
+    /** Check if this character can receive ball possession */
+    UFUNCTION(BlueprintPure, Category = "MiniFootball|Player")
+    bool CanReceiveBall() const;
+
+    /** 
+     * CurrentBall - Replicated reference to the ball this character possesses.
+     * This is the single source of truth for ball possession on the character side.
+     * Invariant: bHasBall == (CurrentBall != nullptr)
+     */
+    UPROPERTY(ReplicatedUsing = OnRep_CurrentBall, BlueprintReadOnly, Category = "MiniFootball|Player")
+    AMF_Ball* CurrentBall = nullptr;
+
     // ==================== Player State ====================
 
     /** Get current player state */
@@ -142,6 +154,10 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "MiniFootball|Events")
     FOnMF_PlayerStateChanged OnPlayerStateChanged;
 
+    /** Broadcast when ball state changes (for HUD/Ability system) */
+    UPROPERTY(BlueprintAssignable, Category = "MiniFootball|Events")
+    FOnMF_PossessionChanged OnBallStateChanged;
+
     // ==================== Input Handler Access ====================
 
     /** Get the input handler component */
@@ -173,7 +189,7 @@ protected:
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "MiniFootball|Player")
     uint8 PlayerID = 0;
 
-    /** Whether this player has the ball */
+    /** Whether this player has the ball (derived from CurrentBall but replicated for UI/prediction) */
     UPROPERTY(ReplicatedUsing = OnRep_HasBall, BlueprintReadOnly, Category = "MiniFootball|Player")
     bool bHasBall = false;
 
@@ -187,7 +203,10 @@ protected:
 
     // ==================== Non-Replicated State ====================
 
-    /** Reference to possessed ball (not replicated, set locally) */
+    /** 
+     * Legacy reference to possessed ball (for backward compatibility).
+     * @deprecated Use CurrentBall instead.
+     */
     UPROPERTY()
     AMF_Ball *PossessedBall = nullptr;
 
@@ -200,6 +219,12 @@ protected:
     /** Stun timer */
     float StunTimeRemaining = 0.0f;
 
+    /** 
+     * Flag to track if action was consumed by tackle on press.
+     * When true, skip shoot/pass on release to prevent immediate shoot after tackle.
+     */
+    bool bActionConsumedByTackle = false;
+
     // ==================== Rep Notifies ====================
 
     UFUNCTION()
@@ -207,6 +232,9 @@ protected:
 
     UFUNCTION()
     void OnRep_HasBall();
+
+    UFUNCTION()
+    void OnRep_CurrentBall();
 
     UFUNCTION()
     void OnRep_CurrentPlayerState();
@@ -249,4 +277,10 @@ protected:
 
     UFUNCTION()
     void OnActionHeld(float HoldTime);
+
+    UFUNCTION()
+    void OnSwitchPlayerInputReceived();
+
+    UFUNCTION()
+    void OnPauseInputReceived();
 };

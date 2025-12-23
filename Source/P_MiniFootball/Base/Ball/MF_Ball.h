@@ -81,6 +81,10 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Physics")
     float BallRadius;
 
+    /** Velocity threshold (squared) for auto-pickup eligibility */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Possession")
+    float AutoPickupVelocityThreshold = 10000.0f;  // cm^2/s^2
+
     // ==================== Ball Actions ====================
     /** Kick the ball in a direction with power */
     UFUNCTION(BlueprintCallable, Category = "Ball")
@@ -101,6 +105,28 @@ public:
     /** Check if a player can pick up the ball */
     UFUNCTION(BlueprintPure, Category = "Ball")
     bool CanBePickedUpBy(AMF_PlayerCharacter *Player) const;
+
+    /**
+     * Assign possession to a new owner (Server only).
+     * This is the authoritative possession assignment function.
+     * Updates both Ball and Character state atomically.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Ball")
+    void AssignPossession(AMF_PlayerCharacter* NewOwner);
+
+    /**
+     * Clear possession completely (Server only).
+     * Called when shooting/passing to release the ball.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Ball")
+    void ClearPossession();
+
+    /**
+     * Check if ball can be auto-picked up by a character.
+     * Used for overlap-based pickup eligibility.
+     */
+    UFUNCTION(BlueprintPure, Category = "Ball")
+    bool CanAutoPickup(const AMF_PlayerCharacter* Character) const;
 
     // ==================== State Getters ====================
     UFUNCTION(BlueprintPure, Category = "Ball")

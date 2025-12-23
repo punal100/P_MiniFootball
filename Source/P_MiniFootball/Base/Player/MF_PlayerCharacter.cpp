@@ -6,6 +6,7 @@
  */
 
 #include "Player/MF_PlayerCharacter.h"
+#include "Player/MF_PlayerController.h"
 #include "Player/MF_InputHandler.h"
 #include "Ball/MF_Ball.h"
 #include "Net/UnrealNetwork.h"
@@ -15,6 +16,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
+#include "EngineUtils.h"
 
 AMF_PlayerCharacter::AMF_PlayerCharacter()
 {
@@ -96,6 +98,7 @@ void AMF_PlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &
     DOREPLIFETIME(AMF_PlayerCharacter, bHasBall);
     DOREPLIFETIME(AMF_PlayerCharacter, CurrentPlayerState);
     DOREPLIFETIME(AMF_PlayerCharacter, bIsSprinting);
+    DOREPLIFETIME(AMF_PlayerCharacter, CurrentBall);
 }
 
 void AMF_PlayerCharacter::BeginPlay()
@@ -389,6 +392,27 @@ void AMF_PlayerCharacter::OnRep_CurrentPlayerState()
            static_cast<int32>(CurrentPlayerState));
 }
 
+void AMF_PlayerCharacter::OnRep_CurrentBall()
+{
+    // Derived invariant enforcement: bHasBall == (CurrentBall != nullptr)
+    bHasBall = (CurrentBall != nullptr);
+
+    // Notify HUD / Ability system
+    OnBallStateChanged.Broadcast(this, bHasBall);
+
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::OnRep_CurrentBall - CurrentBall: %s, bHasBall: %d"),
+           CurrentBall ? *CurrentBall->GetName() : TEXT("None"), bHasBall);
+}
+
+bool AMF_PlayerCharacter::CanReceiveBall() const
+{
+    // Can receive ball if:
+    // 1. Not already possessing a ball
+    // 2. Not stunned
+    // 3. Player state allows possession
+    return !bHasBall && !IsStunned() && CurrentPlayerState != EMF_PlayerState::Shooting;
+}
+
 // ==================== Internal Functions ====================
 
 void AMF_PlayerCharacter::SetupInputBindings()
@@ -412,6 +436,8 @@ void AMF_PlayerCharacter::SetupInputBindings()
     InputHandler->OnActionPressed.RemoveDynamic(this, &AMF_PlayerCharacter::OnActionPressed);
     InputHandler->OnActionReleased.RemoveDynamic(this, &AMF_PlayerCharacter::OnActionReleased);
     InputHandler->OnActionHeld.RemoveDynamic(this, &AMF_PlayerCharacter::OnActionHeld);
+    InputHandler->OnSwitchPlayerInput.RemoveDynamic(this, &AMF_PlayerCharacter::OnSwitchPlayerInputReceived);
+    InputHandler->OnPauseInput.RemoveDynamic(this, &AMF_PlayerCharacter::OnPauseInputReceived);
 
     // Initialize P_MEIS input
     if (InputHandler->InitializeInput(PC))
@@ -422,6 +448,8 @@ void AMF_PlayerCharacter::SetupInputBindings()
         InputHandler->OnActionPressed.AddDynamic(this, &AMF_PlayerCharacter::OnActionPressed);
         InputHandler->OnActionReleased.AddDynamic(this, &AMF_PlayerCharacter::OnActionReleased);
         InputHandler->OnActionHeld.AddDynamic(this, &AMF_PlayerCharacter::OnActionHeld);
+        InputHandler->OnSwitchPlayerInput.AddDynamic(this, &AMF_PlayerCharacter::OnSwitchPlayerInputReceived);
+        InputHandler->OnPauseInput.AddDynamic(this, &AMF_PlayerCharacter::OnPauseInputReceived);
 
         UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter: Input bindings setup complete"));
     }
@@ -429,6 +457,13 @@ void AMF_PlayerCharacter::SetupInputBindings()
 
 void AMF_PlayerCharacter::UpdateMovement(float DeltaTime)
 {
+    // Movement input MUST be applied only on the owning client
+    // CharacterMovementComponent handles replication to server
+    if (!IsLocallyControlled())
+    {
+        return;
+    }
+
     // Don't move if stunned
     if (IsStunned())
     {
@@ -504,7 +539,7 @@ void AMF_PlayerCharacter::ExecuteShoot(FVector Direction, float Power)
         return;
     }
 
-    if (!bHasBall || !PossessedBall)
+    if (!bHasBall || !CurrentBall)
     {
         UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::ExecuteShoot - No ball to shoot"));
         return;
@@ -513,10 +548,11 @@ void AMF_PlayerCharacter::ExecuteShoot(FVector Direction, float Power)
     // Clamp power
     Power = FMath::Clamp(Power, 0.0f, MF_Constants::BallShootSpeed);
 
-    // Release ball
-    // TODO: Call Ball->Kick() when ball system is implemented
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::ExecuteShoot - Direction: %s, Power: %f"),
            *Direction.ToString(), Power);
+
+    // Kick the ball (this clears possession internally)
+    CurrentBall->Kick(Direction, Power, true);  // bAddHeight = true for shots
 
     SetPlayerState(EMF_PlayerState::Shooting);
 }
@@ -528,7 +564,7 @@ void AMF_PlayerCharacter::ExecutePass(FVector Direction, float Power)
         return;
     }
 
-    if (!bHasBall || !PossessedBall)
+    if (!bHasBall || !CurrentBall)
     {
         UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::ExecutePass - No ball to pass"));
         return;
@@ -537,9 +573,11 @@ void AMF_PlayerCharacter::ExecutePass(FVector Direction, float Power)
     // Clamp power
     Power = FMath::Clamp(Power, 0.0f, MF_Constants::BallPassSpeed);
 
-    // TODO: Call Ball->Kick() when ball system is implemented
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::ExecutePass - Direction: %s, Power: %f"),
            *Direction.ToString(), Power);
+
+    // Kick the ball (this clears possession internally)
+    CurrentBall->Kick(Direction, Power, false);  // bAddHeight = false for passes
 
     SetPlayerState(EMF_PlayerState::Passing);
 }
@@ -562,8 +600,52 @@ void AMF_PlayerCharacter::ExecuteTackle()
     TackleCooldownRemaining = MF_Constants::TackleCooldown;
     SetPlayerState(EMF_PlayerState::Tackling);
 
-    // TODO: Find nearby opponent and attempt to take ball
-    UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::ExecuteTackle - Tackling"));
+    // Tackle range - distance within which we can steal the ball
+    const float TackleRange = MF_Constants::TackleRange;
+    FVector MyLocation = GetActorLocation();
+
+    UE_LOG(LogTemp, Warning, TEXT("ExecuteTackle - Attacker: %s, MyTeam=%d, Searching within %.1f units"),
+           *GetName(), (int32)TeamID, TackleRange);
+
+    // Find nearest opponent with ball within tackle range
+    AMF_PlayerCharacter* BestTarget = nullptr;
+    float BestDistance = TackleRange;
+
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter* Other = *It;
+        if (!Other || Other == this)
+            continue;
+
+        float Distance = FVector::Dist(MyLocation, Other->GetActorLocation());
+        
+        // Check team - skip teammates (None team can tackle anyone)
+        bool bIsTeammate = (TeamID != EMF_TeamID::None && Other->GetTeamID() == GetTeamID());
+        
+        UE_LOG(LogTemp, Log, TEXT("  Checking %s: Distance=%.1f, HasBall=%d, Team=%d, CurrentBall=%s, IsTeammate=%d"),
+               *Other->GetName(), Distance, Other->HasBall(), (int32)Other->GetTeamID(),
+               Other->CurrentBall ? TEXT("Valid") : TEXT("NULL"), bIsTeammate);
+
+        if (bIsTeammate)
+            continue;
+
+        // Check if in range and has ball
+        if (Distance <= BestDistance && Other->HasBall() && Other->CurrentBall)
+        {
+            BestTarget = Other;
+            BestDistance = Distance;
+        }
+    }
+
+    if (BestTarget)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ExecuteTackle - Stealing ball from %s (distance: %.1f)"),
+               *BestTarget->GetName(), BestDistance);
+        BestTarget->CurrentBall->SetPossessor(this);
+        return;
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::ExecuteTackle - No valid target found within range"));
 }
 
 // ==================== Input Callbacks ====================
@@ -589,14 +671,28 @@ void AMF_PlayerCharacter::OnActionPressed(bool bPressed)
         // Tackle if near opponent with ball
         if (IsLocallyControlled())
         {
+            // Mark action as consumed by tackle - prevents shoot on release
+            bActionConsumedByTackle = true;
             Server_RequestTackle();
         }
     }
-    // If has ball, wait for release to determine shoot vs pass
+    else
+    {
+        // Player has ball - action not consumed, will shoot/pass on release
+        bActionConsumedByTackle = false;
+    }
 }
 
 void AMF_PlayerCharacter::OnActionReleased()
 {
+    // Check if action was consumed by tackle - if so, skip shoot/pass
+    if (bActionConsumedByTackle)
+    {
+        bActionConsumedByTackle = false;  // Reset for next press
+        UE_LOG(LogTemp, Log, TEXT("OnActionReleased - Skipping shoot (action consumed by tackle)"));
+        return;
+    }
+
     if (bHasBall && InputHandler)
     {
         float HoldTime = InputHandler->GetActionHoldTime();
@@ -627,4 +723,23 @@ void AMF_PlayerCharacter::OnActionReleased()
 void AMF_PlayerCharacter::OnActionHeld(float HoldTime)
 {
     // Could show power meter UI here
+}
+
+void AMF_PlayerCharacter::OnSwitchPlayerInputReceived()
+{
+    // Forward to PlayerController for character switching
+    // Character switching is Controller responsibility per PLAN.md
+    if (AMF_PlayerController* MFC = Cast<AMF_PlayerController>(GetController()))
+    {
+        MFC->SwitchToNextCharacter();
+    }
+}
+
+void AMF_PlayerCharacter::OnPauseInputReceived()
+{
+    // Forward to PlayerController for pause handling
+    if (AMF_PlayerController* MFC = Cast<AMF_PlayerController>(GetController()))
+    {
+        MFC->RequestPause();
+    }
 }

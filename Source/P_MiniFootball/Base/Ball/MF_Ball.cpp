@@ -196,11 +196,12 @@ void AMF_Ball::SetPossessor(AMF_PlayerCharacter *NewPossessor)
         Velocity = FVector::ZeroVector;
         AngularVelocity = FVector::ZeroVector;
 
-        // Update player state
+        // Update player state - set BOTH CurrentBall and legacy PossessedBall
         NewPossessor->SetHasBall(true);
+        NewPossessor->CurrentBall = this;  // CRITICAL: Set CurrentBall for shoot/pass to work
         NewPossessor->SetPossessedBall(this);
 
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::SetPossessor - New possessor: %s"), *NewPossessor->GetName());
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::SetPossessor - New possessor: %s, CurrentBall set"), *NewPossessor->GetName());
     }
     else
     {
@@ -211,6 +212,7 @@ void AMF_Ball::SetPossessor(AMF_PlayerCharacter *NewPossessor)
     if (OldPossessor && OldPossessor != NewPossessor)
     {
         OldPossessor->SetHasBall(false);
+        OldPossessor->CurrentBall = nullptr;
         OldPossessor->SetPossessedBall(nullptr);
     }
 
@@ -297,6 +299,95 @@ bool AMF_Ball::CanBePickedUpBy(AMF_PlayerCharacter *Player) const
     // Don't check distance here - let the caller handle distance
     // This function should only check if the ball CAN be picked up, not if the player is close enough
     return true;
+}
+
+bool AMF_Ball::CanAutoPickup(const AMF_PlayerCharacter* Character) const
+{
+    // Auto-pickup eligibility per PLAN.md Section 7.6:
+    // 1. Ball has no PossessingPlayer
+    // 2. Ball linear velocity is below threshold
+    // 3. Overlapping actor is a valid character
+    // 4. Character is alive and allowed to receive possession
+    return
+        !CurrentPossessor &&
+        Velocity.SizeSquared() < AutoPickupVelocityThreshold &&
+        Character &&
+        Character->CanReceiveBall();
+}
+
+void AMF_Ball::AssignPossession(AMF_PlayerCharacter* NewOwner)
+{
+    if (!HasAuthority())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::AssignPossession - Called on client, ignoring"));
+        return;
+    }
+
+    AMF_PlayerCharacter* OldPossessor = CurrentPossessor;
+
+    // Clear previous owner
+    if (OldPossessor)
+    {
+        OldPossessor->SetHasBall(false);
+        OldPossessor->CurrentBall = nullptr;
+    }
+
+    CurrentPossessor = NewOwner;
+
+    if (NewOwner)
+    {
+        // Update new owner's state
+        NewOwner->SetHasBall(true);
+        NewOwner->CurrentBall = this;
+
+        // Attach ball to player mesh at BallSocket
+        if (USkeletalMeshComponent* Mesh = NewOwner->GetMesh())
+        {
+            AttachToComponent(
+                Mesh,
+                FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+                TEXT("BallSocket")
+            );
+        }
+
+        SetBallState(EMF_BallState::Possessed);
+        Velocity = FVector::ZeroVector;
+        AngularVelocity = FVector::ZeroVector;
+
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::AssignPossession - Assigned to %s"), *NewOwner->GetName());
+    }
+    else
+    {
+        SetBallState(EMF_BallState::Loose);
+    }
+
+    // Broadcast event
+    OnPossessionChanged.Broadcast(this, OldPossessor, NewOwner);
+}
+
+void AMF_Ball::ClearPossession()
+{
+    if (!HasAuthority())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::ClearPossession - Called on client, ignoring"));
+        return;
+    }
+
+    if (CurrentPossessor)
+    {
+        AMF_PlayerCharacter* OldPossessor = CurrentPossessor;
+        OldPossessor->SetHasBall(false);
+        OldPossessor->CurrentBall = nullptr;
+
+        CurrentPossessor = nullptr;
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+        // Small cooldown before can be picked up again
+        PossessionCooldown = 0.2f;
+
+        OnPossessionChanged.Broadcast(this, OldPossessor, nullptr);
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::ClearPossession - Cleared from %s"), *OldPossessor->GetName());
+    }
 }
 
 // ==================== Overlap Detection ====================
@@ -397,6 +488,23 @@ void AMF_Ball::OnRep_Possessor()
 {
     UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnRep_Possessor - Possessor: %s"),
            CurrentPossessor ? *CurrentPossessor->GetName() : TEXT("null"));
+
+    // Client-side attachment per PLAN.md Section 7.4
+    if (CurrentPossessor)
+    {
+        if (USkeletalMeshComponent* Mesh = CurrentPossessor->GetMesh())
+        {
+            AttachToComponent(
+                Mesh,
+                FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+                TEXT("BallSocket")
+            );
+        }
+    }
+    else
+    {
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+    }
 }
 
 void AMF_Ball::OnRep_BallPhysics()

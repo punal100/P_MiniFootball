@@ -224,6 +224,265 @@ P_MiniFootball/
 
 ---
 
+## 🎮 Input System Architecture
+
+The plugin uses a **delegate-based input architecture** with strict separation between input handling and gameplay execution.
+
+### Flow Overview
+
+```
+Hardware Input
+ └─ Enhanced Input (via P_MEIS)
+     └─ UMF_InputHandler (Component on Character)
+         ├─ Broadcast: OnMoveInput
+         ├─ Broadcast: OnActionPressed
+         ├─ Broadcast: OnActionReleased
+         └─ Broadcast: OnSprintInput
+             ↓
+     AMF_PlayerCharacter (Subscriber)
+         ├─ HandleMove() → AddMovementInput (LOCAL only)
+         ├─ HandleActionPressed() → Server_RequestTackle
+         └─ HandleActionReleased() → Server_RequestShoot/Pass
+             ↓
+     Server (Authority)
+         ├─ ExecuteTackle()
+         ├─ ExecuteShoot()
+         └─ ExecutePass()
+```
+
+### Ownership Rules (Absolute)
+
+| System             | Owner                       |
+| ------------------ | --------------------------- |
+| Enhanced Input     | P_MEIS via PlayerController |
+| InputHandler       | Passive intent broadcaster  |
+| Gameplay execution | Character (Server)          |
+| Ball possession    | Ball Actor (Server)         |
+| Character switching| PlayerController            |
+
+### Movement Authority (Critical)
+
+Movement input is applied **only on the owning client**. The `CharacterMovementComponent` handles replication to the server automatically.
+
+```cpp
+// MF_PlayerCharacter.cpp
+void AMF_PlayerCharacter::UpdateMovement(float DeltaTime)
+{
+    // Movement input MUST be applied only on the owning client
+    if (!IsLocallyControlled())
+        return;
+
+    AddMovementInput(GetActorForwardVector(), Input.Y);
+    AddMovementInput(GetActorRightVector(),   Input.X);
+}
+```
+
+**Rules:**
+- ✅ Movement input executes **only on owning client**
+- ❌ Server never calls `AddMovementInput`
+- ❌ Simulated proxies never inject input
+- ✅ CharacterMovementComponent handles replication
+- ✅ Prediction remains intact
+
+### Action Execution (Server-Authoritative)
+
+All gameplay actions are **server-authoritative**. Clients request actions via Server RPCs.
+
+```cpp
+// Client requests
+void AMF_PlayerCharacter::OnActionPressed(bool bPressed)
+{
+    if (!bHasBall && IsLocallyControlled())
+    {
+        Server_RequestTackle();  // RPC to server
+    }
+}
+
+// Server executes
+void AMF_PlayerCharacter::Server_RequestTackle_Implementation()
+{
+    ExecuteTackle();  // Server-only execution
+}
+```
+
+### Delegate Subscription
+
+The Character subscribes to InputHandler delegates in `SetupInputBindings()`:
+
+```cpp
+void AMF_PlayerCharacter::SetupInputBindings()
+{
+    // Bind to P_MEIS input events
+    InputHandler->OnMoveInput.AddDynamic(this, &AMF_PlayerCharacter::OnMoveInputReceived);
+    InputHandler->OnSprintInput.AddDynamic(this, &AMF_PlayerCharacter::OnSprintInputReceived);
+    InputHandler->OnActionPressed.AddDynamic(this, &AMF_PlayerCharacter::OnActionPressed);
+    InputHandler->OnActionReleased.AddDynamic(this, &AMF_PlayerCharacter::OnActionReleased);
+}
+```
+
+---
+
+## ⚽ Ball Possession System
+
+The ball uses a **server-authoritative possession model** with replicated state for clients.
+
+### Single Source of Truth
+
+```cpp
+// AMF_Ball is the authority for possession
+AMF_Ball::CurrentPossessor    // Who has the ball (replicated)
+AMF_Ball::AssignPossession()  // Authoritative assignment
+AMF_Ball::ClearPossession()   // Authoritative release
+```
+
+`bHasBall` on Character is **derived state**, not authority.
+
+### Invariant (Must Always Hold)
+
+```
+Character->bHasBall == (Character->CurrentBall != nullptr)
+```
+
+### Ball Discovery (No World Scanning)
+
+Characters **never scan the world** for the ball. Instead:
+
+```cpp
+// MF_PlayerCharacter.h
+UPROPERTY(ReplicatedUsing = OnRep_CurrentBall)
+AMF_Ball* CurrentBall;
+
+// Ball assigns itself:
+void AMF_Ball::AssignPossession(AMF_PlayerCharacter* NewOwner)
+{
+    NewOwner->CurrentBall = this;  // Ball sets the reference
+}
+```
+
+### Client-Side Attachment
+
+Ball attachment replicates to clients via `OnRep_Possessor`:
+
+```cpp
+void AMF_Ball::OnRep_Possessor()
+{
+    if (CurrentPossessor)
+    {
+        AttachToComponent(
+            CurrentPossessor->GetMesh(),
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+            TEXT("BallSocket")
+        );
+    }
+    else
+    {
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+    }
+}
+```
+
+### Auto-Pickup Eligibility
+
+Ball auto-pickup is only allowed when:
+1. Ball has **no PossessingPlayer**
+2. Ball velocity is below threshold
+3. Character can receive ball (`CanReceiveBall()`)
+
+```cpp
+bool AMF_Ball::CanAutoPickup(const AMF_PlayerCharacter* Character) const
+{
+    return
+        !CurrentPossessor &&
+        Velocity.SizeSquared() < AutoPickupVelocityThreshold &&
+        Character &&
+        Character->CanReceiveBall();
+}
+```
+
+---
+
+## 🎯 Tackle / Shoot / Pass System
+
+### Action Matrix
+
+| Has Ball | Event   | Action       |
+| -------- | ------- | ------------ |
+| ❌        | Press   | Tackle       |
+| ✅        | Release | Shoot / Pass |
+
+### Action Consumption (Prevents Accidental Shoot After Tackle)
+
+When a player tackles and immediately gains the ball, releasing the action button should **not** shoot. This is handled via an action consumption flag:
+
+```cpp
+// MF_PlayerCharacter.h
+bool bActionConsumedByTackle = false;
+
+// On Press (without ball)
+bActionConsumedByTackle = true;  // Mark consumed
+Server_RequestTackle();
+
+// On Release
+if (bActionConsumedByTackle) {
+    bActionConsumedByTackle = false;  // Reset
+    return;  // Skip shoot
+}
+// Shoot only if action was not consumed
+```
+
+### Tackle (Server-Authoritative, Distance-Based)
+
+Tackle uses distance-based detection (not overlap) with team filtering:
+
+```cpp
+void AMF_PlayerCharacter::ExecuteTackle()
+{
+    const float TackleRange = MF_Constants::TackleRange;  // 200cm
+    
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter* Other = *It;
+        if (!Other || Other == this)
+            continue;
+
+        // Skip teammates (None team can tackle anyone)
+        if (TeamID != EMF_TeamID::None && Other->GetTeamID() == GetTeamID())
+            continue;
+
+        float Distance = FVector::Dist(GetActorLocation(), Other->GetActorLocation());
+        if (Distance <= TackleRange && Other->HasBall() && Other->CurrentBall)
+        {
+            Other->CurrentBall->SetPossessor(this);
+            return;
+        }
+    }
+}
+```
+
+### Shoot/Pass
+
+```cpp
+void AMF_PlayerCharacter::ExecuteShoot()
+{
+    check(HasAuthority());
+    check(bHasBall && CurrentBall);
+
+    CurrentBall->Kick(GetActorForwardVector(), ShootPower, bAddHeight);
+}
+```
+
+### Input Bindings (Default)
+
+| Action        | Keyboard | Gamepad           | Trigger Event |
+| ------------- | -------- | ----------------- | ------------- |
+| Move          | WASD     | Left Stick        | Triggered     |
+| Action        | Space    | A/X               | Started/Completed |
+| Sprint        | Shift    | Right Trigger     | Triggered     |
+| Switch Player | Q        | Left Shoulder     | Completed (Release) |
+| Pause         | P        | Start             | Completed (Release) |
+
+---
+
 ## 🎭 Spectator & Team Assignment System (Phase 9)
 
 Players start as spectators and request to join teams through widgets. The system uses Blueprint Interfaces for clean separation between server (GameMode) and client (PlayerController) logic.

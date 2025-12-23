@@ -12,6 +12,7 @@
 #include "Player/MF_Spectator.h"
 #include "Ball/MF_Ball.h"
 #include "Match/MF_GameMode.h"
+#include "UI/MF_HUD.h"
 #include "Interfaces/MF_TeamInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -881,8 +882,16 @@ void AMF_PlayerController::RequestPlayerSwitch()
 
 void AMF_PlayerController::RequestPause()
 {
-    // TODO: Implement pause menu logic
-    UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RequestPause - Pause requested"));
+    // Toggle pause menu via HUD
+    if (CurrentHUD)
+    {
+        CurrentHUD->TogglePauseMenu();
+        UE_LOG(LogTemp, Log, TEXT("MF_PlayerController::RequestPause - Toggled pause menu"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::RequestPause - No HUD available"));
+    }
 }
 
 // ==================== Possession Control ====================
