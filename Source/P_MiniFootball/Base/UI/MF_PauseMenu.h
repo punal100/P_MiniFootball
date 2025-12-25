@@ -29,6 +29,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_OnLeaveTeamClicked);
 /** Delegate for when quit to menu is clicked */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_OnQuitToMenuClicked);
 
+/** Delegate for when change team is requested (per PLAN.md UI→HUD intent pipeline) */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMF_RequestTeamChange);
+
 /**
  * UMF_PauseMenu
  * In-game pause menu providing player options.
@@ -91,6 +94,10 @@ public:
     /** Broadcast when quit is clicked */
     UPROPERTY(BlueprintAssignable, Category = "MF|Events")
     FMF_OnQuitToMenuClicked OnQuitToMenuClicked;
+
+    /** Broadcast when change team is clicked (per PLAN.md: UI→HUD intent pipeline) */
+    UPROPERTY(BlueprintAssignable, Category = "MF|Events")
+    FMF_RequestTeamChange OnRequestTeamChange;
 
 protected:
     /** Title text */

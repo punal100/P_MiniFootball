@@ -262,6 +262,10 @@ void UMF_HUD::NativeConstruct()
     if (PauseMenu)
     {
         PauseMenu->OnResumeClicked.AddDynamic(this, &UMF_HUD::HandlePauseMenuClosed);
+        // Per PLAN.md: UI→HUD intent pipeline - PauseMenu emits intent, HUD routes
+        PauseMenu->OnRequestTeamChange.AddDynamic(this, &UMF_HUD::HandleOpenTeamSelection);
+        // Fix: Listen for leave team to properly transition to spectator mode
+        PauseMenu->OnLeaveTeamClicked.AddDynamic(this, &UMF_HUD::HandleLeaveTeamClicked);
     }
 
     // Initial state refresh
@@ -287,6 +291,8 @@ void UMF_HUD::NativeDestruct()
     if (PauseMenu)
     {
         PauseMenu->OnResumeClicked.RemoveDynamic(this, &UMF_HUD::HandlePauseMenuClosed);
+        PauseMenu->OnRequestTeamChange.RemoveDynamic(this, &UMF_HUD::HandleOpenTeamSelection);
+        PauseMenu->OnLeaveTeamClicked.RemoveDynamic(this, &UMF_HUD::HandleLeaveTeamClicked);
     }
 
     CachedPlayerController = nullptr;
@@ -459,6 +465,14 @@ void UMF_HUD::HandlePauseMenuClosed()
 {
     // Restore previous mode
     SetHUDMode(PreviousMode);
+}
+
+void UMF_HUD::HandleLeaveTeamClicked()
+{
+    // Player left team - switch to spectator mode immediately
+    // This fixes the soft-lock where HUD stays in Menu mode after leaving team
+    UE_LOG(LogTemp, Warning, TEXT("UMF_HUD::HandleLeaveTeamClicked - Switching to Spectator mode"));
+    SetHUDMode(EMF_HUDMode::Spectator);
 }
 
 void UMF_HUD::UpdateWidgetSwitcher()

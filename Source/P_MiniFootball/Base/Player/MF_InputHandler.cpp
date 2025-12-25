@@ -93,6 +93,13 @@ void UMF_InputHandler::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 
 bool UMF_InputHandler::InitializeInput(APlayerController *PC)
 {
+    // Prevent double-initialization (causes duplicate delegate binding errors)
+    if (bInputInitialized)
+    {
+        UE_LOG(LogTemp, Log, TEXT("MF_InputHandler: Already initialized, skipping"));
+        return true;
+    }
+
     if (!PC)
     {
         UE_LOG(LogTemp, Warning, TEXT("MF_InputHandler: Cannot initialize - null PlayerController"));
@@ -242,11 +249,14 @@ void UMF_InputHandler::SetupDefaultBindings()
         ActionBinding.InputActionName = MF_InputActions::Action;
         ActionBinding.DisplayName = FText::FromString(TEXT("Action"));
 
-        // Space for keyboard, Face Button Bottom (A/X) for gamepad
+        // LeftMouseButton and Space for keyboard, Face Button Bottom (A/X) for gamepad
+        FS_KeyBinding KeyMouse;
+        KeyMouse.Key = EKeys::LeftMouseButton;
         FS_KeyBinding KeySpace;
         KeySpace.Key = EKeys::SpaceBar;
         FS_KeyBinding KeyGamepad;
         KeyGamepad.Key = EKeys::Gamepad_FaceButton_Bottom;
+        ActionBinding.KeyBindings.Add(KeyMouse);
         ActionBinding.KeyBindings.Add(KeySpace);
         ActionBinding.KeyBindings.Add(KeyGamepad);
 
@@ -293,12 +303,15 @@ void UMF_InputHandler::SetupDefaultBindings()
         PauseBinding.InputActionName = MF_InputActions::Pause;
         PauseBinding.DisplayName = FText::FromString(TEXT("Pause"));
 
-        // P for keyboard (not Escape - it exits the game), Start for gamepad
+        // P key for keyboard (ESC conflicts with editor PIE), Start for gamepad (per MF_DefaultInputTemplates)
         FS_KeyBinding KeyP;
         KeyP.Key = EKeys::P;
+        FS_KeyBinding KeyEsc;
+        KeyEsc.Key = EKeys::Escape;
         FS_KeyBinding KeyStart;
         KeyStart.Key = EKeys::Gamepad_Special_Right;
         PauseBinding.KeyBindings.Add(KeyP);
+        PauseBinding.KeyBindings.Add(KeyEsc);
         PauseBinding.KeyBindings.Add(KeyStart);
 
         Manager->SetPlayerActionBinding(PC, MF_InputActions::Pause, PauseBinding);
@@ -331,9 +344,9 @@ void UMF_InputHandler::BindP_MEISEvents()
     Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandleActionStarted);
     Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleActionCompleted);
 
-    // Pause and SwitchPlayer fire on RELEASE (Completed) to prevent repeat firing
-    Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandleSwitchPlayerAction);
-    Integration->OnActionCompleted.AddDynamic(this, &UMF_InputHandler::HandlePauseAction);
+    // SwitchPlayer and Pause fire on STARTED (one-shot on press, not repeated while held)
+    Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandleSwitchPlayerAction);
+    Integration->OnActionStarted.AddDynamic(this, &UMF_InputHandler::HandlePauseAction);
 
     UE_LOG(LogTemp, Log, TEXT("MF_InputHandler: P_MEIS events bound"));
 }
@@ -479,7 +492,7 @@ void UMF_InputHandler::HandleSwitchPlayerAction(FName ActionName, FInputActionVa
         return;
     }
 
-    // This now fires on release (Completed) - always broadcast
+    // Per PLAN.md: SwitchPlayer fires on STARTED (one-shot on press)
     OnSwitchPlayerInput.Broadcast();
 }
 
@@ -490,6 +503,6 @@ void UMF_InputHandler::HandlePauseAction(FName ActionName, FInputActionValue Val
         return;
     }
 
-    // This now fires on release (Completed) - always broadcast
+    // Per PLAN.md: Pause fires on STARTED (one-shot on press)
     OnPauseInput.Broadcast();
 }

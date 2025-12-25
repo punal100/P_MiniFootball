@@ -215,6 +215,10 @@ private:
     UFUNCTION()
     void HandlePauseMenuClosed();
 
+    /** Handle leave team from pause menu - switches to spectator mode */
+    UFUNCTION()
+    void HandleLeaveTeamClicked();
+
     /** Updates widget switcher to match current mode */
     void UpdateWidgetSwitcher();
 

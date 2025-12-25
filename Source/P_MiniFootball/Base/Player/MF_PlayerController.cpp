@@ -750,23 +750,25 @@ void AMF_PlayerController::SwitchToCharacter(int32 CharacterIndex)
     }
 }
 
-void AMF_PlayerController::SwitchToNextCharacter()
-{
-    if (TeamCharacters.Num() <= 1)
-    {
-        return;
-    }
-
-    int32 NextIndex = (ActiveCharacterIndex + 1) % TeamCharacters.Num();
-    SwitchToCharacter(NextIndex);
-}
+// DELETED: SwitchToNextCharacter - per PLAN.md this was wrong abstraction
+// Q ALWAYS switches to teammate closest to ball, no array cycling
 
 void AMF_PlayerController::SwitchToNearestToBall()
 {
+    // Per PLAN.md: Q ALWAYS switches control to the teammate closest to the ball
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerController::SwitchToNearestToBall - TeamCharacters: %d, ActiveIndex: %d"),
+           TeamCharacters.Num(), ActiveCharacterIndex);
+    
     int32 NearestIndex = FindNearestCharacterToBall();
+    UE_LOG(LogTemp, Warning, TEXT("  → NearestIndex: %d"), NearestIndex);
+    
     if (NearestIndex >= 0 && NearestIndex != ActiveCharacterIndex)
     {
         SwitchToCharacter(NearestIndex);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  → No switch: NearestIndex=%d, ActiveIndex=%d"), NearestIndex, ActiveCharacterIndex);
     }
 }
 
@@ -785,7 +787,12 @@ int32 AMF_PlayerController::FindNearestCharacterToBall() const
 
     if (!CachedBallActor.IsValid())
     {
-        return ActiveCharacterIndex; // No ball, stay with current
+        // No ball found - cycle to next character instead
+        if (TeamCharacters.Num() > 1)
+        {
+            return (ActiveCharacterIndex + 1) % TeamCharacters.Num();
+        }
+        return ActiveCharacterIndex;
     }
 
     FVector BallLocation = CachedBallActor->GetActorLocation();
@@ -794,6 +801,12 @@ int32 AMF_PlayerController::FindNearestCharacterToBall() const
 
     for (int32 i = 0; i < TeamCharacters.Num(); ++i)
     {
+        // SKIP the currently controlled character - Q should always switch to someone else
+        if (i == ActiveCharacterIndex)
+        {
+            continue;
+        }
+
         if (TeamCharacters[i])
         {
             float DistSq = FVector::DistSquared(TeamCharacters[i]->GetActorLocation(), BallLocation);

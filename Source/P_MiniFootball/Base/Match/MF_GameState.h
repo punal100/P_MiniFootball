@@ -161,6 +161,16 @@ public:
     UFUNCTION(BlueprintPure, Category = "Match")
     FString GetFormattedTime() const;
 
+    // ==================== Authoritative Getters (per PLAN.md) ====================
+    
+    /** Get the active match ball (NEVER spawn - resolve existing) */
+    UFUNCTION(BlueprintPure, Category = "Ball")
+    AMF_Ball* GetMatchBall() const { return MatchBall; }
+
+    /** Get team for a controller (authoritative resolution) */
+    UFUNCTION(BlueprintPure, Category = "Teams")
+    EMF_TeamID GetTeamForController(APlayerController* PC) const;
+
     // ==================== Events ====================
     UPROPERTY(BlueprintAssignable, Category = "Events")
     FOnScoreChanged OnScoreChanged;

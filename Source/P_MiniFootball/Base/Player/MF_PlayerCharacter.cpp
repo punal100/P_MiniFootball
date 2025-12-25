@@ -194,6 +194,15 @@ void AMF_PlayerCharacter::PossessedBy(AController *NewController)
 
 void AMF_PlayerCharacter::UnPossessed()
 {
+    // Reset movement input to prevent ghost movement after switching
+    CurrentMoveInput = FVector2D::ZeroVector;
+    
+    // Stop any ongoing movement
+    if (UCharacterMovementComponent *Movement = GetCharacterMovement())
+    {
+        Movement->StopMovementImmediately();
+    }
+
     // Cleanup input
     if (InputHandler)
     {
@@ -728,10 +737,18 @@ void AMF_PlayerCharacter::OnActionHeld(float HoldTime)
 void AMF_PlayerCharacter::OnSwitchPlayerInputReceived()
 {
     // Forward to PlayerController for character switching
-    // Character switching is Controller responsibility per PLAN.md
+    // Per PLAN.md: Q ALWAYS switches control to the teammate closest to the ball
+    UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::OnSwitchPlayerInputReceived called!"));
+    
     if (AMF_PlayerController* MFC = Cast<AMF_PlayerController>(GetController()))
     {
-        MFC->SwitchToNextCharacter();
+        UE_LOG(LogTemp, Warning, TEXT("  → Calling SwitchToNearestToBall, TeamCharacters.Num: %d"), 
+               MFC->GetRegisteredTeamCharacters().Num());
+        MFC->SwitchToNearestToBall();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  → No MF_PlayerController found!"));
     }
 }
 

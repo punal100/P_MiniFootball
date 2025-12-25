@@ -558,9 +558,17 @@ FMF_TeamAssignmentResult AMF_GameMode::HandleJoinTeamRequest_Implementation(APla
         TeamBPlayerCount = TeamBHumanPlayers.Num();
     }
 
-    // Register character and possess
-    MFPC->RegisterTeamCharacter(AvailableCharacter);
-    MFPC->SwitchToCharacter(0);
+    // Register ALL team characters to enable Q-switching between teammates
+    RegisterTeamCharactersToController(MFPC);
+
+    // Find index of the available character and possess it
+    int32 CharacterIndex = MFPC->GetRegisteredTeamCharacterIndex(AvailableCharacter);
+    if (CharacterIndex == INDEX_NONE)
+    {
+        // Fallback: just possess first character
+        CharacterIndex = 0;
+    }
+    MFPC->SwitchToCharacter(CharacterIndex);
 
     // Update spectator state
     MFPC->SetSpectatorState(EMF_SpectatorState::Playing);

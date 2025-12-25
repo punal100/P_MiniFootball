@@ -82,3 +82,74 @@ If your HUD needs to react cleanly when a player joins/leaves a team (spectator 
 
 - Prefer spawning/owning widgets on the local `AMF_PlayerController` (client) using `CreateGameplayUI`, `CreateSpectatorUI`, and `ClearUI`.
 - `AMF_GameMode` also exposes optional Blueprint hooks (`CreateGlobalUI`, `CreatePlayerUI`) but GameMode is server-only; keep client widget creation on the owning client.
+
+---
+
+## Authority Architecture
+
+### The Three Pillars
+
+#### 1. Input Authority (P_MEIS)
+```
+Physical Key
+→ EnhancedInputSystem
+→ P_MEIS Integration (broadcasts by ActionName)
+→ MF_InputHandler (subscribes by ActionName)
+→ Gameplay (receives signal)
+```
+
+**Rules:**
+- ✓ Bind to Integration delegate (re-get from Manager after rebind)
+- ✓ Route by ActionName (FName, stable)
+- ✗ Never cache `UInputAction*`
+- ✗ Never bind to `EnhancedInputComponent` directly
+
+#### 2. Gameplay Authority (Single Possession)
+```
+Possession State
+→ One PlayerController
+→ One Possessed Pawn
+→ Never arrays, never cycles
+```
+
+**Rules:**
+- ✓ Possess nearest-to-ball (algorithmic via `SwitchToNearestToBall()`)
+- ✓ Unpossess old before possessing new
+- ✗ Never assume array ordering
+- ✗ Never register AI as controllable
+
+#### 3. UI Authority (HUD Routing)
+```
+Widget Intent (delegate broadcast)
+→ HUD Listener
+→ HUD Action (open widget, etc.)
+```
+
+**Rules:**
+- ✓ Widget emits intent (e.g. `OnRequestTeamChange`)
+- ✓ HUD executes action (e.g. `ShowTeamSelectionPopup()`)
+- ✗ Widget never opens widgets directly
+- ✗ Widget never calls gameplay directly
+
+### Authoritative APIs (GameState)
+
+```cpp
+// Get the match ball (NEVER spawn - always resolve)
+AMF_Ball* Ball = GameState->GetMatchBall();
+
+// Get team for controller (authoritative)
+EMF_TeamID Team = GameState->GetTeamForController(PlayerController);
+```
+
+### Verification
+
+All architectural constraints are verifiable headlessly:
+
+```powershell
+# Verify code patterns
+PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_CodePatterns.ps1
+
+# Verify ActionName parity
+PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_ActionNameParity.ps1
+```
+

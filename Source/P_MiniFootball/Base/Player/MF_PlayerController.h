@@ -135,11 +135,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Character")
     void SwitchToCharacter(int32 CharacterIndex);
 
-    /** Switch to the next available character */
-    UFUNCTION(BlueprintCallable, Category = "Character")
-    void SwitchToNextCharacter();
+    // DELETED: SwitchToNextCharacter - per PLAN.md this was wrong abstraction
 
-    /** Switch to nearest character to ball */
+    /** Switch to nearest character to ball (per PLAN.md: Q ALWAYS does this) */
     UFUNCTION(BlueprintCallable, Category = "Character")
     void SwitchToNearestToBall();
 

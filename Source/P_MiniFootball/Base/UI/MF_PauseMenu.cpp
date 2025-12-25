@@ -455,12 +455,10 @@ void UMF_PauseMenu::HandleLeaveTeamClicked()
 
 void UMF_PauseMenu::HandleChangeTeamClicked()
 {
-    // This would typically open the team selection popup
-    // For now, we just close this menu
+    // Per PLAN.md: Widget emits intent, HUD routes intent
+    // PauseMenu NEVER opens TeamSelection directly
     HideMenu();
-
-    // The HUD should handle opening the team selection popup
-    // after receiving this signal
+    OnRequestTeamChange.Broadcast();
 }
 
 void UMF_PauseMenu::HandleSettingsClicked()

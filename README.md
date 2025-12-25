@@ -38,6 +38,69 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 
 ---
 
+## 🎯 Core Control Model
+
+### Single Possession Principle
+- Player controls **exactly ONE character** at any time
+- AI teammates are NOT controllable
+- Switching = unpossess current pawn, possess new pawn
+
+### Character Selection (Q Key)
+- Selects the **teammate closest to the ball**
+- Not array cycling
+- No fallback behavior
+- Deterministic and provable
+
+---
+
+## ⌨️ Input System Contract (P_MEIS Integration)
+
+### Fundamental Rules
+- `UInputAction` objects are **ephemeral** (created/destroyed on profile reapplication)
+- `FName` (ActionName) is **eternal** and stable
+- Gameplay binds to **P_MEIS Integration-level delegates** via ActionName dispatch
+- Gameplay NEVER caches `UInputAction*` pointers
+- Gameplay NEVER binds to `EnhancedInputComponent` directly
+
+### Why This Matters
+- Rebinding a key destroys all old InputActions
+- If you cached a pointer, it now dangles (invalid)
+- Binding by ActionName (FName) always works
+
+---
+
+## 🖼️ UI Authority (P_MWCS Integration)
+
+### Intent Flow
+```
+Widget → emits delegate
+HUD → listens to delegate, routes to gameplay
+Gameplay → executes action
+```
+
+- Widgets **never open other widgets** directly
+- Widgets **never call gameplay code** directly
+- HUD is **the only UI routing authority**
+- Explicit contracts prevent silent failures
+
+---
+
+## 🧪 Verification (No Editor Required)
+
+All systems are verifiable from command line. See `/Scripts`.
+
+### Run Code Pattern Verification
+```powershell
+PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_CodePatterns.ps1
+```
+
+### Run ActionName Parity Verification
+```powershell
+PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_ActionNameParity.ps1
+```
+
+---
+
 ## 🔧 Technical Specifications
 
 ### Ball Physics (Math-Based)
@@ -715,6 +778,7 @@ Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Projects\UE\A_MiniFootball\A_Mini
 | 1.2     | 11/12/2025 | Added Editor Utility Widget guide for WBP Creator tool       |
 | 1.3     | 12/12/2025 | Added diagnostic functions and only_euw mode for WBP Creator |
 | 1.4     | 12/12/2025 | EUW is shell-only (skip EUW validation/tree/diagnostics)     |
+| 1.5     | 25/12/2025 | PLAN-VERIFIED.md implementation: Core Control Model, Input Contract, UI Authority, GameState APIs |
 
 ---
 

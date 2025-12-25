@@ -389,6 +389,40 @@ FString AMF_GameState::GetFormattedTime() const
     return FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 }
 
+EMF_TeamID AMF_GameState::GetTeamForController(APlayerController* PC) const
+{
+    if (!PC)
+    {
+        return EMF_TeamID::None;
+    }
+
+    // Resolve team from possessed pawn
+    AMF_PlayerCharacter* Character = Cast<AMF_PlayerCharacter>(PC->GetPawn());
+    if (Character)
+    {
+        return Character->GetTeamID();
+    }
+
+    // Fallback: Check if any team character is registered to this controller
+    for (AMF_PlayerCharacter* Player : TeamAPlayers)
+    {
+        if (Player && Player->GetController() == PC)
+        {
+            return EMF_TeamID::TeamA;
+        }
+    }
+
+    for (AMF_PlayerCharacter* Player : TeamBPlayers)
+    {
+        if (Player && Player->GetController() == PC)
+        {
+            return EMF_TeamID::TeamB;
+        }
+    }
+
+    return EMF_TeamID::None;
+}
+
 // ==================== Rep Notifies ====================
 
 void AMF_GameState::OnRep_MatchPhase()
