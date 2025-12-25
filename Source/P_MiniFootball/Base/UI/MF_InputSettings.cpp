@@ -7,6 +7,7 @@
 #include "MF_InputSettings.h"
 
 #include "MF_InputActionRow.h"
+#include "MF_Utilities.h"
 
 #include "Player/MF_PlayerController.h"
 
@@ -24,31 +25,14 @@
 
 #include "Manager/CPP_InputBindingManager.h"
 
+using namespace MF_Utilities;
+
 namespace
 {
-    static UCPP_InputBindingManager *GetMEISManager()
-    {
-        return GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
-    }
-
     static FName MakeTimestampTemplateName()
     {
         const FString Stamp = FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S"));
         return FName(*FString::Printf(TEXT("Player_%s"), *Stamp));
-    }
-
-    static FString JoinStrings(const TArray<FString> &Items, const FString &Separator)
-    {
-        FString Out;
-        for (int32 Index = 0; Index < Items.Num(); ++Index)
-        {
-            if (Index > 0)
-            {
-                Out += Separator;
-            }
-            Out += Items[Index];
-        }
-        return Out;
     }
 }
 

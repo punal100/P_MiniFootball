@@ -5,6 +5,7 @@
  */
 
 #include "MF_MainMenu.h"
+#include "MF_Utilities.h"
 
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
@@ -17,13 +18,7 @@
 #include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
 #include "UI/Configuration/MF_WidgetTypes.h"
 
-namespace
-{
-    static UCPP_InputBindingManager *GetMEISManager()
-    {
-        return GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
-    }
-}
+using namespace MF_Utilities;
 
 FString UMF_MainMenu::GetWidgetSpec()
 {

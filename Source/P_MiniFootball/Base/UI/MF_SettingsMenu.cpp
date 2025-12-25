@@ -5,6 +5,7 @@
  */
 
 #include "MF_SettingsMenu.h"
+#include "MF_Utilities.h"
 
 #include "Core/MF_Types.h"
 
@@ -19,27 +20,7 @@
 
 #include "Manager/CPP_InputBindingManager.h"
 
-namespace
-{
-    static UCPP_InputBindingManager *GetMEISManager()
-    {
-        return GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
-    }
-
-    static FString JoinStrings(const TArray<FString> &Items, const FString &Separator)
-    {
-        FString Out;
-        for (int32 Index = 0; Index < Items.Num(); ++Index)
-        {
-            if (Index > 0)
-            {
-                Out += Separator;
-            }
-            Out += Items[Index];
-        }
-        return Out;
-    }
-}
+using namespace MF_Utilities;
 
 FString UMF_SettingsMenu::GetWidgetSpec()
 {

@@ -7,6 +7,7 @@
 #include "MF_MenuPlayerController.h"
 
 #include "MF_MainMenu.h"
+#include "MF_Utilities.h"
 
 #include "UI/Configuration/MF_WidgetConfigurationSubsystem.h"
 #include "UI/Configuration/MF_WidgetTypes.h"
@@ -21,6 +22,8 @@
 
 #include "EnhancedInputComponent.h"
 
+using namespace MF_Utilities;
+
 AMF_MenuPlayerController::AMF_MenuPlayerController()
 {
 }
@@ -32,11 +35,6 @@ void AMF_MenuPlayerController::CreateInputComponent(TSubclassOf<UInputComponent>
 
 namespace
 {
-    static UCPP_InputBindingManager *GetMEISManager()
-    {
-        return GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
-    }
-
     static TSubclassOf<UMF_MainMenu> ResolveMainMenuClass(TSubclassOf<UMF_MainMenu> InClass)
     {
         if (InClass)

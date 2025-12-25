@@ -13,6 +13,7 @@
 #include "Ball/MF_Ball.h"
 #include "Match/MF_GameMode.h"
 #include "UI/MF_HUD.h"
+#include "MF_Utilities.h"
 #include "Interfaces/MF_TeamInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -36,13 +37,10 @@
 
 #include "EnhancedInputComponent.h"
 
+using namespace MF_Utilities;
+
 namespace
 {
-    static UCPP_InputBindingManager *GetMEISManager()
-    {
-        return GEngine ? GEngine->GetEngineSubsystem<UCPP_InputBindingManager>() : nullptr;
-    }
-
     static const FName MF_DefaultInputTemplateName(TEXT("Default"));
 }
 
