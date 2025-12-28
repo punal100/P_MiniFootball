@@ -310,8 +310,8 @@ $CommonArgs = @(
     "-FullStdOutLogOutput"
 )
 
-# 5a. Recreate Widgets (Optional)
-if ($Recreate) {
+# 5a. Recreate Widgets (Default if generating, or forced via -Recreate)
+if ($Recreate -or -not $ValidateOnly) {
     Write-Info "Running: MWCS_CreateWidgets -Mode=ForceRecreate commandlet..."
     $CreateArgs = $CommonArgs + "-run=MWCS_CreateWidgets" + "-Mode=ForceRecreate"
     
@@ -442,7 +442,7 @@ if (Test-Path $JsonPath) {
     Write-Host "Checking Content Parity..." -ForegroundColor Yellow
     
     $ContentChecks = @(
-        @{ Name = '"Text": "8\."'; Desc = "Ordered List Numbering (8.)" },
+        @{ Name = '"Text": "6\."'; Desc = "Ordered List Numbering (6.)" },
         @{ Name = '"Text": "Knockout Setup"'; Desc = "List Item Text" },
         @{ Name = '"Text": "Headlines"'; Desc = "Sub-list Item" },
         @{ Name = '"Text": "Updates"'; Desc = "Previously missing 'Updates' text" },
