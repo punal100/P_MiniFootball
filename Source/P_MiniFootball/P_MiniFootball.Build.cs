@@ -51,6 +51,7 @@ Path.Combine(ModulePath, "Base", "UI"),
 "P_MEIS",            // Modular Enhanced Input System plugin
 "NetCore",           // Core networking
 "GameplayTags",      // Gameplay tags support
+"P_MWCS_Runtime",    // MWCS Widget System (TransparentButton etc)
                 }
                 );
 

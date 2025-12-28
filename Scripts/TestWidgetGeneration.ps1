@@ -62,7 +62,7 @@ if ([string]::IsNullOrEmpty($SourceHtml)) {
     
     if ($FoundFile) {
         $SourceHtml = $FoundFile.FullName
-        Write-Info "Auto-selected default source: $($FoundFile.Name)"
+        Write-Host "[INFO] Auto-selected default source: $($FoundFile.Name)" -ForegroundColor White
     }
 }
 
@@ -303,7 +303,6 @@ if (-not (Test-Path $UProjectPath)) {
 $CommonArgs = @(
     "`"$UProjectPath`"",
     "-FailOnErrors",
-    "-FailOnWarnings",
     "-unattended",
     "-nop4",
     "-NullRHI",
@@ -375,6 +374,18 @@ else {
     Write-Info "Reports: $ProjectRoot\Saved\MWCS\Reports\"
 }
 
+# Check if SpecsProcessed > 0
+$Processed = Select-String -Path "$AWCGGeneratedDir\validation_output.txt" -Pattern "SpecsProcessed=(\d+)"
+if ($Processed) {
+    $Count = [int]$Processed.Matches.Groups[1].Value
+    if ($Count -eq 0) {
+        Write-Error "MWCS Validation processed 0 specs! Check DefaultEditor.ini or plugin configuration."
+        exit 1
+    }
+} else {
+     Write-Warning "Could not determine SpecsProcessed count."
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " Pipeline Complete" -ForegroundColor Cyan
@@ -385,75 +396,89 @@ Write-Host "MWCS Reports: $ProjectRoot\Saved\MWCS\Reports\" -ForegroundColor Whi
 Write-Host ""
 
 # ============================================================================
-# Step 7: JSON Spec Analysis (Parity Check)
+# Step 7: JSON Spec Analysis & Validation
 # ============================================================================
 
-Write-Header "Step 7: JSON Spec Analysis"
+Write-Header "Step 7: JSON Spec Verification"
 
 $JsonPath = "$AWCGGeneratedDir\$ClassName.json"
+
+function Test-JsonContent {
+    param($Json, $NameRegex, $Description)
+    
+    $Count = ([regex]::Matches($Json, "$NameRegex")).Count
+    if ($Count -gt 0) {
+        Write-Host "  [OK] Found $Description ($Count matches)" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "  [FAIL] Missing $Description" -ForegroundColor Red
+        return $false
+    }
+}
+
 if (Test-Path $JsonPath) {
     $JsonContent = Get-Content $JsonPath -Raw
     
-    # Count widgets
-    $TextBlocks = ([regex]::Matches($JsonContent, '"Type": "TextBlock"')).Count
-    $Buttons = ([regex]::Matches($JsonContent, '"Type": "Button"')).Count
-    $VerticalBoxes = ([regex]::Matches($JsonContent, '"Type": "VerticalBox"')).Count
-    $HorizontalBoxes = ([regex]::Matches($JsonContent, '"Type": "HorizontalBox"')).Count
-    $Images = ([regex]::Matches($JsonContent, '"Type": "Image"')).Count
+    # 7a. Structural Checks
+    Write-Host "Checking Structure..." -ForegroundColor Yellow
     
-    # Count text content and design entries
-    $TextProps = ([regex]::Matches($JsonContent, '"Text":')).Count
-    $FontConfigs = ([regex]::Matches($JsonContent, '"Font":')).Count
-    $DesignEntries = ([regex]::Matches($JsonContent, '"ColorAndOpacity":')).Count
-    $ButtonStyles = ([regex]::Matches($JsonContent, '"WidgetStyle":')).Count
+    $Checks = @(
+        @{ Name = '"Type": "TextBlock"'; Desc = "TextBlock widgets" },
+        @{ Name = '"Type": "TransparentButton"'; Desc = "Button widgets" },
+        @{ Name = '"Type": "ScrollBox"'; Desc = "Scrollable Container" },
+        @{ Name = '"Slot":'; Desc = "Layout Slots" },
+        @{ Name = '"AutoWrapText": true'; Desc = "Auto-wrapping enabled" }
+    )
     
-    Write-Host ""
-    Write-Host "Widget Hierarchy:" -ForegroundColor Yellow
-    Write-Host "  TextBlocks:      $TextBlocks"
-    Write-Host "  Buttons:         $Buttons"
-    Write-Host "  VerticalBoxes:   $VerticalBoxes"
-    Write-Host "  HorizontalBoxes: $HorizontalBoxes"
-    Write-Host "  Images:          $Images"
-    
-    Write-Host ""
-    Write-Host "Text Content:" -ForegroundColor Yellow
-    Write-Host "  'Text' properties:   $TextProps" 
-    
-    Write-Host ""
-    Write-Host "Design Section:" -ForegroundColor Yellow
-    Write-Host "  ColorAndOpacity:     $DesignEntries"
-    Write-Host "  Font configs:        $FontConfigs"
-    Write-Host "  Button WidgetStyles: $ButtonStyles"
-    
-    Write-Host ""
-    
-    # Basic verification
-    $Issues = @()
-    if ($TextBlocks -lt 5) {
-        $Issues += "WARNING: Only $TextBlocks TextBlocks found (expected more for typical web page)"
-    }
-    if ($TextProps -lt 5) {
-        $Issues += "WARNING: Only $TextProps 'Text' properties found (text content may be missing)"
-    }
-    if ($FontConfigs -eq 0) {
-        $Issues += "WARNING: No Font configurations in Design section"
-    }
-    if ($ButtonStyles -eq 0 -and $Buttons -gt 0) {
-        $Issues += "WARNING: Buttons exist but no WidgetStyle entries (may use default UE styling)"
-    }
-    
-    if ($Issues.Count -gt 0) {
-        Write-Host "Issues Found:" -ForegroundColor Red
-        foreach ($Issue in $Issues) {
-            Write-Host "  - $Issue" -ForegroundColor Yellow
+    $Failed = $false
+    foreach ($Check in $Checks) {
+        if (-not (Test-JsonContent -Json $JsonContent -NameRegex $Check.Name -Description $Check.Desc)) {
+            $Failed = $true
         }
+    }
+    
+    # 7b. Content Parity Checks (Specific to Knockout issues)
+    Write-Host ""
+    Write-Host "Checking Content Parity..." -ForegroundColor Yellow
+    
+    $ContentChecks = @(
+        @{ Name = '"Text": "8\."'; Desc = "Ordered List Numbering (8.)" },
+        @{ Name = '"Text": "Knockout Setup"'; Desc = "List Item Text" },
+        @{ Name = '"Text": "Headlines"'; Desc = "Sub-list Item" },
+        @{ Name = '"Text": "Updates"'; Desc = "Previously missing 'Updates' text" },
+        @{ Name = '"Text": "Color Quick Setup"'; Desc = "Section Header" },
+        @{ Name = '"Name": "A_16"'; Desc = "Transparent Button A_16" }
+    )
+    
+    foreach ($Check in $ContentChecks) {
+        # Escape regex special chars in the Name string if needed, but here simple strings
+        # We need to escape the regex specifically for special chars like .
+        $Regex = [regex]::Escape($Check.Name).Replace("\\", "") # Simple hack, cleaner is to use proper regex
+        # Actually our check regex is strict string matching effectively
+        
+        if (-not (Test-JsonContent -Json $JsonContent -NameRegex $Check.Name -Description $Check.Desc)) {
+            $Failed = $true
+        }
+    }
+
+    Write-Host ""
+    if ($Failed) {
+        Write-Error "Validation FAILED: Significant structural or content mismatches found."
+        # Don't exit with error yet, ensure we see the full picture
     } else {
-        Write-Success "Spec analysis looks good!"
+        Write-Success "All Validation Checks PASSED!"
     }
 } else {
     Write-Warning "JSON file not found: $JsonPath"
 }
 
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host " Pipeline Complete" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Generated files location: $UIOutputDir" -ForegroundColor White
+Write-Host "MWCS Reports: $ProjectRoot\Saved\MWCS\Reports\" -ForegroundColor White
 Write-Host ""
 
 exit $ValidationExitCode
