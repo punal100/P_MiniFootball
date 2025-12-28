@@ -153,3 +153,57 @@ PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_CodePatterns.ps1
 PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_ActionNameParity.ps1
 ```
 
+---
+
+## A_WCG Integration (HTML to Widget)
+
+A_WCG (Atomic Web Component Generator) converts HTML/CSS to Unreal Engine widget specifications.
+
+### Automated Widget Testing
+
+Run the automated test script for end-to-end widget generation and validation:
+
+```powershell
+# Navigate to P_MiniFootball Scripts folder
+cd D:\Projects\UE\A_MiniFootball\Plugins\P_MiniFootball\Scripts
+
+# Full pipeline (builds A_WCG, generates, copies, validates)
+.\TestWidgetGeneration.ps1
+
+# Skip build if already built
+.\TestWidgetGeneration.ps1 -SkipBuild
+
+# Custom source HTML
+.\TestWidgetGeneration.ps1 -SourceHtml "path\to\source.html" -ClassName "MyWidget"
+
+# Validation only (no generation)
+.\TestWidgetGeneration.ps1 -ValidateOnly
+
+# Recreate Widget Blueprint (force update)
+.\TestWidgetGeneration.ps1 -Recreate -SkipBuild
+```
+
+### What the Script Does
+
+1. **Builds A_WCG** (Release configuration)
+2. **Generates files** from source HTML (JSON, .h, .cpp, _preview.html)
+3. **Copies to Source** (`Base\UI\` folder)
+4. **Builds Project** (`A_MiniFootballEditor` target)
+5. **Runs MWCS validation** (headless, displays errors)
+### Output Locations
+
+- **Generated files**: `Plugins\P_MiniFootball\Source\P_MiniFootball\Base\UI\`
+- **Validation output**: `Plugins\P_MWCS\A_WCG\generated\validation_output.txt`
+- **MWCS reports**: `Saved\MWCS\Reports\`
+
+### Generated Widget Structure
+
+A_WCG generates widgets with this hierarchy:
+
+```
+RootCanvas (CanvasPanel)
+└── ContentScroll (ScrollBox) ← Fills canvas, enables scrolling
+    └── ContentRoot (VerticalBox) ← Flow layout container
+        └── [HTML Content]
+```
+

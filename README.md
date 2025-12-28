@@ -145,6 +145,7 @@ PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_ActionNameParity.ps1
 - Unreal Engine 5.5+
 - P_MEIS Plugin (Modular Enhanced Input System)
 - P_MWCS Plugin (Modular Widget Creation System) for editor-time Widget Blueprint generation/validation (editor-only)
+- A_WCG Tool (optional, for HTML-to-Widget conversion) - located at `Plugins/P_MWCS/A_WCG/`
 
 ## 🧩 MWCS-generated UI (this project)
 
