@@ -31,10 +31,11 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 | Phase 4  | Shooting & Passing (+Net)           | ✅ COMPLETE    |
 | Phase 5  | Goal & Scoring System (+Net)        | ✅ COMPLETE    |
 | Phase 6  | Match Flow & Game Modes (+Net)      | ✅ COMPLETE    |
-| Phase 7  | Simple AI (Optional)                | ⏳ DEFERRED    |
+| Phase 7  | AI System (P_EAIS Integration)      | ✅ COMPLETE    |
 | Phase 8  | Polish & Mobile Optimization        | ❌ NOT STARTED |
 | Phase 9  | Spectator & Team Assignment (+Net)  | ✅ COMPLETE    |
 | Phase 10 | UI Widget System (C++)              | ✅ COMPLETE    |
+
 
 ---
 
@@ -278,7 +279,9 @@ P_MiniFootball/
 | Class                  | Description                                            |
 | ---------------------- | ------------------------------------------------------ |
 | `AMF_PlayerCharacter`  | Replicated player with top-down camera and Server RPCs |
+| `AMF_AICharacter`      | AI-controlled player using P_EAIS behavior system      |
 | `AMF_PlayerController` | Network-aware controller with character switching      |
+| `AMF_AIController`     | AI controller configured for Enhanced Input bindings   |
 | `UMF_InputHandler`     | P_MEIS integration component                           |
 | `AMF_Ball`             | Math-based ball with possession and kick mechanics     |
 | `AMF_GameMode`         | Server-only match management                           |
@@ -287,6 +290,76 @@ P_MiniFootball/
 | `AMF_Spectator`        | Spectator pawn for viewing matches before joining      |
 
 ---
+
+## 🤖 AI System (P_EAIS Integration)
+
+The plugin integrates with **P_EAIS** (Enhanced AI System) for JSON-programmable AI opponents.
+
+### AI Architecture
+
+```
+P_EAIS (JSON Behavior) → AMF_AICharacter → P_MEIS (Input Injection) → Gameplay
+                              ↓
+                    Blackboard ←→ Game State Sync
+```
+
+### Key Features
+
+- **JSON-Defined Behaviors**: AI personalities defined in `Content/AIProfiles/` (Striker, Defender, Goalkeeper)
+- **Input Injection**: AI uses P_MEIS to "press buttons" like human players (fair AI)
+- **Blackboard Sync**: Game state (ball possession, team, position) auto-synced to AI blackboard
+- **Profile Switching**: Change AI behavior at runtime via console or Blueprint
+
+### Using AI Characters
+
+#### 1. Spawn via Console
+
+```cpp
+EAIS.SpawnBot 1 Striker    // Spawn Striker on Team 1
+EAIS.SpawnBot 2 Defender   // Spawn Defender on Team 2
+```
+
+#### 2. Place in Level
+
+1. Drag `AMF_AICharacter` Blueprint into your level
+2. Set `AIProfile` to "Striker", "Defender", or "Goalkeeper"
+3. Set `bAutoStartAI` to true
+4. AI will start behaving when match begins
+
+#### 3. Programmatic Spawning
+
+```cpp
+// In your GameMode
+AMF_AICharacter* Bot = GetWorld()->SpawnActor<AMF_AICharacter>(AICharacterClass, SpawnLocation, SpawnRotation);
+Bot->AIProfile = TEXT("Striker");
+Bot->SetTeamID(EMF_TeamID::TeamA);
+Bot->StartAI();
+```
+
+### AI Profiles
+
+| Profile      | Description                                  |
+| ------------ | -------------------------------------------- |
+| `Striker`    | Offensive AI - chases ball, moves to goal, shoots |
+| `Defender`   | Defensive AI - guards goal, intercepts passes |
+| `Goalkeeper` | Goal protection - stays near goal, blocks shots |
+
+### Debugging AI
+
+```cpp
+EAIS.Debug 1                    // Enable debug visualization
+EAIS.InjectEvent * BallSeen     // Inject event to all AI
+EAIS.ListActions                // List registered actions
+```
+
+### Creating Custom AI Profiles
+
+1. Create JSON file in `Content/AIProfiles/`
+2. Define states, transitions, and actions
+3. Reference in `AMF_AICharacter::AIProfile`
+
+See **P_EAIS README.md** for full JSON schema and action reference.
+
 
 ## 🎮 Input System Architecture
 

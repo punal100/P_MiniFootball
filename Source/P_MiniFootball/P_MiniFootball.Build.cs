@@ -25,6 +25,7 @@ Path.Combine(ModulePath, "Public"),
 Path.Combine(ModulePath, "Base"),
 Path.Combine(ModulePath, "Base", "Interfaces"),
 Path.Combine(ModulePath, "Base", "UI"),
+Path.Combine(ModulePath, "Base", "AI"),
                 }
                 );
 
@@ -49,6 +50,7 @@ Path.Combine(ModulePath, "Base", "UI"),
 "InputCore",
 "EnhancedInput",     // UE5 Enhanced Input System
 "P_MEIS",            // Modular Enhanced Input System plugin
+"P_EAIS",            // Enhanced AI System plugin
 "NetCore",           // Core networking
 "GameplayTags",      // Gameplay tags support
 "P_MWCS_Runtime",    // MWCS Widget System (TransparentButton etc)

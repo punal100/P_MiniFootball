@@ -20,6 +20,10 @@
 {
 "Name": "P_MEIS",
 "Enabled": true
+},
+{
+"Name": "P_EAIS",
+"Enabled": true
 }
 ],
 "Modules": [
