@@ -5,12 +5,14 @@
  */
 
 #include "MF_AICharacter.h"
+#include "MF_AIController.h"
+#include "../Player/MF_InputHandler.h"
 #include "../Ball/MF_Ball.h"
 #include "AIComponent.h"
 #include "AIBehaviour.h"
 #include "EAISSubsystem.h"
 #include "Engine/World.h"
-#include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 AMF_AICharacter::AMF_AICharacter()
 {
@@ -20,6 +22,10 @@ AMF_AICharacter::AMF_AICharacter()
     // Configure default AI settings
     AIComponent->bAutoStart = false; // We control start timing
     AIComponent->TickInterval = AITickInterval;
+
+    // Configure AI Controller - ensures AI characters get AI controllers automatically
+    AIControllerClass = AMF_AIController::StaticClass();
+    AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 }
 
 void AMF_AICharacter::BeginPlay()
@@ -77,6 +83,55 @@ void AMF_AICharacter::PossessedBy(AController* NewController)
     if (AIComponent)
     {
         AIComponent->SetBlackboardObject(TEXT("Controller"), NewController);
+    }
+
+    // Stop AI when possessed by a human PlayerController
+    if (Cast<APlayerController>(NewController))
+    {
+        if (AIComponent && AIComponent->IsRunning())
+        {
+            StopAI();
+            UE_LOG(LogTemp, Log, TEXT("MF_AICharacter: AI stopped - human player took control of %s"), *GetName());
+        }
+    }
+}
+
+void AMF_AICharacter::UnPossessed()
+{
+    // Reset movement input to prevent ghost movement after switching
+    CurrentMoveInput = FVector2D::ZeroVector;
+
+    // Stop any ongoing movement
+    if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+    {
+        Movement->StopMovementImmediately();
+    }
+
+    // Cleanup input
+    if (InputHandler)
+    {
+        InputHandler->CleanupInput();
+    }
+
+    Super::UnPossessed();
+
+    // Only handle AI resumption on server
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    // Spawn a new AI controller if we don't have one
+    if (!GetController())
+    {
+        SpawnDefaultController();
+    }
+
+    // Restart AI behavior
+    if (AIComponent && !AIComponent->IsRunning())
+    {
+        StartAI();
+        UE_LOG(LogTemp, Log, TEXT("MF_AICharacter: AI resumed for %s after human unpossessed"), *GetName());
     }
 }
 

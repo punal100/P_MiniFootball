@@ -358,7 +358,47 @@ EAIS.ListActions                // List registered actions
 2. Define states, transitions, and actions
 3. Reference in `AMF_AICharacter::AIProfile`
 
-See **P_EAIS README.md** for full JSON schema and action reference.
+See **P_EAIS GUIDE.md** for full JSON schema, action reference, and step-by-step authoring guide.
+
+### AI Possession Handoff (Human ↔ AI)
+
+All characters spawned in match are `AMF_AICharacter` instances, enabling seamless transition between human and AI control.
+
+#### How It Works
+
+```
+Match Start → All characters spawn as AI → AI controllers auto-assigned
+                    ↓
+Human Joins Team → Possesses character → AI stops (PossessedBy)
+                    ↓
+Human Switches (Q) → Unpossesses old → AI resumes (UnPossessed) → Possesses new → AI stops
+                    ↓
+Human Leaves → Unpossesses → AI resumes (SpawnDefaultController + StartAI)
+```
+
+#### Key Implementation Points
+
+| Event | What Happens |
+|-------|--------------|
+| Character Spawned | `AutoPossessAI = PlacedInWorldOrSpawned` → AI controller auto-spawns |
+| Human Possesses | `PossessedBy()` detects `PlayerController` → `StopAI()` |
+| Human Unpossesses | `UnPossessed()` → `SpawnDefaultController()` → `StartAI()` |
+
+#### Configuration (MF_AICharacter Constructor)
+
+```cpp
+// AI Controller is auto-spawned when no human controls this character
+AIControllerClass = AMF_AIController::StaticClass();
+AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+```
+
+#### Testing the Handoff
+
+1. Launch PIE with 2 players
+2. Observe: All 6 characters moving (AI controlled)
+3. Player 1 joins Team A → Controls 1 character → 2 teammates remain AI
+4. Player 1 presses Q → Previous character resumes AI → New character controlled
+5. Player 1 leaves team → Character immediately resumes AI
 
 
 ## 🎮 Input System Architecture

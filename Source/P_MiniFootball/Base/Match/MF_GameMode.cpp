@@ -12,6 +12,7 @@
 #include "Player/MF_PlayerCharacter.h"
 #include "Player/MF_PlayerController.h"
 #include "Player/MF_Spectator.h"
+#include "AI/MF_AICharacter.h"
 #include "Ball/MF_Ball.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -24,7 +25,8 @@ AMF_GameMode::AMF_GameMode()
     DefaultPawnClass = nullptr; // We spawn spectator manually
 
     // Set default character and ball classes for spawning
-    PlayerCharacterClass = AMF_PlayerCharacter::StaticClass();
+    // Use AMF_AICharacter (inherits from AMF_PlayerCharacter) so all characters have AI capability
+    PlayerCharacterClass = AMF_AICharacter::StaticClass();
     BallClass = AMF_Ball::StaticClass();
     SpectatorPawnClass = AMF_Spectator::StaticClass();
 
