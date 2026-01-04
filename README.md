@@ -31,10 +31,13 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 | Phase 4  | Shooting & Passing (+Net)           | ✅ COMPLETE    |
 | Phase 5  | Goal & Scoring System (+Net)        | ✅ COMPLETE    |
 | Phase 6  | Match Flow & Game Modes (+Net)      | ✅ COMPLETE    |
-| Phase 7  | AI System (P_EAIS Integration)      | ✅ COMPLETE    |
+| Phase 7  | AI System (P_EAIS Integration)      | 🔄 IN PROGRESS |
 | Phase 8  | Polish & Mobile Optimization        | ❌ NOT STARTED |
 | Phase 9  | Spectator & Team Assignment (+Net)  | ✅ COMPLETE    |
 | Phase 10 | UI Widget System (C++)              | ✅ COMPLETE    |
+
+> [!NOTE]
+> **Phase 7 - AI System**: The P_EAIS integration is partially working. Core functionality (state machine, blackboard) works but the Visual AI Editor and some advanced features are still in development.
 
 
 ---

@@ -77,5 +77,16 @@ Path.Combine(ModulePath, "Base", "UI"),
                 {
                 }
                 );
+
+                if (Target.bBuildEditor)
+                {
+                        PrivateDependencyModuleNames.AddRange(
+                                new string[]
+                                {
+                                        "UnrealEd",
+                                        "LevelEditor"
+                                }
+                        );
+                }
         }
 }

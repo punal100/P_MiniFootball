@@ -19,6 +19,8 @@ class USceneComponent;
 class UCapsuleComponent;
 class USpringArmComponent;
 class UCameraComponent;
+class UAIComponent;
+class UAIBehaviour;
 
 // ==================== Delegates ====================
 
@@ -126,6 +128,52 @@ public:
     UFUNCTION(BlueprintPure, Category = "MiniFootball|Player")
     bool IsSprinting() const { return bIsSprinting; }
 
+    // ==================== AI Configuration ====================
+    /** The AI Behavior profile to use */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
+    FString AIProfile = TEXT("Striker");
+
+    /** Optional: Pre-assigned behavior asset */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
+    UAIBehaviour* AIBehaviour;
+
+    /** Should AI start automatically? */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
+    bool bAutoStartAI = true;
+
+    /** AI tick interval */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config", meta = (ClampMin = "0.0"))
+    float AITickInterval = 0.1f;
+
+    /** Enable AI debug visualization */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Debug")
+    bool bDebugAI = false;
+
+    // ==================== AI Control ====================
+    UFUNCTION(BlueprintCallable, Category = "AI")
+    void StartAI();
+
+    UFUNCTION(BlueprintCallable, Category = "AI")
+    void StopAI();
+
+    UFUNCTION(BlueprintCallable, Category = "AI")
+    void ResetAI();
+
+    UFUNCTION(BlueprintCallable, Category = "AI")
+    bool SetAIProfile(const FString& ProfileName);
+
+    UFUNCTION(BlueprintCallable, Category = "AI")
+    void InjectAIEvent(const FString& EventName);
+
+    UFUNCTION(BlueprintPure, Category = "AI")
+    UAIComponent* GetAIComponent() const { return AIComponent; }
+
+    UFUNCTION(BlueprintPure, Category = "AI")
+    bool IsAIRunning() const;
+
+    UFUNCTION(BlueprintPure, Category = "AI")
+    FString GetCurrentAIState() const;
+
     // ==================== Actions (Client -> Server RPC) ====================
 
     /** Request shoot action (Client to Server) */
@@ -170,6 +218,10 @@ protected:
     /** Input handler component (handles P_MEIS integration) */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
     UMF_InputHandler *InputHandler;
+
+    /** AI Component for EAIS */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+    UAIComponent* AIComponent;
 
     /** Camera boom for top-down view */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
@@ -240,6 +292,12 @@ protected:
     void OnRep_CurrentPlayerState();
 
     // ==================== Internal Functions ====================
+
+    /** Synchronize game state to AI blackboard */
+    void SyncBlackboard();
+
+    /** Called when possession changes - update AI blackboard */
+    void OnBallPossessionChanged();
 
     /** Setup input bindings via InputHandler */
     void SetupInputBindings();

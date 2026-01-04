@@ -87,6 +87,9 @@ If your HUD needs to react cleanly when a player joins/leaves a team (spectator 
 
 ## AI Characters (P_EAIS Integration)
 
+> [!NOTE]
+> **Work in Progress**: The AI system is partially working. Core behaviors function but some features are still in development.
+
 All match characters are `AMF_AICharacter` instances. When not controlled by a human, they run AI behavior.
 
 ### Default Behavior
