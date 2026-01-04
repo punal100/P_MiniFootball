@@ -27,6 +27,9 @@ AMF_Goal::AMF_Goal()
 
     // Network - only server needs to detect goals
     bReplicates = false;
+
+    // Tag required for AI target resolution (UAIAction_MoveTo)
+    Tags.Add(FName("Goal"));
 }
 
 void AMF_Goal::BeginPlay()

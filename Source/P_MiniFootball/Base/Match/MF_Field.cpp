@@ -82,8 +82,8 @@ void AMF_Field::UpdateNavMesh()
             
             CubeBuilder->Build(World, NavVolume);
             
-            // Attach to this field to keep it organized
-            NavVolume->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+            // DO NOT attach to this field - verified that attaching breaks NavMesh generation
+            // NavVolume->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
             
             UE_LOG(LogTemp, Log, TEXT("MF_Field: Created and Attached new NavMeshBoundsVolume"));
         }
@@ -98,6 +98,13 @@ void AMF_Field::UpdateNavMesh()
             NavVolume->Brush->Initialize(NavVolume, 1);
             NavVolume->GetBrushComponent()->Brush = NavVolume->Brush;
             UE_LOG(LogTemp, Log, TEXT("MF_Field: Created new UModel for NavVolume"));
+        }
+
+        // Ensure it is NOT attached (Attaching breaks NavMesh generation)
+        if (NavVolume->GetAttachParentActor() == this)
+        {
+            NavVolume->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+            UE_LOG(LogTemp, Warning, TEXT("MF_Field: Detached NavVolume from MF_Field to fix generation"));
         }
 
         FVector Origin = GetActorLocation();
@@ -158,4 +165,21 @@ void AMF_Field::UpdateNavMesh()
         }
     }
 #endif
+}
+
+void AMF_Field::ForceRebuildNavigation()
+{
+    UWorld* World = GetWorld();
+    if (World)
+    {
+        if (UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World))
+        {
+            NavSys->Build();
+            UE_LOG(LogTemp, Warning, TEXT("MF_Field: ForceRebuildNavigation triggered!"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MF_Field: ForceRebuildNavigation FAILED - No NavigationSystem found."));
+        }
+    }
 }

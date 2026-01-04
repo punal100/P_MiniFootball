@@ -54,6 +54,9 @@ AMF_Ball::AMF_Ball()
     bAlwaysRelevant = true;
     SetNetUpdateFrequency(MF_Constants::NetUpdateFrequency);
     SetMinNetUpdateFrequency(MF_Constants::MinNetUpdateFrequency);
+
+    // Tag required for AI target resolution (UAIAction_MoveTo)
+    Tags.Add(FName("Ball"));
 }
 
 void AMF_Ball::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const

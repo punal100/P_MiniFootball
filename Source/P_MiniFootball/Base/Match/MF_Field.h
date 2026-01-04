@@ -40,6 +40,10 @@ public:
     UFUNCTION(CallInEditor, BlueprintCallable, Category = "Navigation")
     void UpdateNavMesh();
 
+    /** Forces a runtime rebuild of the navigation mesh. Useful for resolving runtime issues. */
+    UFUNCTION(BlueprintCallable, Category = "Navigation")
+    void ForceRebuildNavigation();
+
     /** Margin to add around the field bounds for NavMesh generation */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Navigation")
     float NavMeshMargin = 500.0f;
