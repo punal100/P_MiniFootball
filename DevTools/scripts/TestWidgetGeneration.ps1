@@ -153,7 +153,7 @@ if (-not $ValidateOnly -and -not $SkipBuild) {
     
     Push-Location $AWCGRoot
     try {
-        & ".\Scripts\Build.ps1" -Configuration Release
+        & ".\DevTools\scripts\Build.ps1" -Configuration Release
         if ($LASTEXITCODE -ne 0) {
             Write-Error "A_WCG build failed!"
             Pop-Location

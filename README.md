@@ -95,12 +95,12 @@ All systems are verifiable from command line. See `/Scripts`.
 
 ### Run Code Pattern Verification
 ```powershell
-PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_CodePatterns.ps1
+PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_CodePatterns.ps1
 ```
 
 ### Run ActionName Parity Verification
 ```powershell
-PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_ActionNameParity.ps1
+PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_ActionNameParity.ps1
 ```
 
 ---

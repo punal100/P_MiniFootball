@@ -11,6 +11,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Core/MF_Types.h"
+#include "EAIS_TargetProvider.h"
 #include "MF_PlayerCharacter.generated.h"
 
 class UMF_InputHandler;
@@ -37,12 +38,21 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMF_PlayerStateChanged, EMF_Player
  * - Replication: Position, Rotation, State all replicated
  */
 UCLASS()
-class P_MINIFOOTBALL_API AMF_PlayerCharacter : public ACharacter
+class P_MINIFOOTBALL_API AMF_PlayerCharacter : public ACharacter, public IEAIS_TargetProvider
 {
     GENERATED_BODY()
 
 public:
     AMF_PlayerCharacter();
+
+    // ==================== IEAIS_TargetProvider Interface ====================
+
+    virtual bool EAIS_GetTargetLocation_Implementation(FName TargetId, FVector& OutLocation) const override;
+    virtual bool EAIS_GetTargetActor_Implementation(FName TargetId, AActor*& OutActor) const override;
+
+    virtual int32 EAIS_GetTeamId_Implementation() const override { return (int32)GetTeamID(); }
+    virtual FString EAIS_GetRole_Implementation() const override { return AIProfile; }
+
 
     // ==================== AActor Interface ====================
 
@@ -222,6 +232,11 @@ protected:
     /** AI Component for EAIS */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     UAIComponent* AIComponent;
+
+    /** Action Executor for EAIS */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+    class UMF_EAISActionExecutorComponent* AIActionExecutor;
+
 
     /** Camera boom for top-down view */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")

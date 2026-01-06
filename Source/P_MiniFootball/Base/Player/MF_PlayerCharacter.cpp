@@ -9,7 +9,10 @@
 #include "Player/MF_PlayerController.h"
 #include "Player/MF_InputHandler.h"
 #include "Ball/MF_Ball.h"
+#include "Match/MF_Goal.h"
 #include "Net/UnrealNetwork.h"
+
+
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Integration/CPP_EnhancedInputIntegration.h"
@@ -21,6 +24,7 @@
 #include "AIBehaviour.h"
 #include "EAISSubsystem.h"
 #include "AI/MF_AIController.h"
+#include "AI/MF_EAISActionExecutorComponent.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
@@ -34,6 +38,9 @@ AMF_PlayerCharacter::AMF_PlayerCharacter()
     // Configure default AI settings
     AIComponent->bAutoStart = false; // We control start timing in BeginPlay
     AIComponent->TickInterval = AITickInterval;
+
+    // Create Action Executor
+    AIActionExecutor = CreateDefaultSubobject<UMF_EAISActionExecutorComponent>(TEXT("AIActionExecutor"));
 
     // Configure AI Controller - ensures AI characters get AI controllers automatically
     AIControllerClass = AMF_AIController::StaticClass();
@@ -905,7 +912,121 @@ void AMF_PlayerCharacter::StartAI()
         {
             UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter: Started AI with profile '%s'"), *AIProfile);
         }
+
+        // Initial blackboard sync
+        SyncBlackboard();
     }
+}
+
+bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, FVector& OutLocation) const
+{
+    AActor* TargetActor = nullptr;
+    if (EAIS_GetTargetActor_Implementation(TargetId, TargetActor))
+    {
+        if (TargetActor)
+        {
+            OutLocation = TargetActor->GetActorLocation();
+            return true;
+        }
+    }
+
+
+    // Handle coordinate targets (if any)
+    if (TargetId == "Home")
+    {
+        // Return spawn or defensive position
+        OutLocation = GetActorLocation(); // Placeholder
+        return true;
+    }
+
+    return false;
+}
+
+bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AActor*& OutActor) const
+
+{
+    if (TargetId == "Ball")
+    {
+        if (CurrentBall) 
+        {
+            OutActor = CurrentBall;
+            return true;
+        }
+        
+        // Find ball in world
+        for (TActorIterator<AMF_Ball> It(GetWorld()); It; ++It)
+        {
+            OutActor = *It;
+            return true;
+        }
+    }
+
+    if (TargetId == "Goal_Opponent" || TargetId == "Goal_Self")
+    {
+        bool bOpponent = (TargetId == "Goal_Opponent");
+        for (TActorIterator<AMF_Goal> It(GetWorld()); It; ++It)
+        {
+            AMF_Goal* Goal = *It;
+            // GoalTeam is the team that scores. 
+            // So if I'm TeamA, Goal_Opponent is the one where TeamA scores.
+            if (bOpponent)
+            {
+                if (Goal->GoalTeam == TeamID)
+                {
+                    OutActor = Goal;
+                    return true;
+                }
+            }
+            else
+            {
+                if (Goal->GoalTeam != TeamID && Goal->GoalTeam != EMF_TeamID::None)
+                {
+                    OutActor = Goal;
+                    return true;
+                }
+            }
+        }
+    }
+
+    if (TargetId == "BallCarrier")
+    {
+        for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+        {
+            if (It->HasBall())
+            {
+                OutActor = *It;
+                return true;
+            }
+        }
+    }
+
+    if (TargetId == "NearestOpponent")
+    {
+        float NearestDist = 99999.0f;
+        AMF_PlayerCharacter* Nearest = nullptr;
+        
+        for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+        {
+            AMF_PlayerCharacter* Other = *It;
+            if (Other && Other != this && Other->GetTeamID() != TeamID)
+            {
+                const float Dist = FVector::Dist(GetActorLocation(), Other->GetActorLocation());
+                if (Dist < NearestDist)
+                {
+                    NearestDist = Dist;
+                    Nearest = Other;
+                }
+            }
+        }
+        
+        if (Nearest)
+        {
+            OutActor = Nearest;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void AMF_PlayerCharacter::StopAI()
@@ -984,26 +1105,164 @@ void AMF_PlayerCharacter::SyncBlackboard()
         return;
     }
 
-    // Sync ball possession
+    const FVector MyLocation = GetActorLocation();
+    
+    // ==================== BASIC STATE ====================
     AIComponent->SetBlackboardBool(TEXT("HasBall"), HasBall());
-    
-    // Sync ball reference
-    if (AMF_Ball* Ball = GetPossessedBall())
-    {
-        AIComponent->SetBlackboardObject(TEXT("Ball"), Ball);
-        AIComponent->SetBlackboardVector(TEXT("BallPosition"), Ball->GetActorLocation());
-    }
-    
-    // Sync team
-    AIComponent->SetBlackboardFloat(TEXT("TeamID"), static_cast<float>(GetTeamID()));
-
-    // Sync player state
     AIComponent->SetBlackboardBool(TEXT("IsStunned"), IsStunned());
     AIComponent->SetBlackboardBool(TEXT("IsSprinting"), IsSprinting());
+    AIComponent->SetBlackboardVector(TEXT("MyPosition"), MyLocation);
+    AIComponent->SetBlackboardFloat(TEXT("TeamID"), static_cast<float>(GetTeamID()));
 
-    // Sync position
-    AIComponent->SetBlackboardVector(TEXT("MyPosition"), GetActorLocation());
+    // ==================== BALL DATA ====================
+    FVector BallPos = FVector::ZeroVector;
+    AMF_Ball* MatchBall = nullptr;
+    bool bBallFound = false;
+    
+    // First check via target provider
+    if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(this, TEXT("Ball"), BallPos))
+    {
+        bBallFound = true;
+    }
+    
+    // Get ball actor for possession check
+    for (TActorIterator<AMF_Ball> It(GetWorld()); It; ++It)
+    {
+        MatchBall = *It;
+        if (!bBallFound)
+        {
+            BallPos = MatchBall->GetActorLocation();
+            bBallFound = true;
+        }
+        break;
+    }
+
+    if (bBallFound)
+    {
+        AIComponent->SetBlackboardVector(TEXT("BallPosition"), BallPos);
+        const float DistToBall = FVector::Dist(MyLocation, BallPos);
+        AIComponent->SetBlackboardFloat(TEXT("DistToBall"), DistToBall);
+    }
+    else
+    {
+        AIComponent->SetBlackboardFloat(TEXT("DistToBall"), 99999.0f);
+    }
+
+    // ==================== GOAL DATA ====================
+    FVector GoalPos = FVector::ZeroVector;
+    if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(this, TEXT("Goal_Opponent"), GoalPos))
+    {
+        AIComponent->SetBlackboardVector(TEXT("OpponentGoalPosition"), GoalPos);
+        const float DistToGoal = FVector::Dist(MyLocation, GoalPos);
+        AIComponent->SetBlackboardFloat(TEXT("DistToOpponentGoal"), DistToGoal);
+    }
+    else
+    {
+        AIComponent->SetBlackboardFloat(TEXT("DistToOpponentGoal"), 99999.0f);
+    }
+
+    // ==================== HOME/FORMATION DATA ====================
+    // TODO: Get actual formation position from GameState
+    const FVector HomePos = GetActorLocation(); // Placeholder
+    AIComponent->SetBlackboardVector(TEXT("HomePosition"), HomePos);
+    AIComponent->SetBlackboardFloat(TEXT("DistToHome"), 0.0f); // Will be actual distance when formation implemented
+
+    // ==================== POSSESSION STATE ====================
+    bool bTeamHasBall = false;
+    bool bOpponentHasBall = false;
+    bool bBallLoose = true;
+    AMF_PlayerCharacter* BallCarrier = nullptr;
+
+    // Check all players for ball possession
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter* OtherPlayer = *It;
+        if (OtherPlayer && OtherPlayer->HasBall())
+        {
+            bBallLoose = false;
+            BallCarrier = OtherPlayer;
+            
+            if (OtherPlayer->GetTeamID() == TeamID)
+            {
+                bTeamHasBall = true;
+            }
+            else
+            {
+                bOpponentHasBall = true;
+            }
+            break;
+        }
+    }
+
+    AIComponent->SetBlackboardBool(TEXT("TeamHasBall"), bTeamHasBall);
+    AIComponent->SetBlackboardBool(TEXT("OpponentHasBall"), bOpponentHasBall);
+    AIComponent->SetBlackboardBool(TEXT("IsBallLoose"), bBallLoose);
+
+    // ==================== NEAREST OPPONENT ====================
+    float NearestOpponentDist = 99999.0f;
+    AMF_PlayerCharacter* NearestOpponent = nullptr;
+
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter* OtherPlayer = *It;
+        if (OtherPlayer && OtherPlayer != this && OtherPlayer->GetTeamID() != TeamID)
+        {
+            const float Dist = FVector::Dist(MyLocation, OtherPlayer->GetActorLocation());
+            if (Dist < NearestOpponentDist)
+            {
+                NearestOpponentDist = Dist;
+                NearestOpponent = OtherPlayer;
+            }
+        }
+    }
+
+    AIComponent->SetBlackboardFloat(TEXT("DistToNearestOpponent"), NearestOpponentDist);
+    if (NearestOpponent)
+    {
+        AIComponent->SetBlackboardVector(TEXT("NearestOpponentPosition"), NearestOpponent->GetActorLocation());
+    }
+
+    // ==================== DANGER DETECTION ====================
+    // IsInDanger: True if opponent is within tackle range (~200 units)
+    constexpr float DangerRadius = 200.0f;
+    const bool bIsInDanger = NearestOpponentDist < DangerRadius;
+    AIComponent->SetBlackboardBool(TEXT("IsInDanger"), bIsInDanger);
+
+    // ==================== CLEAR SHOT CHECK ====================
+    // HasClearShot: True if no enemies are directly between player and goal
+    bool bHasClearShot = false;
+    if (HasBall() && GoalPos != FVector::ZeroVector)
+    {
+        bHasClearShot = true; // Assume clear by default
+        
+        const FVector ToGoal = (GoalPos - MyLocation).GetSafeNormal();
+        const float GoalDist = FVector::Dist(MyLocation, GoalPos);
+
+        for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+        {
+            AMF_PlayerCharacter* OtherPlayer = *It;
+            if (OtherPlayer && OtherPlayer != this && OtherPlayer->GetTeamID() != TeamID)
+            {
+                const FVector ToEnemy = OtherPlayer->GetActorLocation() - MyLocation;
+                const float EnemyDist = ToEnemy.Size();
+                
+                // Only check enemies between us and the goal
+                if (EnemyDist < GoalDist)
+                {
+                    // Check if enemy is in the "cone" towards the goal
+                    const float DotProduct = FVector::DotProduct(ToGoal, ToEnemy.GetSafeNormal());
+                    if (DotProduct > 0.85f) // Within ~30 degree cone
+                    {
+                        bHasClearShot = false;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    AIComponent->SetBlackboardBool(TEXT("HasClearShot"), bHasClearShot);
 }
+
 
 void AMF_PlayerCharacter::OnBallPossessionChanged()
 {

@@ -188,10 +188,10 @@ All architectural constraints are verifiable headlessly:
 
 ```powershell
 # Verify code patterns
-PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_CodePatterns.ps1
+PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_CodePatterns.ps1
 
 # Verify ActionName parity
-PowerShell -ExecutionPolicy Bypass -File Scripts/Verify_ActionNameParity.ps1
+PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_ActionNameParity.ps1
 ```
 
 ---
