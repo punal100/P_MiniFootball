@@ -87,8 +87,7 @@ If your HUD needs to react cleanly when a player joins/leaves a team (spectator 
 
 ## AI Characters (P_EAIS Integration)
 
-> [!NOTE]
-> **Work in Progress**: The AI system is partially working. Core behaviors function but some features are still in development.
+> [!NOTE] > **Work in Progress**: The AI system is partially working. Core behaviors function but some features are still in development.
 
 All match characters are `AMF_AICharacter` instances. When not controlled by a human, they run AI behavior.
 
@@ -118,8 +117,9 @@ EAIS.SpawnBot 1 Striker    // Spawn additional AI bot
 ### Customizing AI
 
 Edit profiles in `Content/AIProfiles/`:
+
 - `Striker.json` - Offensive behavior
-- `Defender.json` - Defensive behavior  
+- `Defender.json` - Defensive behavior
 - `Goalkeeper.json` - Goal protection
 
 See [P_EAIS GUIDE.md](../P_EAIS/GUIDE.md) for authoring custom behaviors.
@@ -131,6 +131,7 @@ See [P_EAIS GUIDE.md](../P_EAIS/GUIDE.md) for authoring custom behaviors.
 ### The Three Pillars
 
 #### 1. Input Authority (P_MEIS)
+
 ```
 Physical Key
 → EnhancedInputSystem
@@ -140,12 +141,14 @@ Physical Key
 ```
 
 **Rules:**
+
 - ✓ Bind to Integration delegate (re-get from Manager after rebind)
 - ✓ Route by ActionName (FName, stable)
 - ✗ Never cache `UInputAction*`
 - ✗ Never bind to `EnhancedInputComponent` directly
 
 #### 2. Gameplay Authority (Single Possession)
+
 ```
 Possession State
 → One PlayerController
@@ -154,12 +157,14 @@ Possession State
 ```
 
 **Rules:**
+
 - ✓ Possess nearest-to-ball (algorithmic via `SwitchToNearestToBall()`)
 - ✓ Unpossess old before possessing new
 - ✗ Never assume array ordering
 - ✗ Never register AI as controllable
 
 #### 3. UI Authority (HUD Routing)
+
 ```
 Widget Intent (delegate broadcast)
 → HUD Listener
@@ -167,6 +172,7 @@ Widget Intent (delegate broadcast)
 ```
 
 **Rules:**
+
 - ✓ Widget emits intent (e.g. `OnRequestTeamChange`)
 - ✓ HUD executes action (e.g. `ShowTeamSelectionPopup()`)
 - ✗ Widget never opens widgets directly
@@ -205,8 +211,8 @@ A_WCG (Atomic Web Component Generator) converts HTML/CSS to Unreal Engine widget
 Run the automated test script for end-to-end widget generation and validation:
 
 ```powershell
-# Navigate to P_MiniFootball Scripts folder
-cd D:\Projects\UE\A_MiniFootball\Plugins\P_MiniFootball\Scripts
+# Navigate to P_MiniFootball DevTools scripts folder
+cd D:\Projects\UE\A_MiniFootball\Plugins\P_MiniFootball\DevTools\scripts
 
 # Full pipeline (builds A_WCG, generates, copies, validates)
 .\TestWidgetGeneration.ps1
@@ -224,13 +230,18 @@ cd D:\Projects\UE\A_MiniFootball\Plugins\P_MiniFootball\Scripts
 .\TestWidgetGeneration.ps1 -Recreate -SkipBuild
 ```
 
+Note: `TestWidgetGeneration.ps1` uses a shared build helper for the UE build step:
+
+- `DevTools/scripts/MF_BuildCommon.ps1`
+
 ### What the Script Does
 
 1. **Builds A_WCG** (Release configuration)
-2. **Generates files** from source HTML (JSON, .h, .cpp, _preview.html)
+2. **Generates files** from source HTML (JSON, .h, .cpp, \_preview.html)
 3. **Copies to Source** (`Base\UI\` folder)
 4. **Builds Project** (`A_MiniFootballEditor` target)
 5. **Runs MWCS validation** (headless, displays errors)
+
 ### Output Locations
 
 - **Generated files**: `Plugins\P_MiniFootball\Source\P_MiniFootball\Base\UI\`
@@ -247,4 +258,3 @@ RootCanvas (CanvasPanel)
     └── ContentRoot (VerticalBox) ← Flow layout container
         └── [HTML Content]
 ```
-

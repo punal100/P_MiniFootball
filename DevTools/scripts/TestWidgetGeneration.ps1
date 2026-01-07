@@ -42,6 +42,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+. "$PSScriptRoot\MF_BuildCommon.ps1"
+
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -71,7 +73,6 @@ $PMiniFootballSource = "$ProjectRoot\Plugins\P_MiniFootball\Source\P_MiniFootbal
 $UIOutputDir = "$PMiniFootballSource\Base\UI"
 
 # UE commandlet paths
-$UEEngineBuildBatch = "$UEEngineRoot\Engine\Build\BatchFiles\Build.bat"
 $UEEditorCmd = "$UEEngineRoot\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 
 # ============================================================================
@@ -249,33 +250,27 @@ if (-not $ValidateOnly) {
 Write-Header "Step 4: Building P_MiniFootball Project"
 
 if (-not $ValidateOnly) {
-    if (-not (Test-Path $UEEngineBuildBatch)) {
-        Write-Error "UE Build.bat not found: $UEEngineBuildBatch"
+    Write-Info "Building A_MiniFootballEditor Win64 Development..."
+
+    try {
+        $ExitCode = Invoke-UEProjectBuild \
+            -UEEngineRoot $UEEngineRoot \
+            -UProjectPath $UProjectPath \
+            -Target "A_MiniFootballEditor" \
+            -Platform "Win64" \
+            -Configuration "Development" \
+            -FromMsBuild
+    }
+    catch {
+        Write-Error $_
         exit 1
     }
 
-    Write-Info "Building A_MiniFootballEditor Win64 Development..."
-
-    $BuildArgs = @(
-        "A_MiniFootballEditor",
-        "Win64",
-        "Development",
-        "-Project=`"$UProjectPath`"",
-        "-WaitMutex",
-        "-FromMsBuild"
-    )
-
-    $BuildProcess = Start-Process -FilePath $UEEngineBuildBatch `
-        -ArgumentList $BuildArgs `
-        -NoNewWindow `
-        -Wait `
-        -PassThru
-
-    if ($BuildProcess.ExitCode -eq 0) {
+    if ($ExitCode -eq 0) {
         Write-Success "Project built successfully"
     }
     else {
-        Write-Error "Project build failed! Exit code: $($BuildProcess.ExitCode)"
+        Write-Error "Project build failed! Exit code: $ExitCode"
         exit 1
     }
 }

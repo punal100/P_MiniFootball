@@ -36,20 +36,20 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 | Phase 9  | Spectator & Team Assignment (+Net)  | ✅ COMPLETE    |
 | Phase 10 | UI Widget System (C++)              | ✅ COMPLETE    |
 
-> [!NOTE]
-> **Phase 7 - AI System**: The P_EAIS integration is partially working. Core functionality (state machine, blackboard) works but the Visual AI Editor and some advanced features are still in development.
-
+> [!NOTE] > **Phase 7 - AI System**: The P_EAIS integration is partially working. Core functionality (state machine, blackboard) works but the Visual AI Editor and some advanced features are still in development.
 
 ---
 
 ## 🎯 Core Control Model
 
 ### Single Possession Principle
+
 - Player controls **exactly ONE character** at any time
 - AI teammates are NOT controllable
 - Switching = unpossess current pawn, possess new pawn
 
 ### Character Selection (Q Key)
+
 - Selects the **teammate closest to the ball**
 - Not array cycling
 - No fallback behavior
@@ -60,6 +60,7 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 ## ⌨️ Input System Contract (P_MEIS Integration)
 
 ### Fundamental Rules
+
 - `UInputAction` objects are **ephemeral** (created/destroyed on profile reapplication)
 - `FName` (ActionName) is **eternal** and stable
 - Gameplay binds to **P_MEIS Integration-level delegates** via ActionName dispatch
@@ -67,6 +68,7 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 - Gameplay NEVER binds to `EnhancedInputComponent` directly
 
 ### Why This Matters
+
 - Rebinding a key destroys all old InputActions
 - If you cached a pointer, it now dangles (invalid)
 - Binding by ActionName (FName) always works
@@ -76,6 +78,7 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 ## 🖼️ UI Authority (P_MWCS Integration)
 
 ### Intent Flow
+
 ```
 Widget → emits delegate
 HUD → listens to delegate, routes to gameplay
@@ -91,16 +94,20 @@ Gameplay → executes action
 
 ## 🧪 Verification (No Editor Required)
 
-All systems are verifiable from command line. See `/Scripts`.
+This plugin includes command-line verifiable checks under `DevTools/scripts/`.
+
+For full project build + Unreal Automation tests, use the project’s build tasks / Unreal build tooling (and see the top-level project docs).
 
 ### Run Code Pattern Verification
+
 ```powershell
-PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_CodePatterns.ps1
+PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_CodePatterns.ps1
 ```
 
 ### Run ActionName Parity Verification
+
 ```powershell
-PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_ActionNameParity.ps1
+PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_ActionNameParity.ps1
 ```
 
 ---
@@ -341,11 +348,11 @@ Bot->StartAI();
 
 ### AI Profiles
 
-| Profile      | Description                                  |
-| ------------ | -------------------------------------------- |
+| Profile      | Description                                       |
+| ------------ | ------------------------------------------------- |
 | `Striker`    | Offensive AI - chases ball, moves to goal, shoots |
-| `Defender`   | Defensive AI - guards goal, intercepts passes |
-| `Goalkeeper` | Goal protection - stays near goal, blocks shots |
+| `Defender`   | Defensive AI - guards goal, intercepts passes     |
+| `Goalkeeper` | Goal protection - stays near goal, blocks shots   |
 
 ### Debugging AI
 
@@ -381,11 +388,11 @@ Human Leaves → Unpossesses → AI resumes (SpawnDefaultController + StartAI)
 
 #### Key Implementation Points
 
-| Event | What Happens |
-|-------|--------------|
+| Event             | What Happens                                                         |
+| ----------------- | -------------------------------------------------------------------- |
 | Character Spawned | `AutoPossessAI = PlacedInWorldOrSpawned` → AI controller auto-spawns |
-| Human Possesses | `PossessedBy()` detects `PlayerController` → `StopAI()` |
-| Human Unpossesses | `UnPossessed()` → `SpawnDefaultController()` → `StartAI()` |
+| Human Possesses   | `PossessedBy()` detects `PlayerController` → `StopAI()`              |
+| Human Unpossesses | `UnPossessed()` → `SpawnDefaultController()` → `StartAI()`           |
 
 #### Configuration (MF_AICharacter Constructor)
 
@@ -402,7 +409,6 @@ AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 3. Player 1 joins Team A → Controls 1 character → 2 teammates remain AI
 4. Player 1 presses Q → Previous character resumes AI → New character controlled
 5. Player 1 leaves team → Character immediately resumes AI
-
 
 ## 🎮 Input System Architecture
 
@@ -432,13 +438,13 @@ Hardware Input
 
 ### Ownership Rules (Absolute)
 
-| System             | Owner                       |
-| ------------------ | --------------------------- |
-| Enhanced Input     | P_MEIS via PlayerController |
-| InputHandler       | Passive intent broadcaster  |
-| Gameplay execution | Character (Server)          |
-| Ball possession    | Ball Actor (Server)         |
-| Character switching| PlayerController            |
+| System              | Owner                       |
+| ------------------- | --------------------------- |
+| Enhanced Input      | P_MEIS via PlayerController |
+| InputHandler        | Passive intent broadcaster  |
+| Gameplay execution  | Character (Server)          |
+| Ball possession     | Ball Actor (Server)         |
+| Character switching | PlayerController            |
 
 ### Movement Authority (Critical)
 
@@ -458,6 +464,7 @@ void AMF_PlayerCharacter::UpdateMovement(float DeltaTime)
 ```
 
 **Rules:**
+
 - ✅ Movement input executes **only on owning client**
 - ❌ Server never calls `AddMovementInput`
 - ❌ Simulated proxies never inject input
@@ -564,6 +571,7 @@ void AMF_Ball::OnRep_Possessor()
 ### Auto-Pickup Eligibility
 
 Ball auto-pickup is only allowed when:
+
 1. Ball has **no PossessingPlayer**
 2. Ball velocity is below threshold
 3. Character can receive ball (`CanReceiveBall()`)
@@ -587,8 +595,8 @@ bool AMF_Ball::CanAutoPickup(const AMF_PlayerCharacter* Character) const
 
 | Has Ball | Event   | Action       |
 | -------- | ------- | ------------ |
-| ❌        | Press   | Tackle       |
-| ✅        | Release | Shoot / Pass |
+| ❌       | Press   | Tackle       |
+| ✅       | Release | Shoot / Pass |
 
 ### Action Consumption (Prevents Accidental Shoot After Tackle)
 
@@ -618,7 +626,7 @@ Tackle uses distance-based detection (not overlap) with team filtering:
 void AMF_PlayerCharacter::ExecuteTackle()
 {
     const float TackleRange = MF_Constants::TackleRange;  // 200cm
-    
+
     for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
     {
         AMF_PlayerCharacter* Other = *It;
@@ -653,13 +661,13 @@ void AMF_PlayerCharacter::ExecuteShoot()
 
 ### Input Bindings (Default)
 
-| Action        | Keyboard | Gamepad           | Trigger Event |
-| ------------- | -------- | ----------------- | ------------- |
-| Move          | WASD     | Left Stick        | Triggered     |
-| Action        | Space    | A/X               | Started/Completed |
-| Sprint        | Shift    | Right Trigger     | Triggered     |
-| Switch Player | Q        | Left Shoulder     | Completed (Release) |
-| Pause         | P        | Start             | Completed (Release) |
+| Action        | Keyboard | Gamepad       | Trigger Event       |
+| ------------- | -------- | ------------- | ------------------- |
+| Move          | WASD     | Left Stick    | Triggered           |
+| Action        | Space    | A/X           | Started/Completed   |
+| Sprint        | Shift    | Right Trigger | Triggered           |
+| Switch Player | Q        | Left Shoulder | Completed (Release) |
+| Pause         | P        | Start         | Completed (Release) |
 
 ---
 
@@ -888,13 +896,13 @@ Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Projects\UE\A_MiniFootball\A_Mini
 
 ## 📝 Version History
 
-| Version | Date       | Changes                                                      |
-| ------- | ---------- | ------------------------------------------------------------ |
-| 1.0     | 07/12/2025 | Initial plugin implementation (Phases 1-6)                   |
-| 1.1     | 11/12/2025 | Added self-describing JSON widget specifications (Phase 10)  |
-| 1.2     | 11/12/2025 | Added Editor Utility Widget guide for WBP Creator tool       |
-| 1.3     | 12/12/2025 | Added diagnostic functions and only_euw mode for WBP Creator |
-| 1.4     | 12/12/2025 | EUW is shell-only (skip EUW validation/tree/diagnostics)     |
+| Version | Date       | Changes                                                                                           |
+| ------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| 1.0     | 07/12/2025 | Initial plugin implementation (Phases 1-6)                                                        |
+| 1.1     | 11/12/2025 | Added self-describing JSON widget specifications (Phase 10)                                       |
+| 1.2     | 11/12/2025 | Added Editor Utility Widget guide for WBP Creator tool                                            |
+| 1.3     | 12/12/2025 | Added diagnostic functions and only_euw mode for WBP Creator                                      |
+| 1.4     | 12/12/2025 | EUW is shell-only (skip EUW validation/tree/diagnostics)                                          |
 | 1.5     | 25/12/2025 | PLAN-VERIFIED.md implementation: Core Control Model, Input Contract, UI Authority, GameState APIs |
 
 ---

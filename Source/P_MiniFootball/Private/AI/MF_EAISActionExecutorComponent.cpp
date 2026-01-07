@@ -27,6 +27,16 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::EAIS_ExecuteAction_Implement
         return Result;
     }
 
+    // [ANTI-RUBBERBAND] Critical Guard: Do NOT execute AI actions if controlled by a Human Player
+    // This prevents the AI system from fighting with client-side prediction inputs.
+    if (APlayerController* PC = Cast<APlayerController>(OwnerCharacter->GetController()))
+    {
+        FEAIS_ActionResult Result;
+        Result.bSuccess = false;
+        Result.Message = TEXT("Action blocked: Character is controlled by Human Player");
+        return Result;
+    }
+
     if (ActionId == "MF.Shoot") return HandleShoot(ParamsJson);
     if (ActionId == "MF.Pass") return HandlePass(ParamsJson);
     if (ActionId == "MF.Tackle") return HandleTackle(ParamsJson);

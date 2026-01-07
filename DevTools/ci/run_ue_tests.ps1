@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # 1. Discover Unreal
-$LibDir = Join-Path (Join-Path $PSScriptRoot "..") "lib"
+$LibDir = Join-Path (Join-Path (Join-Path $PSScriptRoot "..") "scripts") "lib"
 $FindUnreal = Join-Path $LibDir "Find-Unreal.ps1"
 $UE = & $FindUnreal -UePath $UePath
 

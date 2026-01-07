@@ -43,16 +43,16 @@ class P_MINIFOOTBALL_API AMF_PlayerCharacter : public ACharacter, public IEAIS_T
     GENERATED_BODY()
 
 public:
-    AMF_PlayerCharacter();
+    // Default parameter keeps this compatible with derived classes that don't pass an ObjectInitializer.
+    AMF_PlayerCharacter(const FObjectInitializer &ObjectInitializer = FObjectInitializer::Get());
 
     // ==================== IEAIS_TargetProvider Interface ====================
 
-    virtual bool EAIS_GetTargetLocation_Implementation(FName TargetId, FVector& OutLocation) const override;
-    virtual bool EAIS_GetTargetActor_Implementation(FName TargetId, AActor*& OutActor) const override;
+    virtual bool EAIS_GetTargetLocation_Implementation(FName TargetId, FVector &OutLocation) const override;
+    virtual bool EAIS_GetTargetActor_Implementation(FName TargetId, AActor *&OutActor) const override;
 
     virtual int32 EAIS_GetTeamId_Implementation() const override { return (int32)GetTeamID(); }
     virtual FString EAIS_GetRole_Implementation() const override { return AIProfile; }
-
 
     // ==================== AActor Interface ====================
 
@@ -62,7 +62,7 @@ public:
     virtual void SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent) override;
     virtual void PossessedBy(AController *NewController) override;
     virtual void UnPossessed() override;
-    virtual void OnRep_Owner() override;  // Called on client when possessed
+    virtual void OnRep_Owner() override; // Called on client when possessed
     virtual void OnRep_PlayerState() override;
 
     // ==================== Team & Identity ====================
@@ -102,13 +102,13 @@ public:
     UFUNCTION(BlueprintPure, Category = "MiniFootball|Player")
     bool CanReceiveBall() const;
 
-    /** 
+    /**
      * CurrentBall - Replicated reference to the ball this character possesses.
      * This is the single source of truth for ball possession on the character side.
      * Invariant: bHasBall == (CurrentBall != nullptr)
      */
     UPROPERTY(ReplicatedUsing = OnRep_CurrentBall, BlueprintReadOnly, Category = "MiniFootball|Player")
-    AMF_Ball* CurrentBall = nullptr;
+    AMF_Ball *CurrentBall = nullptr;
 
     // ==================== Player State ====================
 
@@ -145,7 +145,7 @@ public:
 
     /** Optional: Pre-assigned behavior asset */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
-    UAIBehaviour* AIBehaviour;
+    UAIBehaviour *AIBehaviour;
 
     /** Should AI start automatically? */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
@@ -170,13 +170,13 @@ public:
     void ResetAI();
 
     UFUNCTION(BlueprintCallable, Category = "AI")
-    bool SetAIProfile(const FString& ProfileName);
+    bool SetAIProfile(const FString &ProfileName);
 
     UFUNCTION(BlueprintCallable, Category = "AI")
-    void InjectAIEvent(const FString& EventName);
+    void InjectAIEvent(const FString &EventName);
 
     UFUNCTION(BlueprintPure, Category = "AI")
-    UAIComponent* GetAIComponent() const { return AIComponent; }
+    UAIComponent *GetAIComponent() const { return AIComponent; }
 
     UFUNCTION(BlueprintPure, Category = "AI")
     bool IsAIRunning() const;
@@ -231,12 +231,11 @@ protected:
 
     /** AI Component for EAIS */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
-    UAIComponent* AIComponent;
+    UAIComponent *AIComponent;
 
     /** Action Executor for EAIS */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
-    class UMF_EAISActionExecutorComponent* AIActionExecutor;
-
+    class UMF_EAISActionExecutorComponent *AIActionExecutor;
 
     /** Camera boom for top-down view */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
@@ -270,7 +269,7 @@ protected:
 
     // ==================== Non-Replicated State ====================
 
-    /** 
+    /**
      * Legacy reference to possessed ball (for backward compatibility).
      * @deprecated Use CurrentBall instead.
      */
@@ -286,7 +285,7 @@ protected:
     /** Stun timer */
     float StunTimeRemaining = 0.0f;
 
-    /** 
+    /**
      * Flag to track if action was consumed by tackle on press.
      * When true, skip shoot/pass on release to prevent immediate shoot after tackle.
      */

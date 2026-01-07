@@ -8,10 +8,10 @@
 #include "Player/MF_PlayerCharacter.h"
 #include "Player/MF_PlayerController.h"
 #include "Player/MF_InputHandler.h"
+#include "Player/MF_CharacterMovementComponent.h"
 #include "Ball/MF_Ball.h"
 #include "Match/MF_Goal.h"
 #include "Net/UnrealNetwork.h"
-
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -28,13 +28,14 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
-AMF_PlayerCharacter::AMF_PlayerCharacter()
+AMF_PlayerCharacter::AMF_PlayerCharacter(const FObjectInitializer &ObjectInitializer)
+    : Super(ObjectInitializer.SetDefaultSubobjectClass<UMF_CharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
     PrimaryActorTick.bCanEverTick = true;
 
     // Create the AI component
     AIComponent = CreateDefaultSubobject<UAIComponent>(TEXT("AIComponent"));
-    
+
     // Configure default AI settings
     AIComponent->bAutoStart = false; // We control start timing in BeginPlay
     AIComponent->TickInterval = AITickInterval;
@@ -103,6 +104,9 @@ AMF_PlayerCharacter::AMF_PlayerCharacter()
 
         // Set initial movement mode (will be overridden when grounded)
         Movement->SetMovementMode(MOVE_Falling);
+
+        // Network smoothing to reduce rubber banding on clients
+        Movement->NetworkSmoothingMode = ENetworkSmoothingMode::Linear;
     }
 
     // Network settings for smooth replication
@@ -175,10 +179,10 @@ void AMF_PlayerCharacter::BeginPlay()
             {
                 BaseDir = FPaths::ProjectPluginsDir() / TEXT("P_EAIS/Content/AIProfiles");
             }
-            
+
             FString ProfileName = AIProfile;
             FString JsonContent;
-            
+
             // Try .runtime.json first (default for EAIS)
             FString FullPath = BaseDir / ProfileName + TEXT(".runtime.json");
             if (!FPaths::FileExists(FullPath))
@@ -198,20 +202,20 @@ void AMF_PlayerCharacter::BeginPlay()
                 {
                     UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] Failed to initialize AI from %s: %s"), *FullPath, *Error);
                 }
-                
+
                 // Store path for reference
                 AIComponent->JsonFilePath = FullPath;
             }
             else
             {
-                 UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] Could not find AI profile file: %s (Base: %s)"), *ProfileName, *BaseDir);
+                UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] Could not find AI profile file: %s (Base: %s)"), *ProfileName, *BaseDir);
             }
         }
 
         // Auto-start if enabled and not controlled by a human player
-        AController* CurrentController = GetController();
+        AController *CurrentController = GetController();
         bool bIsHuman = CurrentController && (CurrentController->IsA<APlayerController>());
-        
+
         if (bAutoStartAI && !bIsHuman)
         {
             UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] Auto-starting AI for %s with profile %s"), *GetName(), *AIProfile);
@@ -311,7 +315,7 @@ void AMF_PlayerCharacter::UnPossessed()
 {
     // Reset movement input to prevent ghost movement after switching
     CurrentMoveInput = FVector2D::ZeroVector;
-    
+
     // Stop any ongoing movement
     if (UCharacterMovementComponent *Movement = GetCharacterMovement())
     {
@@ -352,8 +356,8 @@ void AMF_PlayerCharacter::OnRep_Owner()
 
     // This is called on clients when ownership/possession replicates
     // Check if we're now locally controlled and set up input
-    AController* NewController = GetController();
-    
+    AController *NewController = GetController();
+
     UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::OnRep_Owner - %s, Controller: %s, IsLocallyControlled: %d"),
            *GetName(),
            NewController ? *NewController->GetName() : TEXT("null"),
@@ -427,16 +431,16 @@ void AMF_PlayerCharacter::SetSprinting(bool bNewSprinting)
     {
         bIsSprinting = bNewSprinting;
 
-        // Update movement speed
-        if (UCharacterMovementComponent *Movement = GetCharacterMovement())
+        // Prediction-driven sprint: encode sprint intent into saved moves (owning client)
+        // and apply it deterministically on both client/server via UMF_CharacterMovementComponent.
+        if (UMF_CharacterMovementComponent *MFMove = Cast<UMF_CharacterMovementComponent>(GetCharacterMovement()))
         {
-            Movement->MaxWalkSpeed = bIsSprinting ? MF_Constants::SprintSpeed : MF_Constants::WalkSpeed;
+            MFMove->bWantsToSprint = bIsSprinting;
         }
-
-        // Notify server
-        if (!HasAuthority() && IsLocallyControlled())
+        else if (UCharacterMovementComponent *Movement = GetCharacterMovement())
         {
-            Server_SendMoveInput(CurrentMoveInput, bIsSprinting);
+            // Fallback (if a different movement component is used).
+            Movement->MaxWalkSpeed = bIsSprinting ? MF_Constants::SprintSpeed : MF_Constants::WalkSpeed;
         }
     }
 }
@@ -457,7 +461,7 @@ void AMF_PlayerCharacter::Server_RequestShoot_Implementation(FVector Direction, 
     UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
     UE_LOG(LogTemp, Warning, TEXT("  HasAuthority: %d"), HasAuthority());
     UE_LOG(LogTemp, Warning, TEXT("  Direction: %s, Power: %.1f"), *Direction.ToString(), Power);
-    
+
     ExecuteShoot(Direction, Power);
 }
 
@@ -473,7 +477,7 @@ void AMF_PlayerCharacter::Server_RequestPass_Implementation(FVector Direction, f
     UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetNameSafe(GetController()));
     UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
     UE_LOG(LogTemp, Warning, TEXT("  Direction: %s, Power: %.1f"), *Direction.ToString(), Power);
-    
+
     ExecutePass(Direction, Power);
 }
 
@@ -488,7 +492,7 @@ void AMF_PlayerCharacter::Server_RequestTackle_Implementation()
     UE_LOG(LogTemp, Warning, TEXT("  Character: %s"), *GetName());
     UE_LOG(LogTemp, Warning, TEXT("  Controller: %s"), *GetNameSafe(GetController()));
     UE_LOG(LogTemp, Warning, TEXT("  NetMode: %d"), static_cast<int32>(GetNetMode()));
-    
+
     ExecuteTackle();
 }
 
@@ -502,12 +506,17 @@ void AMF_PlayerCharacter::Server_SendMoveInput_Implementation(FVector2D MoveInpu
 {
     CurrentMoveInput = MoveInput;
 
-    if (bIsSprinting != bSprinting)
+    // Sprint intent is handled by CharacterMovement prediction (compressed flags)
+    // via UMF_CharacterMovementComponent. Keep legacy fallback only.
+    if (!Cast<UMF_CharacterMovementComponent>(GetCharacterMovement()))
     {
-        bIsSprinting = bSprinting;
-        if (UCharacterMovementComponent *Movement = GetCharacterMovement())
+        if (bIsSprinting != bSprinting)
         {
-            Movement->MaxWalkSpeed = bIsSprinting ? MF_Constants::SprintSpeed : MF_Constants::WalkSpeed;
+            bIsSprinting = bSprinting;
+            if (UCharacterMovementComponent *Movement = GetCharacterMovement())
+            {
+                Movement->MaxWalkSpeed = bIsSprinting ? MF_Constants::SprintSpeed : MF_Constants::WalkSpeed;
+            }
         }
     }
 }
@@ -700,7 +709,7 @@ void AMF_PlayerCharacter::ExecuteShoot(FVector Direction, float Power)
            *Direction.ToString(), Power);
 
     // Kick the ball (this clears possession internally)
-    CurrentBall->Kick(Direction, Power, true);  // bAddHeight = true for shots
+    CurrentBall->Kick(Direction, Power, true); // bAddHeight = true for shots
 
     SetPlayerState(EMF_PlayerState::Shooting);
 }
@@ -725,7 +734,7 @@ void AMF_PlayerCharacter::ExecutePass(FVector Direction, float Power)
            *Direction.ToString(), Power);
 
     // Kick the ball (this clears possession internally)
-    CurrentBall->Kick(Direction, Power, false);  // bAddHeight = false for passes
+    CurrentBall->Kick(Direction, Power, false); // bAddHeight = false for passes
 
     SetPlayerState(EMF_PlayerState::Passing);
 }
@@ -756,20 +765,20 @@ void AMF_PlayerCharacter::ExecuteTackle()
            *GetName(), (int32)TeamID, TackleRange);
 
     // Find nearest opponent with ball within tackle range
-    AMF_PlayerCharacter* BestTarget = nullptr;
+    AMF_PlayerCharacter *BestTarget = nullptr;
     float BestDistance = TackleRange;
 
     for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
     {
-        AMF_PlayerCharacter* Other = *It;
+        AMF_PlayerCharacter *Other = *It;
         if (!Other || Other == this)
             continue;
 
         float Distance = FVector::Dist(MyLocation, Other->GetActorLocation());
-        
+
         // Check team - skip teammates (None team can tackle anyone)
         bool bIsTeammate = (TeamID != EMF_TeamID::None && Other->GetTeamID() == GetTeamID());
-        
+
         UE_LOG(LogTemp, Log, TEXT("  Checking %s: Distance=%.1f, HasBall=%d, Team=%d, CurrentBall=%s, IsTeammate=%d"),
                *Other->GetName(), Distance, Other->HasBall(), (int32)Other->GetTeamID(),
                Other->CurrentBall ? TEXT("Valid") : TEXT("NULL"), bIsTeammate);
@@ -836,7 +845,7 @@ void AMF_PlayerCharacter::OnActionReleased()
     // Check if action was consumed by tackle - if so, skip shoot/pass
     if (bActionConsumedByTackle)
     {
-        bActionConsumedByTackle = false;  // Reset for next press
+        bActionConsumedByTackle = false; // Reset for next press
         UE_LOG(LogTemp, Log, TEXT("OnActionReleased - Skipping shoot (action consumed by tackle)"));
         return;
     }
@@ -878,10 +887,10 @@ void AMF_PlayerCharacter::OnSwitchPlayerInputReceived()
     // Forward to PlayerController for character switching
     // Per PLAN.md: Q ALWAYS switches control to the teammate closest to the ball
     UE_LOG(LogTemp, Warning, TEXT("MF_PlayerCharacter::OnSwitchPlayerInputReceived called!"));
-    
-    if (AMF_PlayerController* MFC = Cast<AMF_PlayerController>(GetController()))
+
+    if (AMF_PlayerController *MFC = Cast<AMF_PlayerController>(GetController()))
     {
-        UE_LOG(LogTemp, Warning, TEXT("  → Calling SwitchToNearestToBall, TeamCharacters.Num: %d"), 
+        UE_LOG(LogTemp, Warning, TEXT("  → Calling SwitchToNearestToBall, TeamCharacters.Num: %d"),
                MFC->GetRegisteredTeamCharacters().Num());
         MFC->SwitchToNearestToBall();
     }
@@ -894,7 +903,7 @@ void AMF_PlayerCharacter::OnSwitchPlayerInputReceived()
 void AMF_PlayerCharacter::OnPauseInputReceived()
 {
     // Forward to PlayerController for pause handling
-    if (AMF_PlayerController* MFC = Cast<AMF_PlayerController>(GetController()))
+    if (AMF_PlayerController *MFC = Cast<AMF_PlayerController>(GetController()))
     {
         MFC->RequestPause();
     }
@@ -907,7 +916,7 @@ void AMF_PlayerCharacter::StartAI()
     if (AIComponent)
     {
         AIComponent->StartAI();
-        
+
         if (bDebugAI)
         {
             UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter: Started AI with profile '%s'"), *AIProfile);
@@ -918,9 +927,9 @@ void AMF_PlayerCharacter::StartAI()
     }
 }
 
-bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, FVector& OutLocation) const
+bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, FVector &OutLocation) const
 {
-    AActor* TargetActor = nullptr;
+    AActor *TargetActor = nullptr;
     if (EAIS_GetTargetActor_Implementation(TargetId, TargetActor))
     {
         if (TargetActor)
@@ -929,7 +938,6 @@ bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, 
             return true;
         }
     }
-
 
     // Handle coordinate targets (if any)
     if (TargetId == "Home")
@@ -942,17 +950,17 @@ bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, 
     return false;
 }
 
-bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AActor*& OutActor) const
+bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AActor *&OutActor) const
 
 {
     if (TargetId == "Ball")
     {
-        if (CurrentBall) 
+        if (CurrentBall)
         {
             OutActor = CurrentBall;
             return true;
         }
-        
+
         // Find ball in world
         for (TActorIterator<AMF_Ball> It(GetWorld()); It; ++It)
         {
@@ -966,8 +974,8 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
         bool bOpponent = (TargetId == "Goal_Opponent");
         for (TActorIterator<AMF_Goal> It(GetWorld()); It; ++It)
         {
-            AMF_Goal* Goal = *It;
-            // GoalTeam is the team that scores. 
+            AMF_Goal *Goal = *It;
+            // GoalTeam is the team that scores.
             // So if I'm TeamA, Goal_Opponent is the one where TeamA scores.
             if (bOpponent)
             {
@@ -1003,11 +1011,11 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
     if (TargetId == "NearestOpponent")
     {
         float NearestDist = 99999.0f;
-        AMF_PlayerCharacter* Nearest = nullptr;
-        
+        AMF_PlayerCharacter *Nearest = nullptr;
+
         for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
         {
-            AMF_PlayerCharacter* Other = *It;
+            AMF_PlayerCharacter *Other = *It;
             if (Other && Other != this && Other->GetTeamID() != TeamID)
             {
                 const float Dist = FVector::Dist(GetActorLocation(), Other->GetActorLocation());
@@ -1018,7 +1026,7 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
                 }
             }
         }
-        
+
         if (Nearest)
         {
             OutActor = Nearest;
@@ -1045,7 +1053,7 @@ void AMF_PlayerCharacter::ResetAI()
     }
 }
 
-bool AMF_PlayerCharacter::SetAIProfile(const FString& ProfileName)
+bool AMF_PlayerCharacter::SetAIProfile(const FString &ProfileName)
 {
     if (!AIComponent)
     {
@@ -1066,7 +1074,7 @@ bool AMF_PlayerCharacter::SetAIProfile(const FString& ProfileName)
     AIComponent->ResetAI();
 
     AIProfile = ProfileName;
-    
+
     // Restart if was running
     if (bAutoStartAI)
     {
@@ -1076,7 +1084,7 @@ bool AMF_PlayerCharacter::SetAIProfile(const FString& ProfileName)
     return true;
 }
 
-void AMF_PlayerCharacter::InjectAIEvent(const FString& EventName)
+void AMF_PlayerCharacter::InjectAIEvent(const FString &EventName)
 {
     if (AIComponent)
     {
@@ -1106,7 +1114,7 @@ void AMF_PlayerCharacter::SyncBlackboard()
     }
 
     const FVector MyLocation = GetActorLocation();
-    
+
     // ==================== BASIC STATE ====================
     AIComponent->SetBlackboardBool(TEXT("HasBall"), HasBall());
     AIComponent->SetBlackboardBool(TEXT("IsStunned"), IsStunned());
@@ -1116,15 +1124,15 @@ void AMF_PlayerCharacter::SyncBlackboard()
 
     // ==================== BALL DATA ====================
     FVector BallPos = FVector::ZeroVector;
-    AMF_Ball* MatchBall = nullptr;
+    AMF_Ball *MatchBall = nullptr;
     bool bBallFound = false;
-    
+
     // First check via target provider
     if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(this, TEXT("Ball"), BallPos))
     {
         bBallFound = true;
     }
-    
+
     // Get ball actor for possession check
     for (TActorIterator<AMF_Ball> It(GetWorld()); It; ++It)
     {
@@ -1171,17 +1179,17 @@ void AMF_PlayerCharacter::SyncBlackboard()
     bool bTeamHasBall = false;
     bool bOpponentHasBall = false;
     bool bBallLoose = true;
-    AMF_PlayerCharacter* BallCarrier = nullptr;
+    AMF_PlayerCharacter *BallCarrier = nullptr;
 
     // Check all players for ball possession
     for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
     {
-        AMF_PlayerCharacter* OtherPlayer = *It;
+        AMF_PlayerCharacter *OtherPlayer = *It;
         if (OtherPlayer && OtherPlayer->HasBall())
         {
             bBallLoose = false;
             BallCarrier = OtherPlayer;
-            
+
             if (OtherPlayer->GetTeamID() == TeamID)
             {
                 bTeamHasBall = true;
@@ -1200,11 +1208,11 @@ void AMF_PlayerCharacter::SyncBlackboard()
 
     // ==================== NEAREST OPPONENT ====================
     float NearestOpponentDist = 99999.0f;
-    AMF_PlayerCharacter* NearestOpponent = nullptr;
+    AMF_PlayerCharacter *NearestOpponent = nullptr;
 
     for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
     {
-        AMF_PlayerCharacter* OtherPlayer = *It;
+        AMF_PlayerCharacter *OtherPlayer = *It;
         if (OtherPlayer && OtherPlayer != this && OtherPlayer->GetTeamID() != TeamID)
         {
             const float Dist = FVector::Dist(MyLocation, OtherPlayer->GetActorLocation());
@@ -1234,18 +1242,18 @@ void AMF_PlayerCharacter::SyncBlackboard()
     if (HasBall() && GoalPos != FVector::ZeroVector)
     {
         bHasClearShot = true; // Assume clear by default
-        
+
         const FVector ToGoal = (GoalPos - MyLocation).GetSafeNormal();
         const float GoalDist = FVector::Dist(MyLocation, GoalPos);
 
         for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
         {
-            AMF_PlayerCharacter* OtherPlayer = *It;
+            AMF_PlayerCharacter *OtherPlayer = *It;
             if (OtherPlayer && OtherPlayer != this && OtherPlayer->GetTeamID() != TeamID)
             {
                 const FVector ToEnemy = OtherPlayer->GetActorLocation() - MyLocation;
                 const float EnemyDist = ToEnemy.Size();
-                
+
                 // Only check enemies between us and the goal
                 if (EnemyDist < GoalDist)
                 {
@@ -1262,7 +1270,6 @@ void AMF_PlayerCharacter::SyncBlackboard()
     }
     AIComponent->SetBlackboardBool(TEXT("HasClearShot"), bHasClearShot);
 }
-
 
 void AMF_PlayerCharacter::OnBallPossessionChanged()
 {

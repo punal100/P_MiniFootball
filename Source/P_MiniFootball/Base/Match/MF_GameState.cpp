@@ -316,10 +316,10 @@ TArray<FString> AMF_GameState::GetTeamPlayerNames(EMF_TeamID Team) const
     {
         if (Player)
         {
-            // Use explicit APawn:: scope since AMF_PlayerCharacter has its own GetPlayerState() 
+            // Use explicit APawn:: scope since AMF_PlayerCharacter has its own GetPlayerState()
             // that returns EMF_PlayerState (game state), not APlayerState*
             // APawn::GetPlayerState<T>() IS replicated to all clients
-            APawn* PawnPtr = Player;
+            APawn *PawnPtr = Player;
             APlayerState *PS = PawnPtr->GetPlayerState<APlayerState>();
             if (PS)
             {
@@ -389,7 +389,12 @@ FString AMF_GameState::GetFormattedTime() const
     return FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 }
 
-EMF_TeamID AMF_GameState::GetTeamForController(APlayerController* PC) const
+AMF_Ball *AMF_GameState::GetMatchBall() const
+{
+    return MatchBall;
+}
+
+EMF_TeamID AMF_GameState::GetTeamForController(APlayerController *PC) const
 {
     if (!PC)
     {
@@ -397,14 +402,14 @@ EMF_TeamID AMF_GameState::GetTeamForController(APlayerController* PC) const
     }
 
     // Resolve team from possessed pawn
-    AMF_PlayerCharacter* Character = Cast<AMF_PlayerCharacter>(PC->GetPawn());
+    AMF_PlayerCharacter *Character = Cast<AMF_PlayerCharacter>(PC->GetPawn());
     if (Character)
     {
         return Character->GetTeamID();
     }
 
     // Fallback: Check if any team character is registered to this controller
-    for (AMF_PlayerCharacter* Player : TeamAPlayers)
+    for (AMF_PlayerCharacter *Player : TeamAPlayers)
     {
         if (Player && Player->GetController() == PC)
         {
@@ -412,7 +417,7 @@ EMF_TeamID AMF_GameState::GetTeamForController(APlayerController* PC) const
         }
     }
 
-    for (AMF_PlayerCharacter* Player : TeamBPlayers)
+    for (AMF_PlayerCharacter *Player : TeamBPlayers)
     {
         if (Player && Player->GetController() == PC)
         {
