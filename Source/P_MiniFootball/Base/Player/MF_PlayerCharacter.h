@@ -291,6 +291,10 @@ protected:
      */
     bool bActionConsumedByTackle = false;
 
+    /** Stored spawn location for formation-based positioning */
+    UPROPERTY(BlueprintReadOnly, Category = "MiniFootball|Formation")
+    FVector SpawnLocation = FVector::ZeroVector;
+
     // ==================== Rep Notifies ====================
 
     UFUNCTION()
@@ -312,6 +316,9 @@ protected:
 
     /** Called when possession changes - update AI blackboard */
     void OnBallPossessionChanged();
+
+    /** Calculate intelligent support position based on ball location and role */
+    FVector CalculateSupportPosition(const FVector& BallPosition, EMF_TeamID MyTeam) const;
 
     /** Setup input bindings via InputHandler */
     void SetupInputBindings();

@@ -92,12 +92,18 @@ namespace MF_InputActions
 
 namespace MF_Constants
 {
-    // Field Dimensions (cm)
-    constexpr float FieldLength = 4000.0f;       // 40 meters
-    constexpr float FieldWidth = 2500.0f;        // 25 meters
-    constexpr float GoalWidth = 400.0f;          // 4 meters
-    constexpr float GoalHeight = 200.0f;         // 2 meters
-    constexpr float CenterCircleRadius = 300.0f; // 3 meters
+    // Field Dimensions (cm) - FIFA Standard for 11v11
+    constexpr float FieldLength = 10500.0f;      // 105 meters
+    constexpr float FieldWidth = 6800.0f;        // 68 meters
+    constexpr float GoalWidth = 732.0f;          // 7.32 meters
+    constexpr float GoalHeight = 244.0f;         // 2.44 meters
+    constexpr float CenterCircleRadius = 915.0f; // 9.15 meters
+    
+    // Additional Field Markings (cm)
+    constexpr float PenaltyAreaLength = 1650.0f; // 16.5 meters
+    constexpr float PenaltyAreaWidth = 4030.0f;  // 40.3 meters
+    constexpr float GoalAreaLength = 550.0f;     // 5.5 meters
+    constexpr float GoalAreaWidth = 1830.0f;     // 18.3 meters
 
     // Player Movement (cm/s)
     constexpr float WalkSpeed = 400.0f;
@@ -130,7 +136,7 @@ namespace MF_Constants
     constexpr float MatchDuration = 180.0f;     // 3 minutes
     constexpr float KickoffCountdown = 3.0f;    // 3 seconds countdown
     constexpr float GoalCelebrationTime = 2.0f; // 2 seconds after goal
-    constexpr int32 MaxPlayersPerTeam = 3;      // 3v3
+    constexpr int32 MaxPlayersPerTeam = 11;     // 11v11
 
     // Tackling
     constexpr float TackleCooldown = 1.0f;     // seconds
@@ -255,7 +261,7 @@ struct FMF_TeamRosterData
 
     /** Maximum players allowed on team */
     UPROPERTY(BlueprintReadOnly, Category = "Team")
-    int32 MaxPlayerCount = 3;
+    int32 MaxPlayerCount = 11;
 
     /** List of player controller unique IDs on the team (for UI display) */
     UPROPERTY(BlueprintReadOnly, Category = "Team")

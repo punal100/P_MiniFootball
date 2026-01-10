@@ -87,13 +87,11 @@ If your HUD needs to react cleanly when a player joins/leaves a team (spectator 
 
 ## AI Characters (P_EAIS Integration)
 
-> [!NOTE] > **Work in Progress**: The AI system is partially working. Core behaviors function but some features are still in development.
-
 All match characters are `AMF_AICharacter` instances. When not controlled by a human, they run AI behavior.
 
 ### Default Behavior
 
-- **Match Start**: All 6 characters are AI-controlled
+- **Match Start**: All 22 characters are AI-controlled
 - **Human Joins**: Takes control of one character → AI stops for that character
 - **Human Switches (Q)**: Previous character resumes AI → New character's AI stops
 - **Human Leaves**: Character immediately resumes AI
@@ -102,7 +100,7 @@ All match characters are `AMF_AICharacter` instances. When not controlled by a h
 
 1. Open `L_MiniFootball` map
 2. Play In Editor (2 players)
-3. Observe all characters moving (AI)
+3. Observe all characters moving (AI - 22 players total)
 4. Join a team → One character now human-controlled
 5. Press Q → Switch characters, previous one resumes AI
 
@@ -119,6 +117,7 @@ EAIS.SpawnBot 1 Striker    // Spawn additional AI bot
 Edit profiles in `Content/AIProfiles/`:
 
 - `Striker.json` - Offensive behavior
+- `Midfielder.json` - Midfield control
 - `Defender.json` - Defensive behavior
 - `Goalkeeper.json` - Goal protection
 

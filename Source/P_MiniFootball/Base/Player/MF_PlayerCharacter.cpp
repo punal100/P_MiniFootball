@@ -136,9 +136,9 @@ void AMF_PlayerCharacter::BeginPlay()
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - HasAuthority: %d, IsLocallyControlled: %d"),
            HasAuthority(), IsLocallyControlled());
 
-    // Log spawn position
-    FVector SpawnLoc = GetActorLocation();
-    UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - Spawned at Location: %s"), *SpawnLoc.ToString());
+    // Log spawn position and store for formation-based AI positioning
+    SpawnLocation = GetActorLocation();
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - Spawned at Location: %s"), *SpawnLocation.ToString());
 
     // Debug: Log movement component state
     if (UCharacterMovementComponent *MovementComp = GetCharacterMovement())
@@ -154,7 +154,7 @@ void AMF_PlayerCharacter::BeginPlay()
         {
             float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
             UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - CapsuleHalfHeight: %.1f, BottomZ: %.1f"),
-                   CapsuleHalfHeight, SpawnLoc.Z - CapsuleHalfHeight);
+                   CapsuleHalfHeight, SpawnLocation.Z - CapsuleHalfHeight);
         }
     }
 
@@ -1269,6 +1269,47 @@ void AMF_PlayerCharacter::SyncBlackboard()
         }
     }
     AIComponent->SetBlackboardBool(TEXT("HasClearShot"), bHasClearShot);
+
+    // ==================== CLOSEST TO BALL DETECTION (CRITICAL FIX) ====================
+    // Only the closest teammate to the ball should chase it - prevents all AI mobbing the ball
+    bool bAmIClosestToBall = true; // Assume true until proven otherwise
+    float MyDistToBall = 99999.0f;
+
+    if (bBallFound)
+    {
+        MyDistToBall = FVector::Dist(MyLocation, BallPos);
+        
+        // Check if any teammate is closer
+        for (TActorIterator<AMF_PlayerCharacter> ClosestIt(GetWorld()); ClosestIt; ++ClosestIt)
+        {
+            AMF_PlayerCharacter* OtherPlayer = *ClosestIt;
+            if (OtherPlayer && OtherPlayer != this && OtherPlayer->GetTeamID() == TeamID)
+            {
+                const float TheirDistToBall = FVector::Dist(OtherPlayer->GetActorLocation(), BallPos);
+                if (TheirDistToBall < MyDistToBall - 50.0f) // 50 unit hysteresis to prevent flickering
+                {
+                    bAmIClosestToBall = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    AIComponent->SetBlackboardBool(TEXT("AmIClosestToBall"), bAmIClosestToBall);
+
+    // ==================== ROLE-BASED DATA ====================
+    AIComponent->SetBlackboardValue(TEXT("Role"), FBlackboardValue(FString(AIProfile)));
+
+    // ==================== FORMATION POSITION ====================
+    // Use stored spawn position as home position for formation-based AI
+    AIComponent->SetBlackboardVector(TEXT("HomePosition"), SpawnLocation);
+    const float DistToHome = FVector::Dist(MyLocation, SpawnLocation);
+    AIComponent->SetBlackboardFloat(TEXT("DistToHome"), DistToHome);
+
+    // ==================== SUPPORT POSITION ====================
+    // Calculate intelligent support position based on ball and role
+    const FVector SupportPos = CalculateSupportPosition(BallPos, TeamID);
+    AIComponent->SetBlackboardVector(TEXT("SupportPosition"), SupportPos);
 }
 
 void AMF_PlayerCharacter::OnBallPossessionChanged()
@@ -1285,4 +1326,60 @@ void AMF_PlayerCharacter::OnBallPossessionChanged()
             AIComponent->EnqueueSimpleEvent(TEXT("LostBall"));
         }
     }
+}
+
+FVector AMF_PlayerCharacter::CalculateSupportPosition(const FVector& BallPosition, EMF_TeamID MyTeam) const
+{
+    // Calculate a supporting position based on ball location and role
+    const float OffsetFromBall = 500.0f; // 5 meters
+    const float SideOffset = 300.0f;     // 3 meters to the side
+    
+    FVector SupportPos = BallPosition;
+    
+    // Determine attack direction based on team
+    // TeamA attacks positive X, TeamB attacks negative X
+    float AttackDirection = (MyTeam == EMF_TeamID::TeamA) ? 1.0f : -1.0f;
+    
+    // Get role-based positioning from AIProfile
+    if (AIProfile.Contains(TEXT("Striker")))
+    {
+        // Strikers position ahead of the ball towards opponent goal
+        SupportPos.X += OffsetFromBall * AttackDirection;
+        // Alternate left/right based on PlayerID for variety
+        SupportPos.Y += (PlayerID % 2 == 0) ? SideOffset : -SideOffset;
+    }
+    else if (AIProfile.Contains(TEXT("Midfielder")))
+    {
+        // Midfielders position beside the ball, spread out
+        float YOffset = SideOffset * 2.0f;
+        SupportPos.Y += (PlayerID % 2 == 0) ? YOffset : -YOffset;
+    }
+    else if (AIProfile.Contains(TEXT("Defender")))
+    {
+        // Defenders position behind the ball towards own goal
+        SupportPos.X -= OffsetFromBall * AttackDirection;
+        // Spread defenders across the width
+        float DefenseSpread = MF_Constants::FieldWidth * 0.15f;
+        SupportPos.Y += (PlayerID % 2 == 0) ? DefenseSpread : -DefenseSpread;
+    }
+    else if (AIProfile.Contains(TEXT("Goalkeeper")))
+    {
+        // Goalkeeper stays in goal area
+        float GoalX = -(MF_Constants::FieldLength / 2.0f - 100.0f) * AttackDirection;
+        SupportPos = FVector(GoalX, 0.0f, MF_Constants::GroundZ);
+    }
+    else
+    {
+        // Default: follow ball loosely
+        SupportPos.X -= OffsetFromBall * 0.5f * AttackDirection;
+    }
+    
+    // Clamp to field bounds
+    const float HalfLength = MF_Constants::FieldLength / 2.0f;
+    const float HalfWidth = MF_Constants::FieldWidth / 2.0f;
+    SupportPos.X = FMath::Clamp(SupportPos.X, -HalfLength, HalfLength);
+    SupportPos.Y = FMath::Clamp(SupportPos.Y, -HalfWidth, HalfWidth);
+    SupportPos.Z = MF_Constants::GroundZ;
+    
+    return SupportPos;
 }

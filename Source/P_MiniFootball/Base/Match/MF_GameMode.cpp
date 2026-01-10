@@ -31,8 +31,8 @@ AMF_GameMode::AMF_GameMode()
     SpectatorPawnClass = AMF_Spectator::StaticClass();
 
     // Config defaults
-    PlayersPerTeam = 3;
-    MaxHumanPlayersPerTeam = 3;
+    PlayersPerTeam = 11;
+    MaxHumanPlayersPerTeam = 11;
     bAllowMidMatchJoin = true;
     TeamAPlayerCount = 0;
     TeamBPlayerCount = 0;

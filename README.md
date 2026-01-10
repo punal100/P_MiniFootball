@@ -15,7 +15,8 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 - **Kick Mechanics**: Shoot and Pass actions with directional control and power
 - **Tackle System**: Server-validated tackles with cooldown and stun mechanics
 - **Match Flow**: Complete match lifecycle (Kickoff, Playing, GoalScored, HalfTime, MatchEnd)
-- **Team Management**: 3v3 format with team rosters and character switching
+- **Team Management**: 11v11 format with team rosters and character switching
+- **Formation System**: Position-based roles (GK, DEF, MID, STR) with 4-4-2/4-3-3 presets
 - **Spectator System**: Players start as spectators and request to join teams via widgets
 - **Blueprint Interfaces**: Clean separation between GameMode (server) and PlayerController (client)
 
@@ -31,7 +32,7 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 | Phase 4  | Shooting & Passing (+Net)           | ✅ COMPLETE    |
 | Phase 5  | Goal & Scoring System (+Net)        | ✅ COMPLETE    |
 | Phase 6  | Match Flow & Game Modes (+Net)      | ✅ COMPLETE    |
-| Phase 7  | AI System (P_EAIS Integration)      | 🔄 IN PROGRESS |
+| Phase 7  | AI System (P_EAIS Integration)      | ✅ COMPLETE    |
 | Phase 8  | Polish & Mobile Optimization        | ❌ NOT STARTED |
 | Phase 9  | Spectator & Team Assignment (+Net)  | ✅ COMPLETE    |
 | Phase 10 | UI Widget System (C++)              | ✅ COMPLETE    |
@@ -134,14 +135,14 @@ PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_ActionNamePar
 | Acceleration | 2000 cm/s² |
 | Turn Rate    | 540 °/s    |
 
-### Field Dimensions
+### Field Dimensions (FIFA Standard)
 
-| Property     | Value         |
-| ------------ | ------------- |
-| Field Length | 4000 cm (40m) |
-| Field Width  | 2500 cm (25m) |
-| Goal Width   | 400 cm (4m)   |
-| Goal Height  | 200 cm (2m)   |
+| Property     | Value             |
+| ------------ | ----------------- |
+| Field Length | 10500 cm (105m)   |
+| Field Width  | 6800 cm (68m)     |
+| Goal Width   | 732 cm (7.32m)    |
+| Goal Height  | 244 cm (2.44m)    |
 
 ---
 
@@ -315,9 +316,11 @@ P_EAIS (JSON Behavior) → AMF_AICharacter → P_MEIS (Input Injection) → Game
 
 ### Key Features
 
-- **JSON-Defined Behaviors**: AI personalities defined in `Content/AIProfiles/` (Striker, Defender, Goalkeeper)
+- **JSON-Defined Behaviors**: AI personalities defined in `Content/AIProfiles/` (Striker, Defender, Midfielder, Goalkeeper)
 - **Input Injection**: AI uses P_MEIS to "press buttons" like human players (fair AI)
 - **Blackboard Sync**: Game state (ball possession, team, position) auto-synced to AI blackboard
+- **AmIClosestToBall Logic**: Prevents multiple AI players from chasing the ball simultaneously
+- **Role-Based Positioning**: Support positions calculated dynamically based on player role
 - **Profile Switching**: Change AI behavior at runtime via console or Blueprint
 
 ### Using AI Characters
@@ -348,11 +351,12 @@ Bot->StartAI();
 
 ### AI Profiles
 
-| Profile      | Description                                       |
-| ------------ | ------------------------------------------------- |
-| `Striker`    | Offensive AI - chases ball, moves to goal, shoots |
-| `Defender`   | Defensive AI - guards goal, intercepts passes     |
-| `Goalkeeper` | Goal protection - stays near goal, blocks shots   |
+| Profile      | Description                                                 |
+| ------------ | ----------------------------------------------------------- |
+| `Striker`    | Offensive AI - positions high, moves to goal, shoots        |
+| `Midfielder` | Support AI - balances between attack and defense            |
+| `Defender`   | Defensive AI - marks opponents, clears ball, covers goal    |
+| `Goalkeeper` | Goal protection - stays near goal, blocks shots, coming out |
 
 ### Debugging AI
 
