@@ -54,6 +54,7 @@ Path.Combine(ModulePath, "Base", "UI"),
 "NetCore",           // Core networking
 "GameplayTags",      // Gameplay tags support
 "P_MWCS_Runtime",    // MWCS Widget System (TransparentButton etc)
+"Projects",          // For IPluginManager
                 }
                 );
 

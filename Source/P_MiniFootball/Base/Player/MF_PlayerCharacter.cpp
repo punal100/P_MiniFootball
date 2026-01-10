@@ -27,6 +27,7 @@
 #include "AI/MF_EAISActionExecutorComponent.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Interfaces/IPluginManager.h"
 
 AMF_PlayerCharacter::AMF_PlayerCharacter(const FObjectInitializer &ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<UMF_CharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -172,43 +173,14 @@ void AMF_PlayerCharacter::BeginPlay()
         }
         else if (!AIProfile.IsEmpty())
         {
-            // Construct path to JSON
-            // Try specific plugin path first
-            FString BaseDir = FPaths::ProjectContentDir();
-            if (FPaths::DirectoryExists(FPaths::ProjectPluginsDir() / TEXT("P_EAIS/Content/AIProfiles")))
-            {
-                BaseDir = FPaths::ProjectPluginsDir() / TEXT("P_EAIS/Content/AIProfiles");
-            }
+            // Resolve Path dynamically from this plugin
+            FString PluginDir = IPluginManager::Get().FindPlugin("P_MiniFootball")->GetContentDir();
+            FString AIProfileDir = FPaths::Combine(PluginDir, TEXT("AIProfiles"));
 
-            FString ProfileName = AIProfile;
-            FString JsonContent;
-
-            // Try .runtime.json first (default for EAIS)
-            FString FullPath = BaseDir / ProfileName + TEXT(".runtime.json");
-            if (!FPaths::FileExists(FullPath))
+            // Pass the profile name and the local plugin path to the AI Component
+            if (AIComponent)
             {
-                // Try .json
-                FullPath = BaseDir / ProfileName + TEXT(".json");
-            }
-
-            if (FFileHelper::LoadFileToString(JsonContent, *FullPath))
-            {
-                FString Error;
-                if (AIComponent->InitializeAIFromJson(JsonContent, Error))
-                {
-                    UE_LOG(LogTemp, Log, TEXT("[MF_PlayerCharacter] Successfully initialized AI from %s"), *FullPath);
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] Failed to initialize AI from %s: %s"), *FullPath, *Error);
-                }
-
-                // Store path for reference
-                AIComponent->JsonFilePath = FullPath;
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] Could not find AI profile file: %s (Base: %s)"), *ProfileName, *BaseDir);
+                AIComponent->StartAI(AIProfile, AIProfileDir);
             }
         }
 
