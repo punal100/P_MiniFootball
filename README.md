@@ -234,6 +234,8 @@ P_MiniFootball/
 ├── UI_WIDGETS.md              # UI widget binding reference & visual specs
 ├── Resources/
 │   └── Icon128.png            # Plugin icon
+├── Content/
+│   └── AIProfiles/            # AI runtime profiles (*.runtime.json)
 └── Source/
     └── P_MiniFootball/
         ├── P_MiniFootball.Build.cs    # Module build configuration
