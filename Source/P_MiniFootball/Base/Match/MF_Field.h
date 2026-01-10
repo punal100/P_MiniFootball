@@ -40,6 +40,9 @@ public:
     UFUNCTION(CallInEditor, BlueprintCallable, Category = "Navigation")
     void UpdateNavMesh();
 
+    UFUNCTION(BlueprintCallable, Category = "Navigation")
+    void EnsureNavMesh();
+
     /** Forces a runtime rebuild of the navigation mesh. Useful for resolving runtime issues. */
     UFUNCTION(BlueprintCallable, Category = "Navigation")
     void ForceRebuildNavigation();
@@ -50,5 +53,7 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual void OnConstruction(const FTransform& Transform) override;
+    virtual void Tick(float DeltaTime) override;
 
 };

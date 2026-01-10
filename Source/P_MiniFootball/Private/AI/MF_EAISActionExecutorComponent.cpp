@@ -62,7 +62,7 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleShoot(const FString& P
     TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ParamsJson);
     if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
     {
-        if (JsonObject->HasField("power")) Power = JsonObject->GetNumberField("power");
+        if (JsonObject->HasField(TEXT("power"))) Power = JsonObject->GetNumberField(TEXT("power"));
         // Target resolution is usually handled by MoveTo/AimAt, but we can override here
     }
 
@@ -104,9 +104,9 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleSprint(const FString& 
     TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ParamsJson);
     if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
     {
-        if (JsonObject->HasField("active"))
+        if (JsonObject->HasField(TEXT("active")))
         {
-            bActive = JsonObject->GetBoolField("active");
+            bActive = JsonObject->GetBoolField(TEXT("active"));
         }
     }
 
@@ -126,9 +126,9 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleFace(const FString& Pa
     TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ParamsJson);
     if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
     {
-        if (JsonObject->HasField("target"))
+        if (JsonObject->HasField(TEXT("target")))
         {
-            TargetName = JsonObject->GetStringField("target");
+            TargetName = JsonObject->GetStringField(TEXT("target"));
         }
     }
 

@@ -28,6 +28,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Interfaces/IPluginManager.h"
+#include "NavigationInvokerComponent.h"
 
 AMF_PlayerCharacter::AMF_PlayerCharacter(const FObjectInitializer &ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<UMF_CharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -43,6 +44,10 @@ AMF_PlayerCharacter::AMF_PlayerCharacter(const FObjectInitializer &ObjectInitial
 
     // Create Action Executor
     AIActionExecutor = CreateDefaultSubobject<UMF_EAISActionExecutorComponent>(TEXT("AIActionExecutor"));
+
+    // Create Navigation Invoker
+    NavInvoker = CreateDefaultSubobject<UNavigationInvokerComponent>(TEXT("NavInvoker"));
+    NavInvoker->SetGenerationRadii(4000.0f, 5000.0f); // Cover significant area, with removal radius slightly larger
 
     // Configure AI Controller - ensures AI characters get AI controllers automatically
     AIControllerClass = AMF_AIController::StaticClass();
@@ -1119,7 +1124,7 @@ void AMF_PlayerCharacter::SyncBlackboard()
 
     if (bBallFound)
     {
-        AIComponent->SetBlackboardVector(TEXT("BallPosition"), BallPos);
+        AIComponent->SetBlackboardVector(TEXT("Ball"), BallPos);
         const float DistToBall = FVector::Dist(MyLocation, BallPos);
         AIComponent->SetBlackboardFloat(TEXT("DistToBall"), DistToBall);
     }
@@ -1132,7 +1137,7 @@ void AMF_PlayerCharacter::SyncBlackboard()
     FVector GoalPos = FVector::ZeroVector;
     if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(this, TEXT("Goal_Opponent"), GoalPos))
     {
-        AIComponent->SetBlackboardVector(TEXT("OpponentGoalPosition"), GoalPos);
+        AIComponent->SetBlackboardVector(TEXT("Goal_Opponent"), GoalPos);
         const float DistToGoal = FVector::Dist(MyLocation, GoalPos);
         AIComponent->SetBlackboardFloat(TEXT("DistToOpponentGoal"), DistToGoal);
     }
@@ -1144,7 +1149,7 @@ void AMF_PlayerCharacter::SyncBlackboard()
     // ==================== HOME/FORMATION DATA ====================
     // TODO: Get actual formation position from GameState
     const FVector HomePos = GetActorLocation(); // Placeholder
-    AIComponent->SetBlackboardVector(TEXT("HomePosition"), HomePos);
+    AIComponent->SetBlackboardVector(TEXT("Home"), HomePos);
     AIComponent->SetBlackboardFloat(TEXT("DistToHome"), 0.0f); // Will be actual distance when formation implemented
 
     // ==================== POSSESSION STATE ====================
@@ -1274,7 +1279,7 @@ void AMF_PlayerCharacter::SyncBlackboard()
 
     // ==================== FORMATION POSITION ====================
     // Use stored spawn position as home position for formation-based AI
-    AIComponent->SetBlackboardVector(TEXT("HomePosition"), SpawnLocation);
+    AIComponent->SetBlackboardVector(TEXT("Home"), SpawnLocation);
     const float DistToHome = FVector::Dist(MyLocation, SpawnLocation);
     AIComponent->SetBlackboardFloat(TEXT("DistToHome"), DistToHome);
 

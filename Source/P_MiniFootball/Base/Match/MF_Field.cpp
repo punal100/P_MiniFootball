@@ -17,6 +17,7 @@
 #include "Editor.h"
 #endif
 #include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"
 
 AMF_Field::AMF_Field()
 {
@@ -44,6 +45,49 @@ AMF_Field::AMF_Field()
 void AMF_Field::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (HasAuthority())
+    {
+        EnsureNavMesh();
+    }
+}
+
+void AMF_Field::OnConstruction(const FTransform& Transform)
+{
+    Super::OnConstruction(Transform);
+#if WITH_EDITOR
+    if (GIsEditor && !GIsPlayInEditorWorld)
+    {
+        UpdateNavMesh();
+    }
+#endif
+}
+
+void AMF_Field::EnsureNavMesh()
+{
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+    if (!NavSys)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[MF_Field] NavigationSystem not found! NavMesh will not work."));
+    }
+
+#if WITH_EDITOR
+    // Only update bounds in Editor mode, NEVER in PIE to avoid Mobility warnings
+    if (!GIsPlayInEditorWorld)
+    {
+        UpdateNavMesh();
+    }
+#else
+    UE_LOG(LogTemp, Log, TEXT("[MF_Field] EnsureNavMesh - Runtime generation relies on NavigationInvokers or pre-placed Bounds."));
+#endif
+}
+
+void AMF_Field::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
 }
 
 void AMF_Field::UpdateNavMesh()

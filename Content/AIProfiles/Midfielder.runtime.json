@@ -334,7 +334,7 @@
             "onTick": [
                 {
                     "actionName": "MoveTo",
-                    "paramsJson": "{ \"target\": \"HomePosition\" }"
+                    "paramsJson": "{ \"target\": \"Home\" }"
                 }
             ],
             "onExit": [],
@@ -398,7 +398,7 @@
             "onTick": [
                 {
                     "actionName": "MoveTo",
-                    "paramsJson": "{ \"target\": \"HomePosition\" }"
+                    "paramsJson": "{ \"target\": \"Home\" }"
                 }
             ],
             "onExit": [],

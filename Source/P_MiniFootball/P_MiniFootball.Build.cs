@@ -55,6 +55,8 @@ Path.Combine(ModulePath, "Base", "UI"),
 "GameplayTags",      // Gameplay tags support
 "P_MWCS_Runtime",    // MWCS Widget System (TransparentButton etc)
 "Projects",          // For IPluginManager
+"AIModule",          // AI support
+"NavigationSystem",  // Navigation for AI
                 }
                 );
 
@@ -67,8 +69,6 @@ Path.Combine(ModulePath, "Base", "UI"),
 "Json",
 "JsonUtilities",
 "UMG",               // Unreal Motion Graphics (Widget system)
-"AIModule",          // AI support (deferred but included)
-"NavigationSystem",  // Navigation for AI (deferred)
                 }
                 );
 

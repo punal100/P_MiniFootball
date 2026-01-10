@@ -690,9 +690,11 @@ void AMF_Ball::CheckGoalCollisions()
 
 void AMF_Ball::UpdatePossessedPosition()
 {
-    if (!CurrentPossessor)
+    // Use IsValid to check for PendingKill as well as nullptr
+    if (!IsValid(CurrentPossessor))
     {
-        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::UpdatePossessedPosition - No CurrentPossessor!"));
+        // If we are in possessed state but have no possessor, we can't update position.
+        // This might happen during replication latency.
         return;
     }
 
@@ -707,12 +709,15 @@ void AMF_Ball::UpdatePossessedPosition()
 
     // Debug: Log ball following player
     static float LastLogTime = 0.0f;
-    float CurrentTime = GetWorld()->GetTimeSeconds();
-    if (CurrentTime - LastLogTime > 1.0f) // Log every second
+    if (UWorld* World = GetWorld())
     {
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::UpdatePossessedPosition - Following %s at %s, Ball at %s"),
-               *CurrentPossessor->GetName(), *PlayerLocation.ToString(), *NewLocation.ToString());
-        LastLogTime = CurrentTime;
+        float CurrentTime = World->GetTimeSeconds();
+        if (CurrentTime - LastLogTime > 1.0f) // Log every second
+        {
+            UE_LOG(LogTemp, Log, TEXT("MF_Ball::UpdatePossessedPosition - Following %s at %s, Ball at %s"),
+                   *CurrentPossessor->GetName(), *PlayerLocation.ToString(), *NewLocation.ToString());
+            LastLogTime = CurrentTime;
+        }
     }
 }
 

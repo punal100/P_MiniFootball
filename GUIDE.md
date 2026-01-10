@@ -121,6 +121,14 @@ Edit profiles in `Content/AIProfiles/`:
 - `Defender.json` - Defensive behavior
 - `Goalkeeper.json` - Goal protection
 
+**Standard Blackboard Keys:**
+- `Ball` (Vector): Current ball position
+- `Goal_Opponent` (Vector): Location of opponent's goal
+- `Home` (Vector): Home formation position for this agent
+- `Role` (String): Agent role (Striker, Defender, etc.)
+- `HasBall` (Bool): Does this agent have the ball?
+- `IsBallLoose` (Bool): Is the ball currently unpossessed?
+
 See [P_EAIS GUIDE.md](../P_EAIS/GUIDE.md) for authoring custom behaviors.
 
 ---

@@ -21,7 +21,9 @@ class UCapsuleComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UAIComponent;
+class UAIComponent;
 class UAIBehaviour;
+class UNavigationInvokerComponent;
 
 // ==================== Delegates ====================
 
@@ -236,6 +238,10 @@ protected:
     /** Action Executor for EAIS */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     class UMF_EAISActionExecutorComponent *AIActionExecutor;
+
+    /** Navigation Invoker for dynamic NavMesh generation around this player */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+    UNavigationInvokerComponent* NavInvoker;
 
     /** Camera boom for top-down view */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
