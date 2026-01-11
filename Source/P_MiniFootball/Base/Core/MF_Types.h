@@ -140,7 +140,7 @@ namespace MF_Constants
 
     // Tackling
     constexpr float TackleCooldown = 1.0f;     // seconds
-    constexpr float TackleRange = 200.0f;      // cm (2 meters)
+    constexpr float TackleRange = 300.0f;      // cm (3 meters - Increased for easier AI tackling)
     constexpr float TackleStunDuration = 0.5f; // seconds
 
     // Network

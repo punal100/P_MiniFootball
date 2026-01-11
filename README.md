@@ -16,7 +16,9 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 - **Tackle System**: Server-validated tackles with cooldown and stun mechanics
 - **Match Flow**: Complete match lifecycle (Kickoff, Playing, GoalScored, HalfTime, MatchEnd)
 - **Team Management**: 11v11 format with team rosters and character switching
-- **Formation System**: Position-based roles (GK, DEF, MID, STR) with 4-4-2/4-3-3 presets
+- **Formation System**: Position-based roles (GK, DEF, MID, STR) automatically assigned on spawn
+- **Smart AI System**: Diverse AI behaviors (Striker, Midfielder, Defender, Goalkeeper) with role-specific positioning and obstacle avoidance
+- **Intelligent Support**: Teammates support attacks or defenses based on ball position and role
 - **Spectator System**: Players start as spectators and request to join teams via widgets
 - **Blueprint Interfaces**: Clean separation between GameMode (server) and PlayerController (client)
 
@@ -32,12 +34,17 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 | Phase 4  | Shooting & Passing (+Net)           | ✅ COMPLETE    |
 | Phase 5  | Goal & Scoring System (+Net)        | ✅ COMPLETE    |
 | Phase 6  | Match Flow & Game Modes (+Net)      | ✅ COMPLETE    |
-| Phase 7  | AI System (P_EAIS Integration)      | ✅ COMPLETE    |
+| Phase 7  | AI System (P_EAIS Integration)      | ✅ COMPLETE - OPTIMIZED |
 | Phase 8  | Polish & Mobile Optimization        | ❌ NOT STARTED |
 | Phase 9  | Spectator & Team Assignment (+Net)  | ✅ COMPLETE    |
 | Phase 10 | UI Widget System (C++)              | ✅ COMPLETE    |
 
-> [!NOTE] > **Phase 7 - AI System**: The P_EAIS integration is partially working. Core functionality (state machine, blackboard) works but the Visual AI Editor and some advanced features are still in development.
+> [!NOTE] > **Phase 7 - AI System**: The P_EAIS integration is fully functional. Recent updates (Jan 2026) include:
+> - **Pressing Logic**: Defenders and Midfielders actively press the ball carrier (`PressBall` state).
+> - **Zonal Defense**: Defenders maintain formation using calculated support positions rather than chasing random targets.
+> - **Tackle Implementation**: Improved tackle ranges (300cm) and dedicated states for Midfielders.
+> - **Aggressive Defense**: AI engages the ball if it enters a 10m proximity zone, regardless of formation.
+> - **Striker Fixes**: Resolved freezing issues and improved positioning.
 
 ---
 

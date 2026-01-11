@@ -22,7 +22,8 @@ public:
     UMF_EAISActionExecutorComponent();
 
     /** IEAIS_ActionExecutor Implementation */
-    virtual FEAIS_ActionResult EAIS_ExecuteAction_Implementation(const FName ActionId, const FString& ParamsJson) override;
+    /** IEAIS_ActionExecutor Implementation */
+    virtual FEAIS_ActionResult EAIS_ExecuteAction_Implementation(const FName ActionId, const FAIActionParams& Params) override;
 
 protected:
     virtual void BeginPlay() override;
@@ -32,10 +33,10 @@ private:
     AMF_PlayerCharacter* OwnerCharacter;
 
     // --- Action Handlers ---
-    FEAIS_ActionResult HandleShoot(const FString& ParamsJson);
-    FEAIS_ActionResult HandlePass(const FString& ParamsJson);
-    FEAIS_ActionResult HandleTackle(const FString& ParamsJson);
-    FEAIS_ActionResult HandleSprint(const FString& ParamsJson);
-    FEAIS_ActionResult HandleFace(const FString& ParamsJson);
-    FEAIS_ActionResult HandleMark(const FString& ParamsJson);
+    FEAIS_ActionResult HandleShoot(const FAIActionParams& Params);
+    FEAIS_ActionResult HandlePass(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleTackle(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleSprint(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleFace(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleMark(const FAIActionParams& Params);
 };

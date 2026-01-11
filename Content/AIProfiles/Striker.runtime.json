@@ -133,14 +133,13 @@
           "to": "ReturnHome",
           "priority": 100,
           "condition": {
-            "type": "Timer",
-            "keyOrName": "",
+            "type": "Blackboard",
+            "keyOrName": "DistToHome",
             "op": "GreaterThan",
             "compareValue": {
               "type": "Float",
-              "rawValue": "0.0"
-            },
-            "seconds": 0.0
+              "rawValue": "100.0"
+            }
           }
         }
       ]
@@ -357,7 +356,7 @@
       "onTick": [
         {
           "actionName": "MoveTo",
-          "paramsJson": "{ \"target\": \"Goal_Opponent\" }"
+          "paramsJson": "{ \"target\": \"SupportPosition\" }"
         }
       ],
       "onExit": [],
@@ -398,14 +397,13 @@
           "to": "Main",
           "priority": 100,
           "condition": {
-            "type": "Distance",
-            "keyOrName": "Home",
+            "type": "Blackboard",
+            "keyOrName": "DistToHome",
             "op": "LessThan",
             "compareValue": {
               "type": "Float",
               "rawValue": "50.0"
-            },
-            "target": "Home"
+            }
           }
         }
       ]

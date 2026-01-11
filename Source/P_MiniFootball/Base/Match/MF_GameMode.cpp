@@ -308,6 +308,15 @@ AMF_PlayerCharacter *AMF_GameMode::SpawnTeamCharacter(EMF_TeamID Team, int32 Spa
     {
         Character->SetTeamID(Team);
         Character->SetPlayerID(SpawnIndex);
+
+        // Assign Role based on formation index
+        FString AIRoleName = TEXT("Striker");
+        if (SpawnIndex == 0) AIRoleName = TEXT("Goalkeeper");
+        else if (SpawnIndex <= 4) AIRoleName = TEXT("Defender");
+        else if (SpawnIndex <= 8) AIRoleName = TEXT("Midfielder");
+
+        Character->SetAIProfile(AIRoleName);
+
         SpawnedCharacters.Add(Character);
     }
 
@@ -319,30 +328,61 @@ void AMF_GameMode::SetupDefaultSpawnLocations()
     // Only setup defaults if not already configured
     if (TeamASpawnLocations.Num() == 0)
     {
-        // Team A spawns on positive Y side (defending positive goal)
-        float YOffset = MF_Constants::FieldLength * 0.25f;
-        float XSpacing = MF_Constants::FieldWidth / (PlayersPerTeam + 1);
+        // Team A spawns on positive Y side (Detailed 4-4-2 Formation)
+        // Formation: 1 GK, 4 Defenders, 4 Midfielders, 2 Strikers
+        
+        const float Z = MF_Constants::GroundZ + MF_Constants::CharacterSpawnZOffset;
+        
+        // 1. Goalkeeper (Index 0)
+        TeamASpawnLocations.Add(FVector(0.0f, 4800.0f, Z)); // Near Goal Line
 
-        for (int32 i = 0; i < PlayersPerTeam; ++i)
-        {
-            float X = -MF_Constants::FieldWidth / 2.0f + XSpacing * (i + 1);
-            // Spawn above ground to prevent character being embedded in terrain
-            TeamASpawnLocations.Add(FVector(X, YOffset, MF_Constants::GroundZ + MF_Constants::CharacterSpawnZOffset));
-        }
+        // 2. Defenders (Index 1-4) - LB, CB, CB, RB
+        float DefY = 3500.0f;
+        TeamASpawnLocations.Add(FVector(-2000.0f, DefY, Z));
+        TeamASpawnLocations.Add(FVector(-700.0f,  DefY, Z));
+        TeamASpawnLocations.Add(FVector(700.0f,   DefY, Z));
+        TeamASpawnLocations.Add(FVector(2000.0f,  DefY, Z));
+
+        // 3. Midfielders (Index 5-8) - LM, CM, CM, RM
+        float MidY = 1500.0f;
+        TeamASpawnLocations.Add(FVector(-2000.0f, MidY, Z));
+        TeamASpawnLocations.Add(FVector(-700.0f,  MidY, Z));
+        TeamASpawnLocations.Add(FVector(700.0f,   MidY, Z));
+        TeamASpawnLocations.Add(FVector(2000.0f,  MidY, Z));
+
+        // 4. Strikers (Index 9-10)
+        float StrY = 200.0f; // Just inside their half
+        TeamASpawnLocations.Add(FVector(-500.0f, StrY, Z));
+        TeamASpawnLocations.Add(FVector(500.0f,  StrY, Z));
     }
 
     if (TeamBSpawnLocations.Num() == 0)
     {
-        // Team B spawns on negative Y side (defending negative goal)
-        float YOffset = -MF_Constants::FieldLength * 0.25f;
-        float XSpacing = MF_Constants::FieldWidth / (PlayersPerTeam + 1);
+        // Team B spawns on negative Y side (Detailed 4-4-2 Formation)
+        
+        const float Z = MF_Constants::GroundZ + MF_Constants::CharacterSpawnZOffset;
 
-        for (int32 i = 0; i < PlayersPerTeam; ++i)
-        {
-            float X = -MF_Constants::FieldWidth / 2.0f + XSpacing * (i + 1);
-            // Spawn above ground to prevent character being embedded in terrain
-            TeamBSpawnLocations.Add(FVector(X, YOffset, MF_Constants::GroundZ + MF_Constants::CharacterSpawnZOffset));
-        }
+        // 1. Goalkeeper (Index 0)
+        TeamBSpawnLocations.Add(FVector(0.0f, -4800.0f, Z));
+
+        // 2. Defenders (Index 1-4)
+        float DefY = -3500.0f;
+        TeamBSpawnLocations.Add(FVector(2000.0f,  DefY, Z)); // Mirror X order if desired, but not strictly necessary
+        TeamBSpawnLocations.Add(FVector(700.0f,   DefY, Z));
+        TeamBSpawnLocations.Add(FVector(-700.0f,  DefY, Z));
+        TeamBSpawnLocations.Add(FVector(-2000.0f, DefY, Z));
+
+        // 3. Midfielders (Index 5-8)
+        float MidY = -1500.0f;
+        TeamBSpawnLocations.Add(FVector(2000.0f,  MidY, Z));
+        TeamBSpawnLocations.Add(FVector(700.0f,   MidY, Z));
+        TeamBSpawnLocations.Add(FVector(-700.0f,  MidY, Z));
+        TeamBSpawnLocations.Add(FVector(-2000.0f, MidY, Z));
+
+        // 4. Strikers (Index 9-10)
+        float StrY = -200.0f;
+        TeamBSpawnLocations.Add(FVector(500.0f,  StrY, Z));
+        TeamBSpawnLocations.Add(FVector(-500.0f, StrY, Z));
     }
 
     UE_LOG(LogTemp, Log, TEXT("MF_GameMode::SetupDefaultSpawnLocations - TeamA: %d, TeamB: %d"),

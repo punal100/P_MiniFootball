@@ -98,10 +98,50 @@
                 "op": "LessThan",
                 "compareValue": {
                   "type": "Float",
-                  "rawValue": "250.0"
+                  "rawValue": "350.0"
                 }
               }
             ]
+          }
+        },
+        {
+          "to": "PressBall",
+          "priority": 750,
+          "condition": {
+            "type": "Or",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "AmIClosestToBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "DistToBall",
+                "op": "LessThan",
+                "compareValue": {
+                  "type": "Float",
+                  "rawValue": "1000.0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "to": "SupportDefense",
+          "priority": 725,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "OpponentHasBall",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "true"
+            }
           }
         },
         {
@@ -174,8 +214,13 @@
           "to": "ReturnHome",
           "priority": 100,
           "condition": {
-            "type": "Timer",
-            "seconds": 0.0
+            "type": "Blackboard",
+            "keyOrName": "DistToHome",
+            "op": "GreaterThan",
+            "compareValue": {
+              "type": "Float",
+              "rawValue": "100.0"
+            }
           }
         }
       ]
@@ -190,11 +235,7 @@
         },
         {
           "actionName": "Execute",
-          "paramsJson": "{ \"target\": \"MF.Face\", \"params\": { \"target\": \"Goal_Opponent\" } }"
-        },
-        {
-          "actionName": "Execute",
-          "paramsJson": "{ \"target\": \"MF.Shoot\", \"params\": { \"power\": 1.0 } }"
+          "paramsJson": "{ \"target\": \"MF.Shoot\", \"params\": { \"power\": 1.0, \"target\": \"Goal_Opponent\" } }"
         }
       ],
       "onTick": [],
@@ -220,7 +261,7 @@
         },
         {
           "actionName": "Execute",
-          "paramsJson": "{ \"target\": \"MF.Pass\" }"
+          "paramsJson": "{ \"target\": \"MF.Pass\", \"params\": { \"target\": \"Goal_Opponent\" } }"
         }
       ],
       "onTick": [],
@@ -263,6 +304,60 @@
           "condition": {
             "type": "Timer",
             "seconds": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "PressBall",
+      "terminal": false,
+      "onEnter": [
+        {
+          "actionName": "Log",
+          "paramsJson": "{ \"message\": \"Pressing ball carrier!\" }"
+        },
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true } }"
+        }
+      ],
+      "onTick": [
+        {
+          "actionName": "MoveTo",
+          "paramsJson": "{ \"target\": \"Ball\" }"
+        }
+      ],
+      "onExit": [
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "Tackle",
+          "priority": 100,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "DistToNearestOpponent",
+            "op": "LessThan",
+            "compareValue": {
+              "type": "Float",
+              "rawValue": "350.0"
+            }
+          }
+        },
+        {
+          "to": "Main",
+          "priority": 50,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "AmIClosestToBall",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "false"
+            }
           }
         }
       ]
@@ -322,6 +417,64 @@
       ]
     },
     {
+      "id": "SupportDefense",
+      "terminal": false,
+      "onEnter": [
+        {
+          "actionName": "Log",
+          "paramsJson": "{ \"message\": \"Holding Defensive Line\" }"
+        }
+      ],
+      "onTick": [
+        {
+          "actionName": "MoveTo",
+          "paramsJson": "{ \"target\": \"SupportPosition\" }"
+        }
+      ],
+      "onExit": [],
+      "transitions": [
+        {
+          "to": "PressBall",
+          "priority": 200,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "AmIClosestToBall",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "true"
+            }
+          }
+        },
+        {
+          "to": "Tackle",
+          "priority": 150,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "DistToNearestOpponent",
+            "op": "LessThan",
+            "compareValue": {
+              "type": "Float",
+              "rawValue": "350.0"
+            }
+          }
+        },
+        {
+          "to": "Main",
+          "priority": 100,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "OpponentHasBall",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "false"
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "MarkOpponent",
       "terminal": false,
       "onEnter": [
@@ -338,6 +491,19 @@
       ],
       "onExit": [],
       "transitions": [
+        {
+          "to": "Tackle",
+          "priority": 200,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "DistToNearestOpponent",
+            "op": "LessThan",
+            "compareValue": {
+              "type": "Float",
+              "rawValue": "350.0"
+            }
+          }
+        },
         {
           "to": "Main",
           "priority": 100,

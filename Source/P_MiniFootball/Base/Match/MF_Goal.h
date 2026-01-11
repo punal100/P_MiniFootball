@@ -43,9 +43,9 @@ public:
 
     // ==================== Configuration ====================
 
-    /** Which team scores when ball enters this goal */
+    /** Which team DEFENDS this goal (The owner). The OPPOSITE team scores here. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Goal")
-    EMF_TeamID GoalTeam = EMF_TeamID::None;
+    EMF_TeamID DefendingTeam = EMF_TeamID::None;
 
     // ==================== Events ====================
 

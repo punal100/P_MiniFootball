@@ -2,9 +2,6 @@
 
 #include "AI/MF_EAISActionExecutorComponent.h"
 #include "Player/MF_PlayerCharacter.h"
-#include "Dom/JsonObject.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
 
 UMF_EAISActionExecutorComponent::UMF_EAISActionExecutorComponent()
 {
@@ -17,7 +14,7 @@ void UMF_EAISActionExecutorComponent::BeginPlay()
     OwnerCharacter = Cast<AMF_PlayerCharacter>(GetOwner());
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::EAIS_ExecuteAction_Implementation(const FName ActionId, const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::EAIS_ExecuteAction_Implementation(const FName ActionId, const FAIActionParams& Params)
 {
     if (!OwnerCharacter) 
     {
@@ -37,12 +34,12 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::EAIS_ExecuteAction_Implement
         return Result;
     }
 
-    if (ActionId == "MF.Shoot") return HandleShoot(ParamsJson);
-    if (ActionId == "MF.Pass") return HandlePass(ParamsJson);
-    if (ActionId == "MF.Tackle") return HandleTackle(ParamsJson);
-    if (ActionId == "MF.Sprint") return HandleSprint(ParamsJson);
-    if (ActionId == "MF.Face") return HandleFace(ParamsJson);
-    if (ActionId == "MF.Mark") return HandleMark(ParamsJson);
+    if (ActionId == "MF.Shoot") return HandleShoot(Params);
+    if (ActionId == "MF.Pass") return HandlePass(Params);
+    if (ActionId == "MF.Tackle") return HandleTackle(Params);
+    if (ActionId == "MF.Sprint") return HandleSprint(Params);
+    if (ActionId == "MF.Face") return HandleFace(Params);
+    if (ActionId == "MF.Mark") return HandleMark(Params);
 
     FEAIS_ActionResult Result;
     Result.bSuccess = false;
@@ -50,35 +47,75 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::EAIS_ExecuteAction_Implement
     return Result;
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleShoot(const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleShoot(const FAIActionParams& Params)
 {
     FEAIS_ActionResult Result;
+
+    // Validation: Must have ball to shoot
+    if (!OwnerCharacter || !OwnerCharacter->HasBall())
+    {
+        Result.bSuccess = false;
+        Result.Message = TEXT("Cannot shoot: Do not possess ball");
+        return Result;
+    }
     
-    // Parse direction and power (optional)
+    // Parse direction and power
     FVector Direction = OwnerCharacter->GetActorForwardVector();
     float Power = 1.0f; // Multiplier of shoot speed
 
-    TSharedPtr<FJsonObject> JsonObject;
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ParamsJson);
-    if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+    if (Params.Power > 0.0f)
     {
-        if (JsonObject->HasField(TEXT("power"))) Power = JsonObject->GetNumberField(TEXT("power"));
-        // Target resolution is usually handled by MoveTo/AimAt, but we can override here
+        Power = Params.Power;
+    }
+
+    // [New] Target Support
+    if (!Params.Target.IsEmpty())
+    {
+        FVector TargetLocation;
+        if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*Params.Target), TargetLocation))
+        {
+            Direction = (TargetLocation - OwnerCharacter->GetActorLocation()).GetSafeNormal();
+            Result.Message = FString::Printf(TEXT("Shooting at %s"), *Params.Target);
+        }
     }
 
     // Call server-side execution directly
-    // Note: AMF_PlayerCharacter::ExecuteShoot takes world direction and raw power
     OwnerCharacter->Server_RequestShoot(Direction, Power * 2000.0f); // Proxy call to handle state/physics
 
     Result.bSuccess = true;
     return Result;
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandlePass(const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandlePass(const FAIActionParams& Params)
 {
     FEAIS_ActionResult Result;
+
+    // Validation: Must have ball to pass
+    if (!OwnerCharacter || !OwnerCharacter->HasBall())
+    {
+        Result.bSuccess = false;
+        Result.Message = TEXT("Cannot pass: Do not possess ball");
+        return Result;
+    }
+
     FVector Direction = OwnerCharacter->GetActorForwardVector();
     float Power = 0.5f;
+
+    if (Params.Power > 0.0f)
+    {
+        Power = Params.Power;
+    }
+
+    // [New] Target Support
+    if (!Params.Target.IsEmpty())
+    {
+        FVector TargetLocation;
+        if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*Params.Target), TargetLocation))
+        {
+            Direction = (TargetLocation - OwnerCharacter->GetActorLocation()).GetSafeNormal();
+            Result.Message = FString::Printf(TEXT("Passing to %s"), *Params.Target);
+        }
+    }
 
     OwnerCharacter->Server_RequestPass(Direction, Power * 1500.0f);
 
@@ -86,7 +123,7 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandlePass(const FString& Pa
     return Result;
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleTackle(const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleTackle(const FAIActionParams& Params)
 {
     FEAIS_ActionResult Result;
     OwnerCharacter->Server_RequestTackle();
@@ -94,44 +131,38 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleTackle(const FString& 
     return Result;
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleSprint(const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleSprint(const FAIActionParams& Params)
 {
     FEAIS_ActionResult Result;
     
     bool bActive = true; // Default to sprint on
-    
-    TSharedPtr<FJsonObject> JsonObject;
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ParamsJson);
-    if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
-    {
-        if (JsonObject->HasField(TEXT("active")))
-        {
-            bActive = JsonObject->GetBoolField(TEXT("active"));
-        }
-    }
 
+    // Check ExtraParams for "active" flag if available
+    if (Params.ExtraParams.Contains(TEXT("active")))
+    {
+        FString ActiveStr = Params.ExtraParams[TEXT("active")];
+        bActive = ActiveStr.Equals(TEXT("true"), ESearchCase::IgnoreCase);
+    }
+    
+    // Also support checking the boolean param if we add it to struct later
+    
     OwnerCharacter->SetSprinting(bActive);
     Result.bSuccess = true;
     Result.Message = bActive ? TEXT("Sprint ON") : TEXT("Sprint OFF");
     return Result;
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleFace(const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleFace(const FAIActionParams& Params)
 {
     FEAIS_ActionResult Result;
     
     FString TargetName = TEXT("Ball"); // Default target
     
-    TSharedPtr<FJsonObject> JsonObject;
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ParamsJson);
-    if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+    if (!Params.Target.IsEmpty())
     {
-        if (JsonObject->HasField(TEXT("target")))
-        {
-            TargetName = JsonObject->GetStringField(TEXT("target"));
-        }
+        TargetName = Params.Target;
     }
-
+    
     // Resolve target location via TargetProvider interface
     FVector TargetLocation;
     if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*TargetName), TargetLocation))
@@ -159,7 +190,7 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleFace(const FString& Pa
     return Result;
 }
 
-FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleMark(const FString& ParamsJson)
+FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleMark(const FAIActionParams& Params)
 {
     FEAIS_ActionResult Result;
     
@@ -174,8 +205,6 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleMark(const FString& Pa
         
         if (Distance > 100.0f)
         {
-            const FVector MarkPosition = TargetLocation - ToOpponent.GetSafeNormal() * 100.0f;
-            
             // Use AI movement component to move there
             if (AController* Controller = OwnerCharacter->GetController())
             {

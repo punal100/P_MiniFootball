@@ -94,8 +94,13 @@
                     "to": "GuardGoal",
                     "priority": 100,
                     "condition": {
-                        "type": "Timer",
-                        "seconds": 0.0
+                        "type": "Blackboard",
+                        "keyOrName": "DistToSupportPosition",
+                        "op": "GreaterThan",
+                        "compareValue": {
+                            "type": "Float",
+                            "rawValue": "200.0"
+                        }
                     }
                 }
             ]
@@ -192,7 +197,7 @@
             "onTick": [
                 {
                     "actionName": "MoveTo",
-                    "paramsJson": "{ \"target\": \"SupportPosition\" }"
+                    "paramsJson": "{ \"target\": \"Home\" }"
                 }
             ],
             "onExit": [],
@@ -224,7 +229,7 @@
             "onTick": [
                 {
                     "actionName": "MoveTo",
-                    "paramsJson": "{ \"target\": \"Home\" }"
+                    "paramsJson": "{ \"target\": \"SupportPosition\" }"
                 }
             ],
             "onExit": [],
@@ -234,7 +239,7 @@
                     "priority": 100,
                     "condition": {
                         "type": "Blackboard",
-                        "keyOrName": "DistToHome",
+                        "keyOrName": "DistToSupportPosition",
                         "op": "LessThan",
                         "compareValue": {
                             "type": "Float",

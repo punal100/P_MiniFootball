@@ -920,7 +920,7 @@ bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, 
     if (TargetId == "Home")
     {
         // Return spawn or defensive position
-        OutLocation = GetActorLocation(); // Placeholder
+        OutLocation = SpawnLocation;
         return true;
     }
 
@@ -956,7 +956,7 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
             // So if I'm TeamA, Goal_Opponent is the one where TeamA scores.
             if (bOpponent)
             {
-                if (Goal->GoalTeam == TeamID)
+                if (Goal->DefendingTeam != TeamID && Goal->DefendingTeam != EMF_TeamID::None)
                 {
                     OutActor = Goal;
                     return true;
@@ -964,7 +964,7 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
             }
             else
             {
-                if (Goal->GoalTeam != TeamID && Goal->GoalTeam != EMF_TeamID::None)
+                if (Goal->DefendingTeam == TeamID)
                 {
                     OutActor = Goal;
                     return true;
@@ -1011,6 +1011,37 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
         }
     }
 
+    if (TargetId == "Striker")
+    {
+        // Find a teammate with the Striker role
+        float NearestDist = 99999.0f;
+        AMF_PlayerCharacter* BestStriker = nullptr;
+
+        for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+        {
+            AMF_PlayerCharacter* Teammate = *It;
+            if (Teammate && Teammate != this && Teammate->GetTeamID() == TeamID)
+            {
+                // Check if profile name contains "Striker"
+                if (Teammate->AIProfile.Contains(TEXT("Striker")))
+                {
+                     const float Dist = FVector::Dist(GetActorLocation(), Teammate->GetActorLocation());
+                     if (Dist < NearestDist)
+                     {
+                         NearestDist = Dist;
+                         BestStriker = Teammate;
+                     }
+                }
+            }
+        }
+
+        if (BestStriker)
+        {
+            OutActor = BestStriker;
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -1047,15 +1078,21 @@ bool AMF_PlayerCharacter::SetAIProfile(const FString &ProfileName)
         ProfilePath += TEXT(".json");
     }
 
+    // Resolve Path dynamically from this plugin content dir
+    // IMPORTANT: StartAI() requires the directory argument if the ProfileName is relative
+    // Same logic as in BeginPlay()
+    FString PluginDir = IPluginManager::Get().FindPlugin("P_MiniFootball")->GetContentDir();
+    FString AIProfileDir = FPaths::Combine(PluginDir, TEXT("AIProfiles"));
+
     AIComponent->JsonFilePath = ProfilePath;
     AIComponent->ResetAI();
 
     AIProfile = ProfileName;
 
-    // Restart if was running
+    // Restart if was running (using the directory!)
     if (bAutoStartAI)
     {
-        AIComponent->StartAI();
+        AIComponent->StartAI(AIProfile, AIProfileDir);
     }
 
     return true;
@@ -1273,6 +1310,7 @@ void AMF_PlayerCharacter::SyncBlackboard()
     }
 
     AIComponent->SetBlackboardBool(TEXT("AmIClosestToBall"), bAmIClosestToBall);
+    AIComponent->SetBlackboardFloat(TEXT("DistToBall"), MyDistToBall);
 
     // ==================== ROLE-BASED DATA ====================
     AIComponent->SetBlackboardValue(TEXT("Role"), FBlackboardValue(FString(AIProfile)));
@@ -1287,6 +1325,10 @@ void AMF_PlayerCharacter::SyncBlackboard()
     // Calculate intelligent support position based on ball and role
     const FVector SupportPos = CalculateSupportPosition(BallPos, TeamID);
     AIComponent->SetBlackboardVector(TEXT("SupportPosition"), SupportPos);
+    
+    // Add distance for logic checks
+    const float DistToSupport = FVector::Dist(MyLocation, SupportPos);
+    AIComponent->SetBlackboardFloat(TEXT("DistToSupportPosition"), DistToSupport);
 }
 
 void AMF_PlayerCharacter::OnBallPossessionChanged()
@@ -1314,48 +1356,66 @@ FVector AMF_PlayerCharacter::CalculateSupportPosition(const FVector& BallPositio
     FVector SupportPos = BallPosition;
     
     // Determine attack direction based on team
-    // TeamA attacks positive X, TeamB attacks negative X
-    float AttackDirection = (MyTeam == EMF_TeamID::TeamA) ? 1.0f : -1.0f;
+    // TeamA (at +Y) attacks Negative Y
+    // TeamB (at -Y) attacks Positive Y
+    float AttackDirection = (MyTeam == EMF_TeamID::TeamA) ? -1.0f : 1.0f;
     
     // Get role-based positioning from AIProfile
     if (AIProfile.Contains(TEXT("Striker")))
     {
-        // Strikers position ahead of the ball towards opponent goal
-        SupportPos.X += OffsetFromBall * AttackDirection;
-        // Alternate left/right based on PlayerID for variety
-        SupportPos.Y += (PlayerID % 2 == 0) ? SideOffset : -SideOffset;
+        // Strikers position ahead of the ball towards opponent goal (Along Y)
+        // Increase offset to avoid swarming (1200 units = 12m)
+        SupportPos.Y += 1200.0f * AttackDirection;
+        // Alternate left/right based on PlayerID for variety (Along X)
+        // Wider spread (600 units)
+        SupportPos.X += (PlayerID % 2 == 0) ? 600.0f : -600.0f;
     }
     else if (AIProfile.Contains(TEXT("Midfielder")))
     {
         // Midfielders position beside the ball, spread out
-        float YOffset = SideOffset * 2.0f;
-        SupportPos.Y += (PlayerID % 2 == 0) ? YOffset : -YOffset;
+        // Stay somewhat behind striker but ahead of defenders
+        // Side offset depends on player ID
+        float Spread = 800.0f;
+        SupportPos.Y -= 400.0f * AttackDirection; // Slightly behind ball to receive pass
+        SupportPos.X += (PlayerID % 2 == 0) ? Spread : -Spread;
     }
     else if (AIProfile.Contains(TEXT("Defender")))
     {
-        // Defenders position behind the ball towards own goal
-        SupportPos.X -= OffsetFromBall * AttackDirection;
+        // Defenders: Anchor to HOME (SpawnLocation) but shift effectively to cover
+        // Do NOT just follow ball. Stay between Home and Ball.
+        
+        // Lerp between Home and Ball (30% towards ball)
+        FVector DefenseTarget = FMath::Lerp(SpawnLocation, BallPosition, 0.3f);
+        
+        SupportPos = DefenseTarget;
+        
         // Spread defenders across the width
-        float DefenseSpread = MF_Constants::FieldWidth * 0.15f;
-        SupportPos.Y += (PlayerID % 2 == 0) ? DefenseSpread : -DefenseSpread;
+        float DefenseSpread = 700.0f;
+        SupportPos.X += (PlayerID % 2 == 0) ? DefenseSpread : -DefenseSpread;
     }
     else if (AIProfile.Contains(TEXT("Goalkeeper")))
     {
-        // Goalkeeper stays in goal area
-        float GoalX = -(MF_Constants::FieldLength / 2.0f - 100.0f) * AttackDirection;
-        SupportPos = FVector(GoalX, 0.0f, MF_Constants::GroundZ);
+        // Goalkeeper stays in goal area but shifts X to match ball (cut off angle)
+        // Goal is at +/- FieldLength/2
+        float GoalY = (MF_Constants::FieldLength / 2.0f - 200.0f) * -AttackDirection; // Own Goal Line
+        
+        // Match Ball X but clamp to Goal Width (plus a bit of margin)
+        // Goal Width is 7.32m (732 units). Half is 366.
+        float ClampedX = FMath::Clamp(BallPosition.X, -450.0f, 450.0f);
+        
+        SupportPos = FVector(ClampedX, GoalY, MF_Constants::GroundZ);
     }
     else
     {
         // Default: follow ball loosely
-        SupportPos.X -= OffsetFromBall * 0.5f * AttackDirection;
+        SupportPos.Y += OffsetFromBall * 0.5f * AttackDirection;
     }
     
     // Clamp to field bounds
     const float HalfLength = MF_Constants::FieldLength / 2.0f;
     const float HalfWidth = MF_Constants::FieldWidth / 2.0f;
-    SupportPos.X = FMath::Clamp(SupportPos.X, -HalfLength, HalfLength);
-    SupportPos.Y = FMath::Clamp(SupportPos.Y, -HalfWidth, HalfWidth);
+    SupportPos.X = FMath::Clamp(SupportPos.X, -HalfWidth, HalfWidth); // Width is X
+    SupportPos.Y = FMath::Clamp(SupportPos.Y, -HalfLength, HalfLength); // Length is Y
     SupportPos.Z = MF_Constants::GroundZ;
     
     return SupportPos;

@@ -7,15 +7,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AIController.h"
+#include "DetourCrowdAIController.h"
 #include "MF_AIController.generated.h"
 
 /**
  * AI Controller that uses UEnhancedInputComponent as its InputComponent class.
  * This enables P_MEIS to bind actions to the controller input component.
+ * Inherits from ADetourCrowdAIController to support local avoidance (crowd sim).
  */
 UCLASS()
-class P_MINIFOOTBALL_API AMF_AIController : public AAIController
+class P_MINIFOOTBALL_API AMF_AIController : public ADetourCrowdAIController
 {
     GENERATED_BODY()
 

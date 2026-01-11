@@ -67,14 +67,14 @@ void AMF_Goal::OnGoalOverlap(UPrimitiveComponent *OverlappedComponent, AActor *O
     }
 
     // Make sure we have a valid team
-    if (GoalTeam == EMF_TeamID::None)
+    if (DefendingTeam == EMF_TeamID::None)
     {
         UE_LOG(LogTemp, Warning, TEXT("MF_Goal::OnGoalOverlap - GoalTeam not set!"));
         return;
     }
 
-    // Score! The OPPOSING team scores when ball enters this goal
-    EMF_TeamID ScoringTeam = (GoalTeam == EMF_TeamID::TeamA) ? EMF_TeamID::TeamB : EMF_TeamID::TeamA;
+    // Score! The OPPOSITE of DefendingTeam scores when ball enters this goal
+    EMF_TeamID ScoringTeam = (DefendingTeam == EMF_TeamID::TeamA) ? EMF_TeamID::TeamB : EMF_TeamID::TeamA;
 
     // Prevent multiple detections
     bGoalScoredThisFrame = true;
