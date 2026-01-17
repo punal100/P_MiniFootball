@@ -72,15 +72,49 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandleShoot(const FAIActionP
     if (!Params.Target.IsEmpty())
     {
         FVector TargetLocation;
-        if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*Params.Target), TargetLocation))
+        AActor* TargetActor = nullptr;
+        
+        // Try to get actor first for smarter aiming
+        IEAIS_TargetProvider::Execute_EAIS_GetTargetActor(OwnerCharacter, FName(*Params.Target), TargetActor);
+        
+        // If it's a Goal, aim for the opening!
+        // We know Goal_Opponent is likely an AMF_Goal
+        if (TargetActor && TargetActor->GetName().Contains(TEXT("Goal")))
         {
+             TargetLocation = TargetActor->GetActorLocation();
+             // Goal usually faces X or Y. In our case, Goals are at Y ends.
+             // We generally want to aim for the center of the goal line, maybe with slight offset?
+             // Assuming Goal Actor Location IS the center of the goal line.
+             
+             // Add slight noise to prevent robotic precision (Horizontal spread)
+             float Noise = FMath::RandRange(-200.0f, 200.0f);
+             if (FMath::Abs(TargetLocation.Y) > 5000.0f) // Goal is along Y axis
+             {
+                 TargetLocation.X += Noise;
+             }
+        }
+        else if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*Params.Target), TargetLocation))
+        {
+             // Fallback to location
+        }
+
+        if (TargetLocation != FVector::ZeroVector)
+        {
+            // P_MEIS: Clamp target to field dimensions to prevent shooting OOB
+            // Field dimensions are roughly 4000x10000 (FieldWidth x FieldLength)
+            // Safety clamp: Width +/- 2500, Length +/- 6000
+            TargetLocation.X = FMath::Clamp(TargetLocation.X, -2500.0f, 2500.0f);
+            TargetLocation.Y = FMath::Clamp(TargetLocation.Y, -5500.0f, 5500.0f);
+
             Direction = (TargetLocation - OwnerCharacter->GetActorLocation()).GetSafeNormal();
             Result.Message = FString::Printf(TEXT("Shooting at %s"), *Params.Target);
         }
     }
 
     // Call server-side execution directly
-    OwnerCharacter->Server_RequestShoot(Direction, Power * 2000.0f); // Proxy call to handle state/physics
+    // Max Shoot Speed is 2500, so Power (0-1) * 2500
+    float ShootPower = FMath::Clamp(Power * 2500.0f, 500.0f, 2500.0f);
+    OwnerCharacter->Server_RequestShoot(Direction, ShootPower); 
 
     Result.bSuccess = true;
     return Result;
@@ -106,18 +140,75 @@ FEAIS_ActionResult UMF_EAISActionExecutorComponent::HandlePass(const FAIActionPa
         Power = Params.Power;
     }
 
+    bool bTargetFound = false;
+    float PassSpeed = MF_Constants::BallPassSpeed * Power;
     // [New] Target Support
     if (!Params.Target.IsEmpty())
     {
-        FVector TargetLocation;
-        if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*Params.Target), TargetLocation))
+        FVector TargetLocation = FVector::ZeroVector;
+        AActor* TargetActor = nullptr;
+
+        // Prefer actor for better aiming/leading (and to avoid passing "to nobody")
+        if (IEAIS_TargetProvider::Execute_EAIS_GetTargetActor(OwnerCharacter, FName(*Params.Target), TargetActor) && TargetActor)
         {
-            Direction = (TargetLocation - OwnerCharacter->GetActorLocation()).GetSafeNormal();
+            TargetLocation = TargetActor->GetActorLocation();
+            bTargetFound = true;
+        }
+        else if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(OwnerCharacter, FName(*Params.Target), TargetLocation))
+        {
+            bTargetFound = true;
+        }
+
+        if (bTargetFound && TargetLocation != FVector::ZeroVector)
+        {
+            const FVector MyLoc = OwnerCharacter->GetActorLocation();
+
+            // Lead slightly if the target is moving (helps reduce "pass behind" interceptions)
+            FVector TargetVel2D = FVector::ZeroVector;
+            if (TargetActor)
+            {
+                TargetVel2D = TargetActor->GetVelocity();
+                TargetVel2D.Z = 0.0f;
+            }
+
+            const float Dist2D = FVector::Dist2D(MyLoc, TargetLocation);
+            const float BaseSpeed = FMath::Clamp(Dist2D / 0.9f, 600.0f, MF_Constants::BallPassSpeed);
+            PassSpeed = FMath::Clamp(BaseSpeed * FMath::Clamp(Power, 0.35f, 1.0f), 600.0f, MF_Constants::BallPassSpeed);
+
+            const float LeadTime = FMath::Clamp(Dist2D / FMath::Max(PassSpeed, 1.0f), 0.12f, 0.30f);
+            FVector AimPoint = TargetLocation + (TargetVel2D * LeadTime);
+
+            // Clamp aim point to field dimensions
+            AimPoint.X = FMath::Clamp(AimPoint.X, -3200.0f, 3200.0f);
+            AimPoint.Y = FMath::Clamp(AimPoint.Y, -5250.0f, 5250.0f);
+            AimPoint.Z = MyLoc.Z;
+
+            Direction = (AimPoint - MyLoc).GetSafeNormal();
             Result.Message = FString::Printf(TEXT("Passing to %s"), *Params.Target);
+        }
+        else
+        {
+            bTargetFound = false;
         }
     }
 
-    OwnerCharacter->Server_RequestPass(Direction, Power * 1500.0f);
+    // fallback: if no target or target not found, and we are facing out of bounds, aim towards center
+    if (!bTargetFound)
+    {
+        FVector MyLoc = OwnerCharacter->GetActorLocation();
+        // If facing towards sideline (>3000 or <-3000)
+        bool bFacingSideline = (MyLoc.X > 2500.0f && Direction.X > 0.0f) || (MyLoc.X < -2500.0f && Direction.X < 0.0f);
+        if (bFacingSideline)
+        {
+            // Aim towards opponent goal center or at least field center
+            float AttackDir = (OwnerCharacter->GetTeamID() == EMF_TeamID::TeamA) ? -1.0f : 1.0f;
+            FVector SafeTarget(0.0f, 5000.0f * AttackDir, 0.0f);
+            Direction = (SafeTarget - MyLoc).GetSafeNormal();
+            Result.Message = TEXT("Passing towards center (safe fallback)");
+        }
+    }
+
+    OwnerCharacter->Server_RequestPass(Direction, PassSpeed);
 
     Result.bSuccess = true;
     return Result;

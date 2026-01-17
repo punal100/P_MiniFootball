@@ -11,10 +11,16 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+#include "DrawDebugHelpers.h"
 
 AMF_Goal::AMF_Goal()
 {
+#if !UE_BUILD_SHIPPING
+    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bStartWithTickEnabled = false;
+#else
     PrimaryActorTick.bCanEverTick = false;
+#endif
 
     // Create goal trigger box
     GoalTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("GoalTrigger"));
@@ -41,7 +47,39 @@ void AMF_Goal::BeginPlay()
     {
         GoalTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMF_Goal::OnGoalOverlap);
     }
+
+#if !UE_BUILD_SHIPPING
+#if WITH_EDITORONLY_DATA
+    if (bShowDebugInEditor)
+    {
+        SetActorTickEnabled(true);
+    }
+#endif
+#endif
 }
+
+#if !UE_BUILD_SHIPPING
+void AMF_Goal::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+#if WITH_EDITORONLY_DATA
+    if (!bShowDebugInEditor || !GoalTrigger)
+    {
+        return;
+    }
+
+    const FVector Center = GoalTrigger->GetComponentLocation();
+    const FVector Extent = GoalTrigger->GetScaledBoxExtent();
+    const FQuat Rot = GoalTrigger->GetComponentQuat();
+
+    const FColor DebugColor = (DefendingTeam == EMF_TeamID::TeamA) ? FColor::Blue :
+                              (DefendingTeam == EMF_TeamID::TeamB) ? FColor::Red : FColor::White;
+
+    DrawDebugBox(GetWorld(), Center, Extent, Rot, DebugColor, false, 0.0f, 0, 3.0f);
+#endif
+}
+#endif
 
 void AMF_Goal::OnGoalOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor,
                              UPrimitiveComponent *OtherComp, int32 OtherBodyIndex,

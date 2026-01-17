@@ -17,7 +17,16 @@ if (-not (Test-Path $ProfilePath)) {
 }
 
 $json = Get-Content $ProfilePath -Raw | ConvertFrom-Json
-$code = Get-ChildItem $SourcePath -Recurse -Include "*.cpp", "*.h" | Get-Content -Raw
+
+$codeFiles = Get-ChildItem -Path $SourcePath -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -in @(".cpp", ".h") }
+
+if (-not $codeFiles -or $codeFiles.Count -eq 0) {
+    Write-Host "X No source files found under: $SourcePath" -ForegroundColor Red
+    exit 1
+}
+
+$code = ($codeFiles | Get-Content -Raw) -join "`n"
 
 $missing = @()
 

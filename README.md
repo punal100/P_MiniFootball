@@ -38,13 +38,17 @@ For a quick project-oriented checklist, see [GUIDE.md](./GUIDE.md).
 | Phase 8  | Polish & Mobile Optimization        | ❌ NOT STARTED |
 | Phase 9  | Spectator & Team Assignment (+Net)  | ✅ COMPLETE    |
 | Phase 10 | UI Widget System (C++)              | ✅ COMPLETE    |
+| Phase 11 | Player Indicators (3D Text)         | ✅ COMPLETE    |
 
 > [!NOTE] > **Phase 7 - AI System**: The P_EAIS integration is fully functional. Recent updates (Jan 2026) include:
 > - **Pressing Logic**: Defenders and Midfielders actively press the ball carrier (`PressBall` state).
 > - **Zonal Defense**: Defenders maintain formation using calculated support positions rather than chasing random targets.
-> - **Tackle Implementation**: Improved tackle ranges (300cm) and dedicated states for Midfielders.
+> - **Tackle Implementation**: Tackle range reduced to 200cm and tackles require facing the ball (server-validated facing dot threshold).
 > - **Aggressive Defense**: AI engages the ball if it enters a 10m proximity zone, regardless of formation.
-> - **Striker Fixes**: Resolved freezing issues and improved positioning.
+> - **Striker Fixes**: Added ball-carrier pressing (so strikers actually close distance before tackling) and face-before-tackle to satisfy facing-gated tackles.
+> - **Midfielder Passing**: Pass-to-striker is now gated on striker availability + distance-to-goal + distance-to-striker, and avoids priority ties with avoidance.
+> - **Loose Ball Recovery**: Defenders will chase nearby loose balls even if they are not globally “closest to ball”.
+> - **Goalkeeper Stability**: GK movement target is damped to reduce circling/jitter.
 
 ---
 
@@ -106,10 +110,10 @@ This plugin includes command-line verifiable checks under `DevTools/scripts/`.
 
 For full project build + Unreal Automation tests, use the project’s build tasks / Unreal build tooling (and see the top-level project docs).
 
-### Run Code Pattern Verification
+### Run ActionName Parity Verification
 
 ```powershell
-PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_CodePatterns.ps1
+PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_ActionNameParity.ps1
 ```
 
 ### Run ActionName Parity Verification
@@ -150,6 +154,46 @@ PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_ActionNamePar
 | Field Width  | 6800 cm (68m)     |
 | Goal Width   | 732 cm (7.32m)    |
 | Goal Height  | 244 cm (2.44m)    |
+
+### Field Components (Automatic Spawning)
+
+`AMF_Field` automatically spawns the following actors during construction:
+
+| Component | Class | Purpose |
+|-----------|-------|---------|
+| Goal A | `AMF_Goal` | TeamA's defensive goal (opponent scores here) |
+| Goal B | `AMF_Goal` | TeamB's defensive goal (opponent scores here) |
+| Penalty Area A | `AMF_PenaltyArea` | TeamA's penalty area (GK protection zone) |
+| Penalty Area B | `AMF_PenaltyArea` | TeamB's penalty area (GK protection zone) |
+
+**Configuration (on MF_Field):**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `GoalWidth` | 732 cm | Width of goal (FIFA: 7.32m) |
+| `GoalHeight` | 244 cm | Height of goal (FIFA: 2.44m) |
+| `GoalDepth` | 50 cm | Depth of goal trigger box |
+| `PenaltyAreaLength` | 1650 cm | Length of penalty area (FIFA: 16.5m) |
+| `PenaltyAreaWidth` | 4030 cm | Width of penalty area (FIFA: 40.3m) |
+| `bAutoSpawnGoals` | true | Enable automatic goal spawning |
+| `bAutoSpawnPenaltyAreas` | true | Enable automatic penalty area spawning |
+
+**Debug Visualization (Editor/Development builds only):**
+
+| Property | Description |
+|----------|-------------|
+| `bShowFieldDebug` | Draw field bounds and center circle |
+| `bShowGoalDebug` | Draw goal trigger boxes |
+| `bShowPenaltyAreaDebug` | Draw penalty area bounds |
+
+**Actor Tags:**
+
+| Actor | Tags |
+|-------|------|
+| Goal (Team A) | `Goal`, `TeamA` |
+| Goal (Team B) | `Goal`, `TeamB` |
+| Penalty Area (Team A) | `PenaltyArea`, `TeamA` |
+| Penalty Area (Team B) | `PenaltyArea`, `TeamB` |
 
 ---
 
@@ -229,6 +273,16 @@ Menu UI is created by the menu PlayerController. Gameplay UI should be created b
 ```csharp
 PublicDependencyModuleNames.AddRange(new string[] { "P_MiniFootball" });
 ```
+
+---
+
+## 🗺️ Roadmap & Planned Features
+
+### Match Rules (Upcoming)
+- **Out of Bounds Handling**: Currently, the ball simply resets to the center of the field when it crosses boundary lines or goals.
+- **Corner Kicks**: Implementation of specialized kickoff behavior when the ball crosses the goal line (defended side).
+- **Free Throws / Throw-ins**: Side-line restart mechanics.
+- **Penalty Kicks**: Specialized state for fouls committed inside the penalty area.
 
 ---
 

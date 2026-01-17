@@ -140,8 +140,14 @@ namespace MF_Constants
 
     // Tackling
     constexpr float TackleCooldown = 1.0f;     // seconds
-    constexpr float TackleRange = 300.0f;      // cm (3 meters - Increased for easier AI tackling)
+    constexpr float TackleRange = 200.0f;      // cm (2 meters)
+    constexpr float TackleFacingMinDot = 0.35f; // cos(~69.5deg) - must be facing the ball carrier (BYPASSED for GK in own penalty area)
     constexpr float TackleStunDuration = 0.5f; // seconds
+
+    // Ball Carrier Speed Reduction
+    // When a player has the ball, their max speed is reduced to simulate dribbling
+    constexpr float BallCarrierSpeedReductionAbsolute = 50.0f;   // cm/s - flat reduction from max speed
+    constexpr float BallCarrierSpeedReductionPercent = 0.05f;    // 05% speed reduction (0.0 to 1.0)
 
     // Network
     constexpr float NetUpdateFrequency = 60.0f;    // Updates per second

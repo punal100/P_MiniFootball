@@ -4,12 +4,16 @@
  */
 
 #include "CoreMinimal.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+
 #include "Misc/AutomationTest.h"
 #include "../../Base/Match/MF_Field.h"
 #include "NavMesh/NavMeshBoundsVolume.h"
-#include "Kismet/GameplayStatics.h"
 #include "Components/BrushComponent.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMFFieldNavMeshTest, "P_MiniFootball.Match.FieldNavMeshGen", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
@@ -39,27 +43,36 @@ bool FMFFieldNavMeshTest::RunTest(const FString& Parameters)
     // World->BeginPlay();
     Field->EnsureNavMesh();
 
-    // Check for NavMeshBoundsVolume
-    TArray<AActor*> NavVolumes;
-    UGameplayStatics::GetAllActorsOfClass(World, ANavMeshBoundsVolume::StaticClass(), NavVolumes);
-
-    TestTrue("NavMeshBoundsVolume should be spawned", NavVolumes.Num() > 0);
-
-    if (NavVolumes.Num() > 0)
+    // Check for NavMeshBoundsVolume (avoid GameplayStatics which requires a valid WorldContext)
+    ANavMeshBoundsVolume* FirstNavVolume = nullptr;
+    for (TActorIterator<ANavMeshBoundsVolume> It(World); It; ++It)
     {
-         ANavMeshBoundsVolume* Vol = Cast<ANavMeshBoundsVolume>(NavVolumes[0]);
-         if (TestNotNull("NavVolume cast check", Vol))
-         {
-             // Check bounds roughly match expectation (won't be 0 if brush is set)
-             FVector Extent = Vol->GetBrushComponent()->Bounds.BoxExtent;
-             // We expect Extent to be > 1000.f
-             TestTrue("NavMesh volume should have significant extent (Brush updated)", Extent.Size() > 1000.0f);
-             
-             UE_LOG(LogTemp, Log, TEXT("Verified NavMesh Volume Extent: %s"), *Extent.ToString());
-         }
+        FirstNavVolume = *It;
+        break;
+    }
+
+    TestNotNull(TEXT("NavMeshBoundsVolume should be spawned"), FirstNavVolume);
+
+    if (FirstNavVolume)
+    {
+        UBrushComponent* BrushComponent = FirstNavVolume->GetBrushComponent();
+        if (TestNotNull(TEXT("NavVolume BrushComponent"), BrushComponent))
+        {
+            // Check bounds roughly match expectation (won't be 0 if brush is set)
+            const FVector Extent = BrushComponent->Bounds.BoxExtent;
+            // We expect Extent to be > 1000.f
+            TestTrue(TEXT("NavMesh volume should have significant extent (Brush updated)"), Extent.Size() > 1000.0f);
+            UE_LOG(LogTemp, Log, TEXT("Verified NavMesh Volume Extent: %s"), *Extent.ToString());
+        }
     }
 
     // Clean up
     World->DestroyWorld(false);
+    if (GEngine)
+    {
+        GEngine->DestroyWorldContext(World);
+    }
     return true;
 }
+
+#endif // WITH_DEV_AUTOMATION_TESTS

@@ -174,6 +174,7 @@ void AMF_GameState::SetMatchPhase(EMF_MatchPhase NewPhase)
         {
         case EMF_MatchPhase::Playing:
             bMatchTimerActive = true;
+            NotifyAIMatchPlaying();
             break;
         case EMF_MatchPhase::WaitingForPlayers:
         case EMF_MatchPhase::Kickoff:
@@ -187,6 +188,31 @@ void AMF_GameState::SetMatchPhase(EMF_MatchPhase NewPhase)
         OnRep_MatchPhase();
         UE_LOG(LogTemp, Log, TEXT("MF_GameState::SetMatchPhase - Phase: %d"), static_cast<int32>(NewPhase));
     }
+}
+
+void AMF_GameState::NotifyAIMatchPlaying()
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    auto NotifyRoster = [](const TArray<AMF_PlayerCharacter*>& Roster)
+    {
+        for (AMF_PlayerCharacter* Player : Roster)
+        {
+            if (Player && Player->IsAIRunning())
+            {
+                Player->InjectAIEvent(TEXT("MatchStarted"));
+                Player->ResetAI();
+            }
+        }
+    };
+
+    NotifyRoster(TeamAPlayers);
+    NotifyRoster(TeamBPlayers);
+
+    UE_LOG(LogTemp, Log, TEXT("MF_GameState::NotifyAIMatchPlaying - Notified running AI on both teams"));
 }
 
 void AMF_GameState::ResetForKickoff(EMF_TeamID Team)
@@ -426,6 +452,19 @@ EMF_TeamID AMF_GameState::GetTeamForController(APlayerController *PC) const
     }
 
     return EMF_TeamID::None;
+}
+
+bool AMF_GameState::TeamHasBall(EMF_TeamID Team) const
+{
+    const TArray<AMF_PlayerCharacter*>& Roster = (Team == EMF_TeamID::TeamA) ? TeamAPlayers : TeamBPlayers;
+    for (AMF_PlayerCharacter* Player : Roster)
+    {
+        if (Player && Player->HasBall())
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 // ==================== Rep Notifies ====================

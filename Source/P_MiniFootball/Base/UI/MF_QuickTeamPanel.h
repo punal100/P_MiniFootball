@@ -103,11 +103,11 @@ protected:
 
     /** Team color for Team A */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|QuickTeamPanel")
-    FLinearColor TeamAColor = FLinearColor(0.8f, 0.2f, 0.2f, 0.8f);
+    FLinearColor TeamAColor = FLinearColor(0.2f, 0.2f, 0.8f, 0.8f); // Blue
 
     /** Team color for Team B */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|QuickTeamPanel")
-    FLinearColor TeamBColor = FLinearColor(0.2f, 0.2f, 0.8f, 0.8f);
+    FLinearColor TeamBColor = FLinearColor(0.8f, 0.2f, 0.2f, 0.8f); // Red
 
     /** Max players to display in compact list */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|QuickTeamPanel")

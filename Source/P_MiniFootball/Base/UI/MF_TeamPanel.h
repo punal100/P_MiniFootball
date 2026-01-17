@@ -104,11 +104,11 @@ protected:
 
     /** Team color for Team A */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TeamPanel")
-    FLinearColor TeamAColor = FLinearColor(0.8f, 0.2f, 0.2f, 1.0f); // Red
+    FLinearColor TeamAColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f); // Blue
 
     /** Team color for Team B */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TeamPanel")
-    FLinearColor TeamBColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f); // Blue
+    FLinearColor TeamBColor = FLinearColor(0.8f, 0.2f, 0.2f, 1.0f); // Red
 
 public:
     // ==================== Widget Specification (JSON) ====================

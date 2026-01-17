@@ -19,6 +19,24 @@ Recommended per-level overrides:
 - `L_MainMenu`: GameMode `BP_MF_MenuGameMode`, PlayerController `BP_MF_MenuPlayerController` (spawns the configured Main Menu widget).
 - `L_MiniFootball`: GameMode `BP_MF_GameMode`, PlayerController `BP_MF_PlayerController` (gameplay PC is responsible for spawning `WBP_MF_HUD`).
 
+## Field setup (automatic)
+
+When you place `AMF_Field` in your level, it automatically creates:
+
+- **2 Goals**: Positioned at each end of the field
+- **2 Penalty Areas**: Inside the field at each goal end
+
+### Quick verification
+
+1. Place `MF_Field` (or `BP_MF_Field`) in your level
+2. Confirm 2 `MF_Goal` and 2 `MF_PenaltyArea` actors appear in the World Outliner
+3. Enable debug visualization on the Field actor:
+    - `bShowFieldDebug`
+    - `bShowGoalDebug`
+    - `bShowPenaltyAreaDebug`
+
+> Note: Debug visualization is compiled out of Shipping builds.
+
 ## 3) Multiplayer (fastest)
 
 - In Editor: set “Number of Players” to 2+
@@ -112,6 +130,13 @@ EAIS.ListActions           // List available AI actions
 EAIS.SpawnBot 1 Striker    // Spawn additional AI bot
 ```
 
+### Visual Indicators (Player Labels)
+
+- **Text**: Displays the player's role (e.g., Striker, Defender).
+- **Color**: Blue (Team A), Red (Team B), White (None/Neutral).
+- **Replication**: Labels are fully replicated; all clients see the same roles and colors.
+- **Customization**: Appearance is driven by `UTextRenderComponent` attachment in `MF_PlayerCharacter.cpp`.
+
 ### Customizing AI
 
 Edit profiles in `Content/AIProfiles/`:
@@ -130,6 +155,12 @@ Edit profiles in `Content/AIProfiles/`:
 - `IsBallLoose` (Bool): Is the ball currently unpossessed?
 
 See [P_EAIS GUIDE.md](../P_EAIS/GUIDE.md) for authoring custom behaviors.
+
+---
+
+## 🚧 Planned Enhancements (TODO)
+
+- **Standard Football Rules**: Implementation of Throw-ins, Corner Kicks, and Free Throws. The system currently resets the ball to the center circle for all out-of-bounds events.
 
 ---
 
@@ -205,6 +236,9 @@ PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_CodePatterns.ps
 
 # Verify ActionName parity
 PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_ActionNameParity.ps1
+
+# Verify Player Indicators (Headless Build)
+PowerShell -ExecutionPolicy Bypass -File DevTools/scripts/Verify_Build_Indicators.ps1
 ```
 
 ---

@@ -60,6 +60,13 @@ public:
     UPROPERTY(ReplicatedUsing = OnRep_Possessor, BlueprintReadOnly, Category = "Ball")
     AMF_PlayerCharacter *CurrentPossessor;
 
+    /**
+     * GC-safe cached handle for possessor dereferencing.
+     * We keep the replicated raw pointer for networking/Blueprints, but use this for runtime access.
+     */
+    UPROPERTY(Transient)
+    TWeakObjectPtr<AMF_PlayerCharacter> CurrentPossessorWeak;
+
     /** Replicated ball physics data */
     UPROPERTY(ReplicatedUsing = OnRep_BallPhysics, BlueprintReadOnly, Category = "Ball")
     FMF_BallReplicationData ReplicatedPhysics;
@@ -83,7 +90,7 @@ public:
 
     /** Velocity threshold (squared) for auto-pickup eligibility */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Possession")
-    float AutoPickupVelocityThreshold = 10000.0f;  // cm^2/s^2
+    float AutoPickupVelocityThreshold = 40000.0f;  // cm^2/s^2
 
     // ==================== Ball Actions ====================
     /** Kick the ball in a direction with power */
@@ -142,7 +149,7 @@ public:
     bool IsOutOfBounds() const { return CurrentBallState == EMF_BallState::OutOfBounds; }
 
     UFUNCTION(BlueprintPure, Category = "Ball")
-    AMF_PlayerCharacter *GetPossessor() const { return CurrentPossessor; }
+    AMF_PlayerCharacter *GetPossessor() const { return CurrentPossessorWeak.Get(); }
 
     // ==================== Events ====================
     UPROPERTY(BlueprintAssignable, Category = "Events")
@@ -160,6 +167,9 @@ public:
 protected:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
+
+    UFUNCTION()
+    void HandlePossessorDestroyed(AActor* DestroyedActor);
 
     // ==================== Rep Notifies ====================
     UFUNCTION()
@@ -218,6 +228,12 @@ private:
 
     /** Cooldown for possession changes */
     float PossessionCooldown;
+
+    /** Time of the last kick (server time seconds) */
+    float LastKickTime = 0.0f;
+
+    /** How long the last kicker cannot pick up the ball (seconds) */
+    static constexpr float LastKickerCooldown = 1.0f;
 
     /** Last kicker (for assists/own-goals) */
     UPROPERTY()

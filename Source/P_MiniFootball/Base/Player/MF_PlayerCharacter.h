@@ -24,6 +24,7 @@ class UAIComponent;
 class UAIComponent;
 class UAIBehaviour;
 class UNavigationInvokerComponent;
+class UTextRenderComponent;
 
 // ==================== Delegates ====================
 
@@ -142,7 +143,7 @@ public:
 
     // ==================== AI Configuration ====================
     /** The AI Behavior profile to use */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
+    UPROPERTY(ReplicatedUsing = OnRep_AIProfile, EditAnywhere, BlueprintReadWrite, Category = "AI|Config")
     FString AIProfile = TEXT("Striker");
 
     /** Optional: Pre-assigned behavior asset */
@@ -239,6 +240,10 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     class UMF_EAISActionExecutorComponent *AIActionExecutor;
 
+    /** 3D Text Indicator for Role and Team */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MiniFootball|Components")
+    UTextRenderComponent* PlayerIndicator;
+
     /** Navigation Invoker for dynamic NavMesh generation around this player */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     UNavigationInvokerComponent* NavInvoker;
@@ -301,6 +306,12 @@ protected:
     UPROPERTY(BlueprintReadOnly, Category = "MiniFootball|Formation")
     FVector SpawnLocation = FVector::ZeroVector;
 
+    /** Cached goalkeeper target position to avoid MoveTo churn/jitter */
+    FVector CachedGKTargetPosition = FVector::ZeroVector;
+
+    /** Last time we updated CachedGKTargetPosition */
+    float LastGKTargetUpdateTime = -1000.0f;
+
     // ==================== Rep Notifies ====================
 
     UFUNCTION()
@@ -315,6 +326,9 @@ protected:
     UFUNCTION()
     void OnRep_CurrentPlayerState();
 
+    UFUNCTION()
+    void OnRep_AIProfile();
+
     // ==================== Internal Functions ====================
 
     /** Synchronize game state to AI blackboard */
@@ -323,8 +337,14 @@ protected:
     /** Called when possession changes - update AI blackboard */
     void OnBallPossessionChanged();
 
+    /** Update the 3D text indicator (Text & Color) */
+    void UpdatePlayerIndicator();
+
     /** Calculate intelligent support position based on ball location and role */
     FVector CalculateSupportPosition(const FVector& BallPosition, EMF_TeamID MyTeam) const;
+
+    /** Calculate a separation vector to prevent clumping with teammates */
+    FVector CalculateSeparationVector() const;
 
     /** Setup input bindings via InputHandler */
     void SetupInputBindings();

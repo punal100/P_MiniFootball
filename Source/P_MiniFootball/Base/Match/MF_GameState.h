@@ -171,6 +171,10 @@ public:
     UFUNCTION(BlueprintPure, Category = "Teams")
     EMF_TeamID GetTeamForController(APlayerController *PC) const;
 
+    /** Check if a team currently has ball possession */
+    UFUNCTION(BlueprintPure, Category = "Match")
+    bool TeamHasBall(EMF_TeamID Team) const;
+
     // ==================== Events ====================
     UPROPERTY(BlueprintAssignable, Category = "Events")
     FOnScoreChanged OnScoreChanged;
@@ -220,6 +224,9 @@ protected:
     /** Handler for ball goal event */
     UFUNCTION()
     void HandleGoalScored(AMF_Ball *Ball, EMF_TeamID ScoringTeam);
+
+    /** Notify all running AI that match is now Playing (forces state re-evaluation) */
+    void NotifyAIMatchPlaying();
 
 private:
     /** Is match timer running */

@@ -26,7 +26,7 @@ AMF_Spectator::AMF_Spectator()
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
     CameraBoom->TargetArmLength = 2000.0f;
-    CameraBoom->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));  // Slightly less steep angle
+    CameraBoom->SetRelativeRotation(FRotator(-45.0f, 180.0f, 0.0f));  // Slightly less steep angle
     
     // Use pawn control rotation so mouse look works
     CameraBoom->bUsePawnControlRotation = true;
@@ -60,6 +60,12 @@ void AMF_Spectator::BeginPlay()
     SetActorLocation(FVector(0.0f, 0.0f, CameraHeight));
 
     UE_LOG(LogTemp, Log, TEXT("MF_Spectator::BeginPlay - Spectator pawn spawned"));
+
+    // Set initial control rotation to match the desired camera angle (180 degrees Yaw)
+    if (AController *PC = GetController())
+    {
+        PC->SetControlRotation(FRotator(-45.0f, 180.0f, 0.0f));
+    }
 }
 
 void AMF_Spectator::Tick(float DeltaTime)

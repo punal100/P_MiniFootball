@@ -44,6 +44,7 @@ AMF_Ball::AMF_Ball()
     // Initialize state
     CurrentBallState = EMF_BallState::Loose;
     CurrentPossessor = nullptr;
+    CurrentPossessorWeak = nullptr;
     Velocity = FVector::ZeroVector;
     AngularVelocity = FVector::ZeroVector;
     bIsGrounded = true;
@@ -100,11 +101,11 @@ void AMF_Ball::Tick(float DeltaTime)
     float CurrentTime = GetWorld()->GetTimeSeconds();
     if (CurrentTime - LastStateLogTime > 2.0f) // Log every 2 seconds
     {
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::Tick - State: %d, Possessor: %s, HasAuthority: %d, Location: %s"),
-               (int32)CurrentBallState,
-               CurrentPossessor ? *CurrentPossessor->GetName() : TEXT("None"),
-               HasAuthority(),
-               *GetActorLocation().ToString());
+         UE_LOG(LogTemp, Log, TEXT("MF_Ball::Tick - State: %d, PossessorPtr: %p, HasAuthority: %d, Location: %s"),
+             (int32)CurrentBallState,
+             (void*)CurrentPossessor,
+             HasAuthority(),
+             *GetActorLocation().ToString());
         LastStateLogTime = CurrentTime;
     }
 
@@ -163,8 +164,14 @@ void AMF_Ball::Kick(FVector Direction, float Power, bool bAddHeight)
     // Add spin (simplified)
     AngularVelocity = FVector::CrossProduct(FVector::UpVector, Direction) * (Power / 100.0f);
 
+    // Track kick time for last-kicker pickup lockout
+    if (UWorld* World = GetWorld())
+    {
+        LastKickTime = World->GetTimeSeconds();
+    }
+
     // Release possession
-    if (CurrentPossessor)
+    if (IsValid(CurrentPossessor))
     {
         LastKicker = CurrentPossessor;
         ReleasePossession();
@@ -191,9 +198,33 @@ void AMF_Ball::SetPossessor(AMF_PlayerCharacter *NewPossessor)
     }
 
     AMF_PlayerCharacter *OldPossessor = CurrentPossessor;
-    CurrentPossessor = NewPossessor;
 
-    if (NewPossessor)
+    if (OldPossessor && !IsValid(OldPossessor))
+    {
+        OldPossessor = nullptr;
+        CurrentPossessor = nullptr;
+    }
+
+    if (NewPossessor && !IsValid(NewPossessor))
+    {
+        NewPossessor = nullptr;
+    }
+
+    // Unbind from old possessor destroy event (if any)
+    if (IsValid(OldPossessor))
+    {
+        OldPossessor->OnDestroyed.RemoveDynamic(this, &AMF_Ball::HandlePossessorDestroyed);
+    }
+    CurrentPossessor = NewPossessor;
+    CurrentPossessorWeak = NewPossessor;
+
+    // Bind to new possessor destroy event (if any)
+    if (IsValid(NewPossessor))
+    {
+        NewPossessor->OnDestroyed.AddDynamic(this, &AMF_Ball::HandlePossessorDestroyed);
+    }
+
+    if (IsValid(NewPossessor))
     {
         SetBallState(EMF_BallState::Possessed);
         Velocity = FVector::ZeroVector;
@@ -204,7 +235,7 @@ void AMF_Ball::SetPossessor(AMF_PlayerCharacter *NewPossessor)
         NewPossessor->CurrentBall = this;  // CRITICAL: Set CurrentBall for shoot/pass to work
         NewPossessor->SetPossessedBall(this);
 
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::SetPossessor - New possessor: %s, CurrentBall set"), *NewPossessor->GetName());
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::SetPossessor - New possessor ptr: %p, CurrentBall set"), (void*)NewPossessor);
     }
     else
     {
@@ -212,7 +243,7 @@ void AMF_Ball::SetPossessor(AMF_PlayerCharacter *NewPossessor)
     }
 
     // Update old possessor
-    if (OldPossessor && OldPossessor != NewPossessor)
+    if (IsValid(OldPossessor) && OldPossessor != NewPossessor)
     {
         OldPossessor->SetHasBall(false);
         OldPossessor->CurrentBall = nullptr;
@@ -230,17 +261,36 @@ void AMF_Ball::ReleasePossession()
         return;
     }
 
-    if (CurrentPossessor)
+    if (IsValid(CurrentPossessor))
     {
         AMF_PlayerCharacter *OldPossessor = CurrentPossessor;
+
+        // Unbind destroy event from the possessor we are releasing
+        OldPossessor->OnDestroyed.RemoveDynamic(this, &AMF_Ball::HandlePossessorDestroyed);
+
         OldPossessor->SetHasBall(false);
+        OldPossessor->CurrentBall = nullptr;
         OldPossessor->SetPossessedBall(nullptr);
         CurrentPossessor = nullptr;
+        CurrentPossessorWeak = nullptr;
+
+        // Make sure we are not attached to any mesh (defensive; server normally uses math positioning)
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
         // Small cooldown before can be picked up again
-        PossessionCooldown = 0.2f;
+        PossessionCooldown = 0.5f;
 
         OnPossessionChanged.Broadcast(this, OldPossessor, nullptr);
+    }
+    else if (CurrentPossessor != nullptr)
+    {
+        // Possessor pointer exists but is no longer valid; clear safely.
+        CurrentPossessor = nullptr;
+        CurrentPossessorWeak = nullptr;
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        SetBallState(EMF_BallState::Loose);
+        PossessionCooldown = 0.5f;
+        OnPossessionChanged.Broadcast(this, nullptr, nullptr);
     }
 }
 
@@ -281,7 +331,7 @@ bool AMF_Ball::CanBePickedUpBy(AMF_PlayerCharacter *Player) const
     // Can't pick up if someone else has it
     if (CurrentPossessor != nullptr)
     {
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Already possessed by %s"), *CurrentPossessor->GetName());
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Already possessed (PossessorPtr=%p)"), (void*)CurrentPossessor);
         return false;
     }
 
@@ -290,6 +340,20 @@ bool AMF_Ball::CanBePickedUpBy(AMF_PlayerCharacter *Player) const
     {
         UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Cooldown active (%.2f remaining)"), PossessionCooldown);
         return false;
+    }
+
+    // Last kicker lockout (prevents immediate self-pickup after shoot/pass)
+    if (LastKicker.IsValid() && LastKicker.Get() == Player)
+    {
+        if (const UWorld* World = GetWorld())
+        {
+            const float TimeSinceKick = World->GetTimeSeconds() - LastKickTime;
+            if (TimeSinceKick < LastKickerCooldown)
+            {
+                UE_LOG(LogTemp, Log, TEXT("MF_Ball::CanBePickedUpBy - FAIL: Last kicker cooldown (%.2f remaining)"), LastKickerCooldown - TimeSinceKick);
+                return false;
+            }
+        }
     }
 
     // Must be loose or InFlight (not out of bounds)
@@ -328,16 +392,28 @@ void AMF_Ball::AssignPossession(AMF_PlayerCharacter* NewOwner)
 
     AMF_PlayerCharacter* OldPossessor = CurrentPossessor;
 
+    if (OldPossessor && !IsValid(OldPossessor))
+    {
+        OldPossessor = nullptr;
+        CurrentPossessor = nullptr;
+    }
+
+    if (NewOwner && !IsValid(NewOwner))
+    {
+        NewOwner = nullptr;
+    }
+
     // Clear previous owner
-    if (OldPossessor)
+    if (IsValid(OldPossessor))
     {
         OldPossessor->SetHasBall(false);
         OldPossessor->CurrentBall = nullptr;
     }
 
     CurrentPossessor = NewOwner;
+    CurrentPossessorWeak = NewOwner;
 
-    if (NewOwner)
+    if (IsValid(NewOwner))
     {
         // Update new owner's state
         NewOwner->SetHasBall(true);
@@ -376,20 +452,34 @@ void AMF_Ball::ClearPossession()
         return;
     }
 
-    if (CurrentPossessor)
+    if (IsValid(CurrentPossessor))
     {
         AMF_PlayerCharacter* OldPossessor = CurrentPossessor;
+
+        OldPossessor->OnDestroyed.RemoveDynamic(this, &AMF_Ball::HandlePossessorDestroyed);
+
         OldPossessor->SetHasBall(false);
         OldPossessor->CurrentBall = nullptr;
 
         CurrentPossessor = nullptr;
+        CurrentPossessorWeak = nullptr;
         DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
         // Small cooldown before can be picked up again
-        PossessionCooldown = 0.2f;
+        PossessionCooldown = 0.5f;
 
         OnPossessionChanged.Broadcast(this, OldPossessor, nullptr);
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::ClearPossession - Cleared from %s"), *OldPossessor->GetName());
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::ClearPossession - Cleared from possessor ptr: %p"), (void*)OldPossessor);
+    }
+    else if (CurrentPossessor != nullptr)
+    {
+        CurrentPossessor = nullptr;
+        CurrentPossessorWeak = nullptr;
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        SetBallState(EMF_BallState::Loose);
+        PossessionCooldown = 0.5f;
+        OnPossessionChanged.Broadcast(this, nullptr, nullptr);
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::ClearPossession - Cleared invalid possessor pointer"));
     }
 }
 
@@ -412,14 +502,14 @@ void AMF_Ball::OnBallOverlap(UPrimitiveComponent *OverlappedComponent, AActor *O
         return;
     }
 
-    UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnBallOverlap - Player: %s, CanPickup: %d"),
-           *Player->GetName(), CanBePickedUpBy(Player));
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnBallOverlap - PlayerPtr: %p, CanPickup: %d"),
+            (void*)Player, CanBePickedUpBy(Player));
 
     // Try to give possession to the player
     if (CanBePickedUpBy(Player))
     {
         SetPossessor(Player);
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnBallOverlap - Possession given to %s"), *Player->GetName());
+        UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnBallOverlap - Possession given to PlayerPtr: %p"), (void*)Player);
     }
 }
 
@@ -484,18 +574,30 @@ void AMF_Ball::CheckForNearbyPlayers()
 void AMF_Ball::OnRep_BallState()
 {
     OnBallStateChanged.Broadcast(this, CurrentBallState);
+
+    // Prevent pickup overlap callbacks while possessed or out-of-bounds.
+    if (CollisionSphere)
+    {
+        const bool bEnablePickupOverlap = (CurrentBallState != EMF_BallState::Possessed) && (CurrentBallState != EMF_BallState::OutOfBounds);
+        CollisionSphere->SetGenerateOverlapEvents(bEnablePickupOverlap);
+        CollisionSphere->SetCollisionEnabled(bEnablePickupOverlap ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+    }
+
     UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnRep_BallState - State: %d"), static_cast<int32>(CurrentBallState));
 }
 
 void AMF_Ball::OnRep_Possessor()
 {
-    UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnRep_Possessor - Possessor: %s"),
-           CurrentPossessor ? *CurrentPossessor->GetName() : TEXT("null"));
+    UE_LOG(LogTemp, Log, TEXT("MF_Ball::OnRep_Possessor - PossessorPtr: %p"), (void*)CurrentPossessor);
+
+    // Update GC-safe handle (do not dereference CurrentPossessor directly elsewhere)
+    CurrentPossessorWeak = CurrentPossessor;
 
     // Client-side attachment per PLAN.md Section 7.4
-    if (CurrentPossessor)
+    AMF_PlayerCharacter* Possessor = CurrentPossessorWeak.Get();
+    if (IsValid(Possessor))
     {
-        if (USkeletalMeshComponent* Mesh = CurrentPossessor->GetMesh())
+        if (USkeletalMeshComponent* Mesh = Possessor->GetMesh())
         {
             AttachToComponent(
                 Mesh,
@@ -507,6 +609,27 @@ void AMF_Ball::OnRep_Possessor()
     else
     {
         DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+    }
+}
+
+void AMF_Ball::HandlePossessorDestroyed(AActor* DestroyedActor)
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    if (DestroyedActor && DestroyedActor == CurrentPossessor)
+    {
+        // Possessor was destroyed; drop possession safely without touching destroyed actor state.
+        CurrentPossessor = nullptr;
+        CurrentPossessorWeak = nullptr;
+        DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        SetBallState(EMF_BallState::Loose);
+        PossessionCooldown = 0.5f;
+
+        OnPossessionChanged.Broadcast(this, nullptr, nullptr);
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::HandlePossessorDestroyed - Dropped possession due to possessor destruction"));
     }
 }
 
@@ -659,11 +782,19 @@ void AMF_Ball::CheckBoundaryCollisions()
         Velocity = FVector::ZeroVector;
         AngularVelocity = FVector::ZeroVector;
         OnBallOutOfBounds.Broadcast(this);
+
+        // TODO: Implement Free throw or Corner Kick rules (currently just resetting to center)
+        ResetToPosition(FVector(0.0f, 0.0f, MF_Constants::GroundZ + BallRadius));
     }
 }
 
 void AMF_Ball::CheckGoalCollisions()
 {
+    if (CurrentBallState == EMF_BallState::OutOfBounds)
+    {
+        return;
+    }
+
     FVector Location = GetActorLocation();
     float HalfLength = MF_Constants::FieldLength / 2.0f;
     float HalfGoalWidth = MF_Constants::GoalWidth / 2.0f;
@@ -676,6 +807,9 @@ void AMF_Ball::CheckGoalCollisions()
         SetBallState(EMF_BallState::OutOfBounds);
         Velocity = FVector::ZeroVector;
         UE_LOG(LogTemp, Log, TEXT("GOAL! Team B scores!"));
+
+        // Reset to center for kickoff
+        ResetToPosition(FVector(0.0f, 0.0f, MF_Constants::GroundZ + BallRadius));
     }
     // Check Team B goal (negative Y end)
     else if (Location.Y < -HalfLength && FMath::Abs(Location.X) < HalfGoalWidth && Location.Z < MF_Constants::GoalHeight)
@@ -685,22 +819,35 @@ void AMF_Ball::CheckGoalCollisions()
         SetBallState(EMF_BallState::OutOfBounds);
         Velocity = FVector::ZeroVector;
         UE_LOG(LogTemp, Log, TEXT("GOAL! Team A scores!"));
+
+        // Reset to center for kickoff
+        ResetToPosition(FVector(0.0f, 0.0f, MF_Constants::GroundZ + BallRadius));
     }
 }
 
 void AMF_Ball::UpdatePossessedPosition()
 {
+    // Cache the possessor pointer for the duration of this function.
+    // (Movement can update overlaps; we don't want to dereference a changed pointer.)
+    AMF_PlayerCharacter* Possessor = CurrentPossessorWeak.Get();
+
     // Use IsValid to check for PendingKill as well as nullptr
-    if (!IsValid(CurrentPossessor))
+    if (!IsValid(Possessor))
     {
-        // If we are in possessed state but have no possessor, we can't update position.
-        // This might happen during replication latency.
+        // Safety net: If possessor is invalid but we think we are possessed, reset state
+        // This prevents the read access violation if the player was destroyed
+        if (HasAuthority())
+        {
+            SetBallState(EMF_BallState::Loose);
+            CurrentPossessor = nullptr;
+            CurrentPossessorWeak = nullptr;
+        }
         return;
     }
 
     // Position ball in front of player
-    FVector PlayerLocation = CurrentPossessor->GetActorLocation();
-    FRotator PlayerRotation = CurrentPossessor->GetActorRotation();
+    const FVector PlayerLocation = Possessor->GetActorLocation();
+    const FRotator PlayerRotation = Possessor->GetActorRotation();
 
     FVector Offset = PlayerRotation.RotateVector(PossessionOffset);
     FVector NewLocation = PlayerLocation + Offset;
@@ -715,7 +862,7 @@ void AMF_Ball::UpdatePossessedPosition()
         if (CurrentTime - LastLogTime > 1.0f) // Log every second
         {
             UE_LOG(LogTemp, Log, TEXT("MF_Ball::UpdatePossessedPosition - Following %s at %s, Ball at %s"),
-                   *CurrentPossessor->GetName(), *PlayerLocation.ToString(), *NewLocation.ToString());
+                   *Possessor->GetName(), *PlayerLocation.ToString(), *NewLocation.ToString());
             LastLogTime = CurrentTime;
         }
     }

@@ -53,8 +53,18 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Events")
     FOnGoalTriggered OnGoalTriggered;
 
+#if WITH_EDITORONLY_DATA
+    /** Enable debug visualization in editor */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+    bool bShowDebugInEditor = false;
+#endif
+
 protected:
     virtual void BeginPlay() override;
+
+#if !UE_BUILD_SHIPPING
+    virtual void Tick(float DeltaTime) override;
+#endif
 
     /** Called when something overlaps the goal trigger */
     UFUNCTION()

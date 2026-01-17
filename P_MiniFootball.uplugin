@@ -24,6 +24,10 @@
 {
 "Name": "P_EAIS",
 "Enabled": true
+},
+{
+"Name": "P_MWCS",
+"Enabled": true
 }
 ],
 "Modules": [

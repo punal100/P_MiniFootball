@@ -106,7 +106,21 @@ float UMF_CharacterMovementComponent::GetMaxSpeed() const
     // Only override walking speeds; keep other movement modes unchanged.
     if (MovementMode == MOVE_Walking || MovementMode == MOVE_NavWalking)
     {
-        return bWantsToSprint ? MF_Constants::SprintSpeed : MF_Constants::WalkSpeed;
+        float Speed = bWantsToSprint ? MF_Constants::SprintSpeed : MF_Constants::WalkSpeed;
+
+        // Apply ball carrier speed reduction when player has the ball
+        if (const AMF_PlayerCharacter* Player = Cast<AMF_PlayerCharacter>(CharacterOwner))
+        {
+            if (Player->HasBall())
+            {
+                // Apply both percentage and absolute reduction
+                // First apply percentage reduction, then subtract absolute value
+                Speed = Speed * (1.0f - MF_Constants::BallCarrierSpeedReductionPercent);
+                Speed = FMath::Max(Speed - MF_Constants::BallCarrierSpeedReductionAbsolute, 100.0f); // Minimum 100 cm/s
+            }
+        }
+
+        return Speed;
     }
 
     return BaseMaxSpeed;

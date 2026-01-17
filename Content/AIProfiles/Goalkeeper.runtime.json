@@ -91,6 +91,33 @@
                     }
                 },
                 {
+                    "to": "Intercept",
+                    "priority": 900,
+                    "condition": {
+                        "type": "And",
+                        "conditions": [
+                            {
+                                "type": "Blackboard",
+                                "keyOrName": "OpponentHasBall",
+                                "op": "Equal",
+                                "compareValue": {
+                                    "type": "Bool",
+                                    "rawValue": "true"
+                                }
+                            },
+                            {
+                                "type": "Blackboard",
+                                "keyOrName": "DistToBall",
+                                "op": "LessThan",
+                                "compareValue": {
+                                    "type": "Float",
+                                    "rawValue": "800.0"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
                     "to": "GuardGoal",
                     "priority": 100,
                     "condition": {
@@ -115,7 +142,7 @@
                 },
                 {
                     "actionName": "Execute",
-                    "paramsJson": "{ \"target\": \"MF.Pass\" }"
+                    "paramsJson": "{ \"target\": \"MF.Pass\", \"params\": { \"target\": \"Midfielder\" } }"
                 }
             ],
             "onTick": [],
@@ -192,16 +219,52 @@
                 {
                     "actionName": "Log",
                     "paramsJson": "{ \"message\": \"Positioning for save\" }"
+                },
+                {
+                    "actionName": "Execute",
+                    "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true } }"
                 }
             ],
             "onTick": [
                 {
                     "actionName": "MoveTo",
-                    "paramsJson": "{ \"target\": \"Home\" }"
+                    "paramsJson": "{ \"target\": \"GK_TargetPosition\" }"
                 }
             ],
-            "onExit": [],
+            "onExit": [
+                {
+                    "actionName": "Execute",
+                    "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+                }
+            ],
             "transitions": [
+                {
+                    "to": "Intercept",
+                    "priority": 200,
+                    "condition": {
+                        "type": "And",
+                        "conditions": [
+                            {
+                                "type": "Blackboard",
+                                "keyOrName": "OpponentHasBall",
+                                "op": "Equal",
+                                "compareValue": {
+                                    "type": "Bool",
+                                    "rawValue": "true"
+                                }
+                            },
+                            {
+                                "type": "Blackboard",
+                                "keyOrName": "DistToBall",
+                                "op": "LessThan",
+                                "compareValue": {
+                                    "type": "Float",
+                                    "rawValue": "800.0"
+                                }
+                            }
+                        ]
+                    }
+                },
                 {
                     "to": "Main",
                     "priority": 100,
@@ -229,11 +292,38 @@
             "onTick": [
                 {
                     "actionName": "MoveTo",
-                    "paramsJson": "{ \"target\": \"SupportPosition\" }"
+                    "paramsJson": "{ \"target\": \"GK_TargetPosition\" }"
                 }
             ],
             "onExit": [],
             "transitions": [
+                {
+                    "to": "Intercept",
+                    "priority": 200,
+                    "condition": {
+                        "type": "And",
+                        "conditions": [
+                            {
+                                "type": "Blackboard",
+                                "keyOrName": "OpponentHasBall",
+                                "op": "Equal",
+                                "compareValue": {
+                                    "type": "Bool",
+                                    "rawValue": "true"
+                                }
+                            },
+                            {
+                                "type": "Blackboard",
+                                "keyOrName": "DistToBall",
+                                "op": "LessThan",
+                                "compareValue": {
+                                    "type": "Float",
+                                    "rawValue": "800.0"
+                                }
+                            }
+                        ]
+                    }
+                },
                 {
                     "to": "Main",
                     "priority": 100,
@@ -245,6 +335,50 @@
                             "type": "Float",
                             "rawValue": "50.0"
                         }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "Intercept",
+            "terminal": false,
+            "onEnter": [
+                {
+                    "actionName": "Log",
+                    "paramsJson": "{ \"message\": \"Goalkeeper intercepting/tackling!\" }"
+                },
+                {
+                    "actionName": "Execute",
+                    "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true } }"
+                },
+                {
+                    "actionName": "Execute",
+                    "paramsJson": "{ \"target\": \"MF.Face\", \"params\": { \"target\": \"BallCarrier\" } }"
+                },
+                {
+                    "actionName": "Execute",
+                    "paramsJson": "{ \"target\": \"MF.Tackle\" }"
+                }
+            ],
+            "onTick": [
+                {
+                    "actionName": "MoveTo",
+                    "paramsJson": "{ \"target\": \"Ball\" }"
+                }
+            ],
+            "onExit": [
+                {
+                    "actionName": "Execute",
+                    "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+                }
+            ],
+            "transitions": [
+                {
+                    "to": "Main",
+                    "priority": 100,
+                    "condition": {
+                        "type": "Timer",
+                        "seconds": 0.5
                     }
                 }
             ]

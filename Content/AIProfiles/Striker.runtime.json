@@ -41,26 +41,81 @@
           "to": "Tackle",
           "priority": 1000,
           "condition": {
-            "type": "Blackboard",
-            "keyOrName": "OpponentHasBall",
-            "op": "Equal",
-            "compareValue": {
-              "type": "Bool",
-              "rawValue": "true"
-            }
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "OpponentHasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "DistToBall",
+                "op": "LessThan",
+                "compareValue": {
+                  "type": "Float",
+                  "rawValue": "300.0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "to": "PressBallCarrier",
+          "priority": 900,
+          "condition": {
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "OpponentHasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "DistToBall",
+                "op": "LessThan",
+                "compareValue": {
+                  "type": "Float",
+                  "rawValue": "2000.0"
+                }
+              }
+            ]
           }
         },
         {
           "to": "SafetyPass",
-          "priority": 900,
+          "priority": 550,
           "condition": {
-            "type": "Blackboard",
-            "keyOrName": "IsInDanger",
-            "op": "Equal",
-            "compareValue": {
-              "type": "Bool",
-              "rawValue": "true"
-            }
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "IsInDanger",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "HasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              }
+            ]
           }
         },
         {
@@ -84,7 +139,16 @@
             "conditions": [
               {
                 "type": "Blackboard",
-                "keyOrName": "IsBallLoose",
+                "keyOrName": "HasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "false"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "IsBallInPlay",
                 "op": "Equal",
                 "compareValue": {
                   "type": "Bool",
@@ -92,13 +156,27 @@
                 }
               },
               {
-                "type": "Blackboard",
-                "keyOrName": "AmIClosestToBall",
-                "op": "Equal",
-                "compareValue": {
-                  "type": "Bool",
-                  "rawValue": "true"
-                }
+                "type": "Or",
+                "conditions": [
+                  {
+                    "type": "Blackboard",
+                    "keyOrName": "AmIClosestToBall",
+                    "op": "Equal",
+                    "compareValue": {
+                      "type": "Bool",
+                      "rawValue": "true"
+                    }
+                  },
+                  {
+                    "type": "Blackboard",
+                    "keyOrName": "DistToBall",
+                    "op": "LessThan",
+                    "compareValue": {
+                      "type": "Float",
+                      "rawValue": "1000.0"
+                    }
+                  }
+                ]
               }
             ]
           }
@@ -114,6 +192,33 @@
               "type": "Bool",
               "rawValue": "true"
             }
+          }
+        },
+        {
+          "to": "AvoidEnemy",
+          "priority": 850,
+          "condition": {
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "HasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "IsInDanger",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              }
+            ]
           }
         },
         {
@@ -134,7 +239,7 @@
           "priority": 100,
           "condition": {
             "type": "Blackboard",
-            "keyOrName": "DistToHome",
+            "keyOrName": "DistToSupportPosition",
             "op": "GreaterThan",
             "compareValue": {
               "type": "Float",
@@ -154,13 +259,17 @@
         },
         {
           "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Face\", \"params\": { \"target\": \"BallCarrier\" } }"
+        },
+        {
+          "actionName": "Execute",
           "paramsJson": "{ \"target\": \"MF.Tackle\" }"
         }
       ],
       "onTick": [
         {
           "actionName": "MoveTo",
-          "paramsJson": "{ \"target\": \"Ball\" }"
+          "paramsJson": "{ \"target\": \"BallCarrierIntercept\" }"
         }
       ],
       "onExit": [],
@@ -177,6 +286,78 @@
               "rawValue": "0.0"
             },
             "seconds": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "PressBallCarrier",
+      "terminal": false,
+      "onEnter": [
+        {
+          "actionName": "Log",
+          "paramsJson": "{ \"message\": \"Pressing ball carrier\" }"
+        },
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true } }"
+        }
+      ],
+      "onTick": [
+        {
+          "actionName": "MoveTo",
+          "paramsJson": "{ \"target\": \"BallCarrierIntercept\" }"
+        },
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Face\", \"params\": { \"target\": \"BallCarrier\" } }"
+        }
+      ],
+      "onExit": [
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "Tackle",
+          "priority": 200,
+          "condition": {
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "OpponentHasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "DistToBall",
+                "op": "LessThan",
+                "compareValue": {
+                  "type": "Float",
+                  "rawValue": "300.0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "to": "Main",
+          "priority": 100,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "OpponentHasBall",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "false"
+            }
           }
         }
       ]
@@ -289,11 +470,38 @@
           }
         },
         {
+          "to": "Tackle",
+          "priority": 800,
+          "condition": {
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "OpponentHasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "DistToBall",
+                "op": "LessThan",
+                "compareValue": {
+                  "type": "Float",
+                  "rawValue": "550.0"
+                }
+              }
+            ]
+          }
+        },
+        {
           "to": "Main",
           "priority": 50,
           "condition": {
             "type": "Blackboard",
-            "keyOrName": "IsBallLoose",
+            "keyOrName": "AmIClosestToBall",
             "op": "Equal",
             "compareValue": {
               "type": "Bool",
@@ -330,6 +538,33 @@
       ],
       "transitions": [
         {
+          "to": "AvoidEnemy",
+          "priority": 200,
+          "condition": {
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "HasBall",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "IsInDanger",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              }
+            ]
+          }
+        },
+        {
           "to": "Main",
           "priority": 100,
           "condition": {
@@ -340,6 +575,40 @@
               "type": "Bool",
               "rawValue": "false"
             }
+          }
+        },
+        {
+          "to": "Shoot",
+          "priority": 90,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "HasClearShot",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "true"
+            }
+          }
+        },
+        {
+          "to": "SafetyPass",
+          "priority": 80,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "IsInDanger",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "true"
+            }
+          }
+        },
+        {
+          "to": "Main",
+          "priority": 50,
+          "condition": {
+            "type": "Timer",
+            "seconds": 3.0
           }
         }
       ]
@@ -357,9 +626,18 @@
         {
           "actionName": "MoveTo",
           "paramsJson": "{ \"target\": \"SupportPosition\" }"
+        },
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true }, \"condition\": { \"type\": \"Blackboard\", \"keyOrName\": \"DistToSupportPosition\", \"op\": \"GreaterThan\", \"compareValue\": { \"type\": \"Float\", \"rawValue\": \"800.0\" } } }"
         }
       ],
-      "onExit": [],
+      "onExit": [
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+        }
+      ],
       "transitions": [
         {
           "to": "Main",
@@ -383,26 +661,103 @@
         {
           "actionName": "Log",
           "paramsJson": "{ \"message\": \"Returning to Formation\" }"
+        },
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true } }"
         }
       ],
       "onTick": [
         {
           "actionName": "MoveTo",
-          "paramsJson": "{ \"target\": \"Home\" }"
+          "paramsJson": "{ \"target\": \"SupportPosition\" }"
         }
       ],
-      "onExit": [],
+      "onExit": [
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+        }
+      ],
       "transitions": [
         {
           "to": "Main",
           "priority": 100,
           "condition": {
             "type": "Blackboard",
-            "keyOrName": "DistToHome",
+            "keyOrName": "DistToSupportPosition",
             "op": "LessThan",
             "compareValue": {
               "type": "Float",
               "rawValue": "50.0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "AvoidEnemy",
+      "terminal": false,
+      "onEnter": [
+        {
+          "actionName": "Log",
+          "paramsJson": "{ \"message\": \"Avoiding enemy!\" }"
+        },
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": true } }"
+        }
+      ],
+      "onTick": [
+        {
+          "actionName": "MoveTo",
+          "paramsJson": "{ \"target\": \"SupportPosition\" }"
+        }
+      ],
+      "onExit": [
+        {
+          "actionName": "Execute",
+          "paramsJson": "{ \"target\": \"MF.Sprint\", \"params\": { \"active\": false } }"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "SafetyPass",
+          "priority": 200,
+          "condition": {
+            "type": "And",
+            "conditions": [
+              {
+                "type": "Blackboard",
+                "keyOrName": "IsInDanger",
+                "op": "Equal",
+                "compareValue": {
+                  "type": "Bool",
+                  "rawValue": "true"
+                }
+              },
+              {
+                "type": "Blackboard",
+                "keyOrName": "DistToNearestOpponent",
+                "op": "LessThan",
+                "compareValue": {
+                  "type": "Float",
+                  "rawValue": "350.0"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "to": "Main",
+          "priority": 100,
+          "condition": {
+            "type": "Blackboard",
+            "keyOrName": "IsInDanger",
+            "op": "Equal",
+            "compareValue": {
+              "type": "Bool",
+              "rawValue": "false"
             }
           }
         }

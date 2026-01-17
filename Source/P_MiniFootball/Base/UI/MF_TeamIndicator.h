@@ -64,11 +64,11 @@ protected:
 
     /** Team A color */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TeamIndicator")
-    FLinearColor TeamAColor = FLinearColor(0.8f, 0.2f, 0.2f, 1.0f);
+    FLinearColor TeamAColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f);
 
     /** Team B color */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TeamIndicator")
-    FLinearColor TeamBColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f);
+    FLinearColor TeamBColor = FLinearColor(0.8f, 0.2f, 0.2f, 1.0f);
 
     /** Spectator color */
     UPROPERTY(EditDefaultsOnly, Category = "MF|UI|TeamIndicator")

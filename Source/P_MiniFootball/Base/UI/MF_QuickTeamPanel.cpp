@@ -109,7 +109,7 @@ FString UMF_QuickTeamPanel::GetWidgetSpec()
             "IsFocusable": true
         },
         "ShortcutHintText": {
-            "Font": {"Size": 10, "Typeface": "Regular"},
+            "Font": {"Size": 12, "Typeface": "Regular"},
             "ColorAndOpacity": {"R": 1.0, "G": 1.0, "B": 1.0, "A": 1.0},
             "Text": "Press 1"
         }

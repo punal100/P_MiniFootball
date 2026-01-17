@@ -11,12 +11,16 @@
 #include "Player/MF_CharacterMovementComponent.h"
 #include "Ball/MF_Ball.h"
 #include "Match/MF_Goal.h"
+#include "Match/MF_GameState.h"
 #include "Net/UnrealNetwork.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Integration/CPP_EnhancedInputIntegration.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/SceneComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "EngineUtils.h"
@@ -24,6 +28,8 @@
 #include "AIBehaviour.h"
 #include "EAISSubsystem.h"
 #include "AI/MF_AIController.h"
+#include "AIController.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "AI/MF_EAISActionExecutorComponent.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -68,7 +74,7 @@ AMF_PlayerCharacter::AMF_PlayerCharacter(const FObjectInitializer &ObjectInitial
     // Create Camera Boom (Spring Arm) for top-down view
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
-    CameraBoom->SetRelativeRotation(FRotator(-60.0f, 0.0f, 0.0f)); // Look down at 60 degree angle
+    CameraBoom->SetRelativeRotation(FRotator(-60.0f, 180.0f, 0.0f)); // Look down at 60 degree angle
     CameraBoom->TargetArmLength = 1500.0f;                         // Distance from player
     CameraBoom->bDoCollisionTest = false;                          // Don't pull camera in when obstructed
     CameraBoom->bUsePawnControlRotation = false;                   // Don't rotate with controller
@@ -120,6 +126,21 @@ AMF_PlayerCharacter::AMF_PlayerCharacter(const FObjectInitializer &ObjectInitial
     SetReplicateMovement(true);
     SetNetUpdateFrequency(MF_Constants::NetUpdateFrequency);
     SetMinNetUpdateFrequency(MF_Constants::MinNetUpdateFrequency);
+
+    // Create and configure Player Indicator
+    PlayerIndicator = CreateDefaultSubobject<UTextRenderComponent>(TEXT("PlayerIndicator"));
+    PlayerIndicator->SetupAttachment(GetMesh());
+    PlayerIndicator->SetRelativeLocation(FVector(0.0f, 0.0f, 210.0f)); // Position above head
+    PlayerIndicator->SetHorizontalAlignment(EHTA_Center);
+    PlayerIndicator->SetVerticalAlignment(EVRTA_TextBottom);
+    PlayerIndicator->SetXScale(5.0f);
+    PlayerIndicator->SetYScale(5.0f);
+    PlayerIndicator->SetWorldRotation(FRotator(0.0f, 0.0f, 0.0f)); // Face forward by default
+    PlayerIndicator->SetText(FText::FromString(AIProfile));
+    
+    // Ensure it's visible but doesn't cast shadows
+    PlayerIndicator->SetCastShadow(false);
+    PlayerIndicator->bIsEditorOnly = false;
 }
 
 void AMF_PlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
@@ -133,11 +154,22 @@ void AMF_PlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &
     DOREPLIFETIME(AMF_PlayerCharacter, CurrentPlayerState);
     DOREPLIFETIME(AMF_PlayerCharacter, bIsSprinting);
     DOREPLIFETIME(AMF_PlayerCharacter, CurrentBall);
+    DOREPLIFETIME(AMF_PlayerCharacter, AIProfile);
 }
 
 void AMF_PlayerCharacter::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Ensure Goalkeepers have an Actor Tag for reliable identification.
+    // Prefer setting this tag in the Blueprint defaults; this is a safety net.
+    static const FName GoalkeeperTag(TEXT("Goalkeeper"));
+    if (!ActorHasTag(GoalkeeperTag) && AIProfile.Contains(TEXT("Goalkeeper")))
+    {
+        Tags.Add(GoalkeeperTag);
+        UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] Auto-added Actor Tag '%s' to %s based on AIProfile. Prefer setting the tag in BP."),
+               *GoalkeeperTag.ToString(), *GetName());
+    }
 
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::BeginPlay - HasAuthority: %d, IsLocallyControlled: %d"),
            HasAuthority(), IsLocallyControlled());
@@ -176,16 +208,48 @@ void AMF_PlayerCharacter::BeginPlay()
         {
             AIComponent->InitializeAI(AIBehaviour);
         }
-        else if (!AIProfile.IsEmpty())
+        if (!AIProfile.IsEmpty())
         {
-            // Resolve Path dynamically from this plugin
-            FString PluginDir = IPluginManager::Get().FindPlugin("P_MiniFootball")->GetContentDir();
-            FString AIProfileDir = FPaths::Combine(PluginDir, TEXT("AIProfiles"));
-
-            // Pass the profile name and the local plugin path to the AI Component
-            if (AIComponent)
+            // Resolve Path dynamically using IPluginManager (Correct for Packaged Builds + UFS Staging)
+            // This relies on DirectoriesToAlwaysStageAsUFS pointing to the correct plugin content location
+            if (TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin("P_MiniFootball"))
             {
-                AIComponent->StartAI(AIProfile, AIProfileDir);
+                 FString PluginDir = Plugin->GetContentDir();
+                 FString AIProfileDir = FPaths::Combine(PluginDir, TEXT("AIProfiles"));
+
+                 // Debug Logging for Packaged Build Verification
+                 UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] === AI PROFILE LOADING DEBUG ==="));
+                 UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] Plugin Content Dir: %s"), *PluginDir);
+                 UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] Target AIProfiles Dir: %s"), *AIProfileDir);
+                 
+                 bool bDirExists = IFileManager::Get().DirectoryExists(*AIProfileDir);
+                 UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] Directory Exists: %s"), bDirExists ? TEXT("TRUE") : TEXT("FALSE"));
+
+                 if (bDirExists)
+                 {
+                     TArray<FString> Files;
+                     IFileManager::Get().FindFiles(Files, *AIProfileDir, TEXT("*.json"));
+                     UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] Found %d JSON files"), Files.Num());
+                     for (const FString& F : Files)
+                     {
+                         UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter]   - %s"), *F);
+                     }
+                 }
+                 else
+                 {
+                     UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] CRITICAL: AIProfiles directory missing in packaged build!"));
+                 }
+                 UE_LOG(LogTemp, Warning, TEXT("[MF_PlayerCharacter] ==================================="));
+
+                 // Pass the profile name and the local plugin path to the AI Component
+                 if (AIComponent)
+                 {
+                     AIComponent->StartAI(AIProfile, AIProfileDir);
+                 }
+            }
+            else
+            {
+                 UE_LOG(LogTemp, Error, TEXT("[MF_PlayerCharacter] Failed to find P_MiniFootball plugin via IPluginManager!"));
             }
         }
 
@@ -203,6 +267,9 @@ void AMF_PlayerCharacter::BeginPlay()
             UE_LOG(LogTemp, Log, TEXT("[MF_PlayerCharacter] Auto-start AI deferred for %s (Human: %d)"), *GetName(), bIsHuman);
         }
     }
+
+    // Initialize visual indicator
+    UpdatePlayerIndicator();
 }
 
 void AMF_PlayerCharacter::Tick(float DeltaTime)
@@ -216,6 +283,10 @@ void AMF_PlayerCharacter::Tick(float DeltaTime)
     if (HasAuthority() && AIComponent && AIComponent->IsValid() && IsAIRunning())
     {
         SyncBlackboard();
+        
+        // AUTO SPRINT LOGIC REMOVED
+        // We now control sprinting explicitly via AI Profiles (MF.Sprint action)
+        // This prevents conflicts where the code forces walking when the AI wants to dribble/sprint.
     }
 
     // Update timers (Server only)
@@ -234,6 +305,25 @@ void AMF_PlayerCharacter::Tick(float DeltaTime)
             if (StunTimeRemaining <= 0.0f)
             {
                 SetPlayerState(EMF_PlayerState::Idle);
+            }
+        }
+    }
+
+    // Dynamic Billboarding: Make indicator face the camera on non-dedicated servers
+    if (PlayerIndicator && !IsNetMode(NM_DedicatedServer))
+    {
+        if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+        {
+            if (APlayerCameraManager* CameraManager = PC->PlayerCameraManager)
+            {
+                FVector CameraLoc = CameraManager->GetCameraLocation();
+                FVector IndicatorLoc = PlayerIndicator->GetComponentLocation();
+                
+                FRotator TargetRot = (CameraLoc - IndicatorLoc).Rotation();
+                
+                // For a more stable top-down feel, we can optionally zero out pitch/roll
+                // but full rotation is usually safer for all camera angles.
+                PlayerIndicator->SetWorldRotation(TargetRot);
             }
         }
     }
@@ -369,6 +459,7 @@ void AMF_PlayerCharacter::SetHasBall(bool bNewHasBall)
         if (bHasBall != bNewHasBall)
         {
             bHasBall = bNewHasBall;
+            UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter[%s]::SetHasBall - New Value: %d"), *GetName(), bHasBall);
             OnRep_HasBall();
         }
     }
@@ -386,6 +477,7 @@ void AMF_PlayerCharacter::SetPlayerState(EMF_PlayerState NewState)
         if (CurrentPlayerState != NewState)
         {
             CurrentPlayerState = NewState;
+            UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter[%s]::SetPlayerState - New State: %d"), *GetName(), (int32)CurrentPlayerState);
             OnRep_CurrentPlayerState();
         }
     }
@@ -503,7 +595,8 @@ void AMF_PlayerCharacter::Server_SendMoveInput_Implementation(FVector2D MoveInpu
 void AMF_PlayerCharacter::OnRep_TeamID()
 {
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::OnRep_TeamID - Team: %d"), static_cast<int32>(TeamID));
-    // TODO: Update visuals based on team (jersey color, etc.)
+    
+    UpdatePlayerIndicator();
 }
 
 void AMF_PlayerCharacter::OnRep_HasBall()
@@ -536,6 +629,11 @@ void AMF_PlayerCharacter::OnRep_CurrentBall()
 
     UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::OnRep_CurrentBall - CurrentBall: %s, bHasBall: %d"),
            CurrentBall ? *CurrentBall->GetName() : TEXT("None"), bHasBall);
+}
+
+void AMF_PlayerCharacter::OnRep_AIProfile()
+{
+    UpdatePlayerIndicator();
 }
 
 bool AMF_PlayerCharacter::CanReceiveBall() const
@@ -589,6 +687,33 @@ void AMF_PlayerCharacter::SetupInputBindings()
     }
 }
 
+void AMF_PlayerCharacter::UpdatePlayerIndicator()
+{
+    if (!PlayerIndicator)
+    {
+        return;
+    }
+
+    // Set Role Text
+    PlayerIndicator->SetText(FText::FromString(AIProfile));
+
+    // Set Team Color
+    FColor TeamColor = FColor::White;
+    if (TeamID == EMF_TeamID::TeamA)
+    {
+        TeamColor = FColor(51, 153, 255); // Team A Blue (approx 0.2, 0.6, 1.0)
+    }
+    else if (TeamID == EMF_TeamID::TeamB)
+    {
+        TeamColor = FColor(255, 77, 77);   // Team B Red (approx 1.0, 0.3, 0.3)
+    }
+
+    PlayerIndicator->SetTextRenderColor(TeamColor);
+    
+    UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter::UpdatePlayerIndicator - Updated for %s: Role=%s, Team=%d"), 
+        *GetName(), *AIProfile, (int32)TeamID);
+}
+
 void AMF_PlayerCharacter::UpdateMovement(float DeltaTime)
 {
     // Movement input MUST be applied only on the owning client
@@ -618,8 +743,14 @@ void AMF_PlayerCharacter::UpdateMovement(float DeltaTime)
         // Convert 2D input to 3D world direction
         // UE coordinate system: X = forward (red), Y = right (green), Z = up (blue)
         // Input: X = left/right (A/D), Y = forward/backward (W/S)
-        // World: X = forward, Y = right
-        FVector WorldDirection = FVector(CurrentMoveInput.Y, CurrentMoveInput.X, 0.0f);
+        // World: X = backward, Y = left
+        FVector WorldDirection = FVector(-CurrentMoveInput.Y, -CurrentMoveInput.X, 0.0f);
+        // Relative to camera
+        //FRotator CameraRotation = CameraBoom ? CameraBoom->GetComponentRotation() : FRotator::ZeroRotator;
+        //FRotator YawRotation(0, CameraRotation.Yaw, 0);
+        //FVector ForwardVector = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+        //FVector RightVector = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+        //FVector WorldDirection = (ForwardVector * CurrentMoveInput.Y) + (RightVector * CurrentMoveInput.X);
 
         if (!WorldDirection.IsNearlyZero())
         {
@@ -745,6 +876,8 @@ void AMF_PlayerCharacter::ExecuteTackle()
     AMF_PlayerCharacter *BestTarget = nullptr;
     float BestDistance = TackleRange;
 
+    static const FName GoalkeeperTag(TEXT("Goalkeeper"));
+
     for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
     {
         AMF_PlayerCharacter *Other = *It;
@@ -763,11 +896,63 @@ void AMF_PlayerCharacter::ExecuteTackle()
         if (bIsTeammate)
             continue;
 
+        // Goalkeeper Immunity: Goalkeepers can NEVER be tackled.
+        if (Other->ActorHasTag(GoalkeeperTag))
+        {
+            UE_LOG(LogTemp, Log, TEXT("  Target is Goalkeeper (Actor Tag) - Immunity applied"));
+            continue;
+        }
+
         // Check if in range and has ball
         if (Distance <= BestDistance && Other->HasBall() && Other->CurrentBall)
         {
-            BestTarget = Other;
-            BestDistance = Distance;
+            // ==================== FACING CHECK LOGIC ====================
+            // Facing check is BYPASSED only for Goalkeepers inside their own penalty area.
+            // All other players (Strikers, Midfielders, Defenders) MUST face the ball carrier to tackle.
+            
+            bool bBypassFacingCheck = false;
+            
+            // Check if THIS player (the tackler) is a GK inside their own penalty area
+            if (ActorHasTag(GoalkeeperTag))
+            {
+                // Calculate GK's own penalty box position
+                // TeamA defends at negative Y, TeamB defends at positive Y
+                float MyGoalLineY = (MF_Constants::FieldLength / 2.0f) * ((TeamID == EMF_TeamID::TeamA) ? -1.0f : 1.0f);
+                float MyDistY = FMath::Abs(MyLocation.Y - MyGoalLineY);
+                float MyDistX = FMath::Abs(MyLocation.X);
+                
+                // Penalty Area: 16.5m (1650cm) deep, 40.3m (4030cm) wide → half-width = 2015cm
+                if (MyDistY < MF_Constants::PenaltyAreaLength && MyDistX < (MF_Constants::PenaltyAreaWidth / 2.0f))
+                {
+                    bBypassFacingCheck = true;
+                    UE_LOG(LogTemp, Log, TEXT("  GK in own penalty box - facing check bypassed"));
+                }
+            }
+            
+            if (bBypassFacingCheck)
+            {
+                // GK in own penalty area - can tackle from any direction
+                BestTarget = Other;
+                BestDistance = Distance;
+            }
+            else
+            {
+                // All other cases: Must be facing the ball carrier
+                FVector ToTarget = (Other->GetActorLocation() - MyLocation).GetSafeNormal();
+                FVector MyForward = GetActorForwardVector();
+                float FacingDot = FVector::DotProduct(MyForward, ToTarget);
+                
+                if (FacingDot >= MF_Constants::TackleFacingMinDot)
+                {
+                    BestTarget = Other;
+                    BestDistance = Distance;
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Log, TEXT("  Tackle failed: Not facing target (Dot: %.2f, Required: %.2f)"), 
+                           FacingDot, MF_Constants::TackleFacingMinDot);
+                }
+            }
         }
     }
 
@@ -833,7 +1018,6 @@ void AMF_PlayerCharacter::OnActionReleased()
 
         // Short tap = shoot, hold = pass
         FVector Direction = GetActorForwardVector();
-
         if (HoldTime < 0.3f)
         {
             // Quick tap = shoot
@@ -916,12 +1100,59 @@ bool AMF_PlayerCharacter::EAIS_GetTargetLocation_Implementation(FName TargetId, 
         }
     }
 
+    // Intercept point for the current ball carrier.
+    // Helps defenders/midfielders/strikers get in front instead of trailing behind.
+    if (TargetId == "BallCarrierIntercept")
+    {
+        AActor* BallCarrierActor = nullptr;
+        if (EAIS_GetTargetActor_Implementation(TEXT("BallCarrier"), BallCarrierActor) && BallCarrierActor)
+        {
+            const FVector CarrierLoc = BallCarrierActor->GetActorLocation();
+            FVector Dir = BallCarrierActor->GetVelocity();
+            Dir.Z = 0.0f;
+
+            constexpr float MinVelForLead = 80.0f;
+            if (Dir.SizeSquared() < FMath::Square(MinVelForLead))
+            {
+                Dir = BallCarrierActor->GetActorForwardVector();
+                Dir.Z = 0.0f;
+            }
+
+            Dir = Dir.GetSafeNormal();
+            if (Dir.IsNearlyZero())
+            {
+                OutLocation = CarrierLoc;
+                return true;
+            }
+
+            constexpr float LeadDistance = 350.0f; // cm
+            OutLocation = CarrierLoc + (Dir * LeadDistance);
+            return true;
+        }
+
+        return false;
+    }
+
     // Handle coordinate targets (if any)
     if (TargetId == "Home")
     {
         // Return spawn or defensive position
         OutLocation = SpawnLocation;
         return true;
+    }
+    
+    // Explicitly handle SupportPosition to prevent resolution warnings
+    if (TargetId == "SupportPosition")
+    {
+        // SupportPosition is always maintained in the blackboard by SyncBlackboard
+        OutLocation = AIComponent->GetBlackboardVector(TEXT("SupportPosition"));
+        return true;
+    }
+
+    if (TargetId == "GK_TargetPosition")
+    {
+        OutLocation = AIComponent->GetBlackboardVector(TEXT("GK_TargetPosition"));
+        return !OutLocation.IsZero();
     }
 
     return false;
@@ -1042,6 +1273,36 @@ bool AMF_PlayerCharacter::EAIS_GetTargetActor_Implementation(FName TargetId, AAc
         }
     }
 
+    if (TargetId == "Midfielder")
+    {
+        // Find a teammate with the Midfielder role
+        float NearestDist = 99999.0f;
+        AMF_PlayerCharacter* BestMid = nullptr;
+
+        for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+        {
+            AMF_PlayerCharacter* Teammate = *It;
+            if (Teammate && Teammate != this && Teammate->GetTeamID() == TeamID)
+            {
+                if (Teammate->AIProfile.Contains(TEXT("Midfielder")))
+                {
+                     const float Dist = FVector::Dist(GetActorLocation(), Teammate->GetActorLocation());
+                     if (Dist < NearestDist)
+                     {
+                         NearestDist = Dist;
+                         BestMid = Teammate;
+                     }
+                }
+            }
+        }
+
+        if (BestMid)
+        {
+            OutActor = BestMid;
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -1129,17 +1390,34 @@ void AMF_PlayerCharacter::SyncBlackboard()
 
     const FVector MyLocation = GetActorLocation();
 
+    // ==================== MATCH PHASE AWARENESS ====================
+    bool bMatchIsPlaying = false;
+    if (const AMF_GameState* GS = GetWorld()->GetGameState<AMF_GameState>())
+    {
+        bMatchIsPlaying = (GS->CurrentPhase == EMF_MatchPhase::Playing);
+    }
+    AIComponent->SetBlackboardBool(TEXT("MatchIsPlaying"), bMatchIsPlaying);
+
     // ==================== BASIC STATE ====================
     AIComponent->SetBlackboardBool(TEXT("HasBall"), HasBall());
     AIComponent->SetBlackboardBool(TEXT("IsStunned"), IsStunned());
-    AIComponent->SetBlackboardBool(TEXT("IsSprinting"), IsSprinting());
+    AIComponent->SetBlackboardBool(TEXT("IsSprinting"), bIsSprinting);
     AIComponent->SetBlackboardVector(TEXT("MyPosition"), MyLocation);
     AIComponent->SetBlackboardFloat(TEXT("TeamID"), static_cast<float>(GetTeamID()));
+
+    // Log sync occasionally
+    static float LastSyncLogTime = 0.0f;
+    if (GetWorld()->GetTimeSeconds() - LastSyncLogTime > 2.0f)
+    {
+        //UE_LOG(LogTemp, Log, TEXT("MF_PlayerCharacter[%s]::Sync - HasBall: %d, Pos: %s"), *GetName(), HasBall(), *MyLocation.ToString());
+        LastSyncLogTime = GetWorld()->GetTimeSeconds();
+    }
 
     // ==================== BALL DATA ====================
     FVector BallPos = FVector::ZeroVector;
     AMF_Ball *MatchBall = nullptr;
     bool bBallFound = false;
+    bool bIsBallOutOfBounds = false;
 
     // First check via target provider
     if (IEAIS_TargetProvider::Execute_EAIS_GetTargetLocation(this, TEXT("Ball"), BallPos))
@@ -1150,14 +1428,21 @@ void AMF_PlayerCharacter::SyncBlackboard()
     // Get ball actor for possession check
     for (TActorIterator<AMF_Ball> It(GetWorld()); It; ++It)
     {
-        MatchBall = *It;
-        if (!bBallFound)
+        AMF_Ball* Ball = *It;
+        if (Ball)
         {
-            BallPos = MatchBall->GetActorLocation();
-            bBallFound = true;
+            MatchBall = Ball;
+            if (!bBallFound)
+            {
+                BallPos = Ball->GetActorLocation();
+                bBallFound = true;
+            }
+            bIsBallOutOfBounds = Ball->IsOutOfBounds();
+            break;
         }
-        break;
     }
+
+    AIComponent->SetBlackboardBool(TEXT("IsBallInPlay"), bBallFound && !bIsBallOutOfBounds && bMatchIsPlaying);
 
     if (bBallFound)
     {
@@ -1250,6 +1535,41 @@ void AMF_PlayerCharacter::SyncBlackboard()
     const bool bIsInDanger = NearestOpponentDist < DangerRadius;
     AIComponent->SetBlackboardBool(TEXT("IsInDanger"), bIsInDanger);
 
+    // ==================== STRIKER TARGETING ====================
+    // Used by Midfielder AI to decide when a striker pass is viable.
+    bool bHasStriker = false;
+    float DistToStriker = 99999.0f;
+    FVector StrikerPos = FVector::ZeroVector;
+
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter* Teammate = *It;
+        if (!Teammate || Teammate == this || Teammate->GetTeamID() != TeamID)
+        {
+            continue;
+        }
+
+        if (!Teammate->AIProfile.Contains(TEXT("Striker")))
+        {
+            continue;
+        }
+
+        const float Dist = FVector::Dist(MyLocation, Teammate->GetActorLocation());
+        if (Dist < DistToStriker)
+        {
+            DistToStriker = Dist;
+            StrikerPos = Teammate->GetActorLocation();
+            bHasStriker = true;
+        }
+    }
+
+    AIComponent->SetBlackboardBool(TEXT("HasStriker"), bHasStriker);
+    AIComponent->SetBlackboardFloat(TEXT("DistToStriker"), DistToStriker);
+    if (bHasStriker)
+    {
+        AIComponent->SetBlackboardVector(TEXT("StrikerPosition"), StrikerPos);
+    }
+
     // ==================== CLEAR SHOT CHECK ====================
     // HasClearShot: True if no enemies are directly between player and goal
     bool bHasClearShot = false;
@@ -1291,20 +1611,63 @@ void AMF_PlayerCharacter::SyncBlackboard()
 
     if (bBallFound)
     {
-        MyDistToBall = FVector::Dist(MyLocation, BallPos);
+        // Calculate My Effective Distance
+        float MyEffectiveDist = FVector::Dist(MyLocation, BallPos);
         
-        // Check if any teammate is closer
+        // PRIORITY ADJUSTMENTS:
+        // Strikers are "closer" by virtue of role (more aggressive)
+        if (AIProfile.Contains(TEXT("Striker")))
+        {
+            MyEffectiveDist *= 0.85f; // 15% bonus
+        }
+        else if (AIProfile.Contains(TEXT("Goalkeeper")))
+        {
+            // If ball is in penalty box, GK is HYPER aggressive
+            // Penalty box is ~16m (1650 units) deep
+            float GoalLineY = (MF_Constants::FieldLength / 2.0f) * ((TeamID == EMF_TeamID::TeamA) ? -1.0f : 1.0f);
+            if (FMath::Abs(BallPos.Y - GoalLineY) < 1650.0f && FMath::Abs(BallPos.X) < 2015.0f)
+            {
+                 MyEffectiveDist *= 0.1f; // Massive priority
+            }
+            else
+            {
+                 MyEffectiveDist *= 2.0f; // Stay in goal otherwise
+            }
+        }
+        
+        MyDistToBall = FVector::Dist(MyLocation, BallPos); // Actual distance for blackboard
+        
+        // Check teammates
         for (TActorIterator<AMF_PlayerCharacter> ClosestIt(GetWorld()); ClosestIt; ++ClosestIt)
         {
             AMF_PlayerCharacter* OtherPlayer = *ClosestIt;
-            if (OtherPlayer && OtherPlayer != this && OtherPlayer->GetTeamID() == TeamID)
+            if (!OtherPlayer || OtherPlayer == this || OtherPlayer->GetTeamID() != TeamID)
+                continue;
+
+            float TheirEffectiveDist = FVector::Dist(OtherPlayer->GetActorLocation(), BallPos);
+            
+            // Apply same weighting logic to teammates
+            if (OtherPlayer->AIProfile.Contains(TEXT("Striker")))
             {
-                const float TheirDistToBall = FVector::Dist(OtherPlayer->GetActorLocation(), BallPos);
-                if (TheirDistToBall < MyDistToBall - 50.0f) // 50 unit hysteresis to prevent flickering
-                {
-                    bAmIClosestToBall = false;
-                    break;
-                }
+                TheirEffectiveDist *= 0.85f;
+            }
+            else if (OtherPlayer->AIProfile.Contains(TEXT("Goalkeeper")))
+            {
+                 float GoalLineY = (MF_Constants::FieldLength / 2.0f) * ((TeamID == EMF_TeamID::TeamA) ? -1.0f : 1.0f);
+                 if (FMath::Abs(BallPos.Y - GoalLineY) < 1650.0f && FMath::Abs(BallPos.X) < 2015.0f)
+                 {
+                      TheirEffectiveDist *= 0.1f;
+                 }
+                 else
+                 {
+                      TheirEffectiveDist *= 2.0f;
+                 }
+            }
+
+            if (TheirEffectiveDist < MyEffectiveDist - 50.0f) 
+            {
+                bAmIClosestToBall = false;
+                break;
             }
         }
     }
@@ -1329,6 +1692,28 @@ void AMF_PlayerCharacter::SyncBlackboard()
     // Add distance for logic checks
     const float DistToSupport = FVector::Dist(MyLocation, SupportPos);
     AIComponent->SetBlackboardFloat(TEXT("DistToSupportPosition"), DistToSupport);
+
+    // ==================== GOALKEEPER TARGET DAMPING ====================
+    // Goalkeepers can jitter/circle if their MoveTo target changes every tick.
+    // Provide a cached/thresholded target that changes less often.
+    if (AIProfile.Contains(TEXT("Goalkeeper")))
+    {
+        constexpr float MinTargetMoveDist = 150.0f;   // cm
+        constexpr float MinTargetUpdateInterval = 0.25f; // seconds
+
+        const float Now = GetWorld()->GetTimeSeconds();
+        const bool bHasCached = !CachedGKTargetPosition.IsZero();
+        const bool bEnoughTime = (Now - LastGKTargetUpdateTime) >= MinTargetUpdateInterval;
+        const bool bFarEnough = !bHasCached || FVector::DistSquared(CachedGKTargetPosition, SupportPos) >= FMath::Square(MinTargetMoveDist);
+
+        if (!bHasCached || (bEnoughTime && bFarEnough))
+        {
+            CachedGKTargetPosition = SupportPos;
+            LastGKTargetUpdateTime = Now;
+        }
+
+        AIComponent->SetBlackboardVector(TEXT("GK_TargetPosition"), CachedGKTargetPosition);
+    }
 }
 
 void AMF_PlayerCharacter::OnBallPossessionChanged()
@@ -1352,71 +1737,251 @@ FVector AMF_PlayerCharacter::CalculateSupportPosition(const FVector& BallPositio
     // Calculate a supporting position based on ball location and role
     const float OffsetFromBall = 500.0f; // 5 meters
     const float SideOffset = 300.0f;     // 3 meters to the side
+
+    // Get vital game state info
+    AMF_GameState* GS = GetWorld()->GetGameState<AMF_GameState>();
     
+    // Default to strict support
     FVector SupportPos = BallPosition;
     
     // Determine attack direction based on team
-    // TeamA (at +Y) attacks Negative Y
-    // TeamB (at -Y) attacks Positive Y
+    // TeamA (at +Y) attacks Negative Y (Goal is at -5250)
+    // TeamB (at -Y) attacks Positive Y (Goal is at +5250)
     float AttackDirection = (MyTeam == EMF_TeamID::TeamA) ? -1.0f : 1.0f;
+
+    // Check if my team has the ball (Attacking vs Defending)
+    bool bMyTeamHasBall = true; // Default to attacking logic if unsure
+    if (GS)
+    {
+        bMyTeamHasBall = GS->TeamHasBall(MyTeam);
+    }
     
-    // Get role-based positioning from AIProfile
+    // Get current location
+    FVector MyLocation = GetActorLocation();
+
+    // ==================== BALL CARRIER LOGIC ====================
+    // If I HAVE the ball, my "SupportPosition" should be a safe dribbling target
+    if (HasBall())
+    {
+        // Target: Center of opponent goal line
+        float GoalY = (MF_Constants::FieldLength / 2.0f) * AttackDirection;
+        FVector GoalPos(0.0f, GoalY, MF_Constants::GroundZ);
+        
+        // Point 10 meters ahead towards goal
+        FVector DirToGoal = (GoalPos - MyLocation).GetSafeNormal();
+        FVector DribblePos = MyLocation + (DirToGoal * 1000.0f);
+        
+        // Bias towards center: if we are near sidelines, push X towards 0
+        if (FMath::Abs(DribblePos.X) > 2000.0f)
+        {
+            DribblePos.X *= 0.7f;
+        }
+        
+        return DribblePos;
+    }
+    
+    // Helper to calculate "Home" position effectively
+    // Use SpawnLocation, but ensure it's not ZeroVector (fallback to calculated formation)
+    FVector EffectiveHome = (SpawnLocation.IsNearlyZero()) ? MyLocation : SpawnLocation;
+
+    // ==================== STRIKER LOGIC ====================
     if (AIProfile.Contains(TEXT("Striker")))
     {
-        // Strikers position ahead of the ball towards opponent goal (Along Y)
-        // Increase offset to avoid swarming (1200 units = 12m)
-        SupportPos.Y += 1200.0f * AttackDirection;
-        // Alternate left/right based on PlayerID for variety (Along X)
-        // Wider spread (600 units)
-        SupportPos.X += (PlayerID % 2 == 0) ? 600.0f : -600.0f;
+        if (bMyTeamHasBall)
+        {
+            // ATTACKING: Get in position to score
+            // Position ahead of the ball towards opponent goal (Along Y)
+            SupportPos.Y += 1000.0f * AttackDirection;
+            
+            // Unclump logic: Use PlayerID to spread out circle-wise or line-wise
+            // Max separation: 1200 units width
+            // Map PlayerID (0-255) to a -1.0 to 1.0 range based on modulo to ensure distinct slots
+            // Slot 0: Center, Slot 1: Right, Slot 2: Left, etc.
+            int32 Slot = PlayerID % 3; 
+            float SpreadFactor = 0.0f;
+            if (Slot == 1) SpreadFactor = 1.0f;
+            else if (Slot == 2) SpreadFactor = -1.0f;
+
+            SupportPos.X += SpreadFactor * 600.0f; 
+        }
+        else
+        {
+            // DEFENDING: Stay high up field (cherry pick) or press if close
+            // Don't drop back too far. Stay near center circle or opponents defensive third.
+            // Target: Stay high up field (Cherry Pick) near opponent defenders
+            float TargetY = 2500.0f * AttackDirection; // Keep pressure high in opponent half
+            SupportPos = FVector(EffectiveHome.X, TargetY, MF_Constants::GroundZ);
+            
+            // If ball is very close, press it (this is handled by AmIClosestToBall, but position ref helps)
+            if (FVector::Dist(MyLocation, BallPosition) < 1500.0f)
+            {
+               SupportPos = BallPosition; 
+            }
+        }
     }
+    // ==================== MIDFIELDER LOGIC ====================
     else if (AIProfile.Contains(TEXT("Midfielder")))
     {
-        // Midfielders position beside the ball, spread out
-        // Stay somewhat behind striker but ahead of defenders
-        // Side offset depends on player ID
-        float Spread = 800.0f;
-        SupportPos.Y -= 400.0f * AttackDirection; // Slightly behind ball to receive pass
-        SupportPos.X += (PlayerID % 2 == 0) ? Spread : -Spread;
+        if (bMyTeamHasBall)
+        {
+            // ATTACKING: Support the striker, stay behind ball
+            // Triangle formation support
+            float Spread = 900.0f;
+            SupportPos.Y -= 600.0f * AttackDirection; // Behind ball
+            
+            // Spread based on ID
+            int32 Slot = PlayerID % 2;
+            float SpreadDir = (Slot == 0) ? 1.0f : -1.0f;
+            SupportPos.X = BallPosition.X + (Spread * SpreadDir);
+        }
+        else
+        {
+            // DEFENDING: Defensive Screen
+            // Position between Ball and Our Goal (Screening)
+            // Goal Y is roughly +/- 5250
+            float MyGoalY = (MF_Constants::FieldLength / 2.0f) * -AttackDirection; 
+            FVector MyGoalPos(0.0f, MyGoalY, 0.0f);
+            
+            // Block path to goal at 20% mark (closer to ball to allow pressing)
+            SupportPos = FMath::Lerp(BallPosition, MyGoalPos, 0.2f);
+            
+            // Add some width based on ID to cover passing lanes
+            float Spread = 400.0f; // Tighter while defending
+            int32 Slot = PlayerID % 2;
+             float SpreadDir = (Slot == 0) ? 1.0f : -1.0f;
+            SupportPos.X += Spread * SpreadDir;
+        }
     }
+    // ==================== DEFENDER LOGIC ====================
     else if (AIProfile.Contains(TEXT("Defender")))
     {
-        // Defenders: Anchor to HOME (SpawnLocation) but shift effectively to cover
-        // Do NOT just follow ball. Stay between Home and Ball.
+        // Defenders: Anchor to HOME (SpawnLocation/Defensive Third)
+        // Adjust engagement based on threat level
         
-        // Lerp between Home and Ball (30% towards ball)
-        FVector DefenseTarget = FMath::Lerp(SpawnLocation, BallPosition, 0.3f);
+        // Calculate threat zone: How close is ball to our goal?
+        float MyGoalY = (MF_Constants::FieldLength / 2.0f) * -AttackDirection;
+        float DistBallToGoal = FMath::Abs(BallPosition.Y - MyGoalY);
+        float FieldLen = MF_Constants::FieldLength;
         
-        SupportPos = DefenseTarget;
+        // ThreatRatio: 0.0 (Far) to 1.0 (In Goal Mouth)
+        float ThreatRatio = 1.0f - FMath::Clamp(DistBallToGoal / (FieldLen * 0.6f), 0.0f, 1.0f);
         
-        // Spread defenders across the width
-        float DefenseSpread = 700.0f;
-        SupportPos.X += (PlayerID % 2 == 0) ? DefenseSpread : -DefenseSpread;
+        if (bMyTeamHasBall)
+        {
+            // ATTACKING: Move up to half-way line or maintain structure
+            // Stay largely at EffectiveHome but shift Y up slightly
+            SupportPos = EffectiveHome;
+            SupportPos.Y -= 500.0f * AttackDirection; // Shift up slightly
+        }
+        else
+        {
+            // DEFENDING: Dynamic Engagement
+            // If threat is high (> 0.7), move to Ball
+            // If threat is low (< 0.3), stay Home
+            // Otherwise blend
+            
+            if (ThreatRatio > 0.7f)
+            {
+                // CRITICAL DEFENSE: Convert to ball chaser behavior essentially
+                // We define this via position - if position == ball, DistToSupport becomes 0
+                SupportPos = BallPosition;
+            }
+            else
+            {
+                // ZONAL DEFENSE: Position between Ball and Goal, biased by Home X
+                FVector MyGoalPos(0.0f, MyGoalY, 0.0f);
+                
+                // Intercept vector
+                FVector InterceptPos = FMath::Lerp(BallPosition, MyGoalPos, 0.25f);
+                
+                // Blend Intercept Y with Home X to maintain lane
+                SupportPos.X = EffectiveHome.X; 
+                SupportPos.Y = InterceptPos.Y;
+                
+                // If ball is on our flank, shift X to cover
+                if (FMath::Abs(BallPosition.X - EffectiveHome.X) < 1000.0f)
+                {
+                    SupportPos.X = FMath::Lerp(EffectiveHome.X, BallPosition.X, 0.5f);
+                }
+            }
+        }
     }
+    // ==================== GOALKEEPER LOGIC ====================
     else if (AIProfile.Contains(TEXT("Goalkeeper")))
     {
         // Goalkeeper stays in goal area but shifts X to match ball (cut off angle)
         // Goal is at +/- FieldLength/2
-        float GoalY = (MF_Constants::FieldLength / 2.0f - 200.0f) * -AttackDirection; // Own Goal Line
+        float GoalLineY = (MF_Constants::FieldLength / 2.0f) * -AttackDirection; 
+        
+        // Stay slightly off line (200 units)
+        float BaseY = GoalLineY + (200.0f * AttackDirection);
         
         // Match Ball X but clamp to Goal Width (plus a bit of margin)
         // Goal Width is 7.32m (732 units). Half is 366.
-        float ClampedX = FMath::Clamp(BallPosition.X, -450.0f, 450.0f);
+        float ClampedX = FMath::Clamp(BallPosition.X, -400.0f, 400.0f);
         
-        SupportPos = FVector(ClampedX, GoalY, MF_Constants::GroundZ);
+        SupportPos = FVector(ClampedX, BaseY, MF_Constants::GroundZ);
+        
+        // ENGAGEMENT: If ball is very close (inside box approx), rush it?
+        // Penalty Box is ~16m deep (1650 units).
+        float DistFromLine = FMath::Abs(BallPosition.Y - GoalLineY);
+        if (DistFromLine < 1200.0f && FMath::Abs(BallPosition.X) < 1500.0f && !bMyTeamHasBall)
+        {
+            // Rush ball if in box and opponent has it/loose
+            SupportPos = BallPosition;
+        }
     }
+    // ==================== DEFAULT LOGIC ====================
     else
     {
         // Default: follow ball loosely
         SupportPos.Y += OffsetFromBall * 0.5f * AttackDirection;
     }
     
-    // Clamp to field bounds
-    const float HalfLength = MF_Constants::FieldLength / 2.0f;
-    const float HalfWidth = MF_Constants::FieldWidth / 2.0f;
+    // Clamp to field bounds (Safety net)
+    const float HalfLength = MF_Constants::FieldLength / 2.0f - 100.0f; // Buffer
+    const float HalfWidth = MF_Constants::FieldWidth / 2.0f - 100.0f;
     SupportPos.X = FMath::Clamp(SupportPos.X, -HalfWidth, HalfWidth); // Width is X
     SupportPos.Y = FMath::Clamp(SupportPos.Y, -HalfLength, HalfLength); // Length is Y
     SupportPos.Z = MF_Constants::GroundZ;
     
     return SupportPos;
+}
+
+FVector AMF_PlayerCharacter::CalculateSeparationVector() const
+{
+    FVector Separation(0.f);
+    const float SeparationRadius = 250.0f; // 2.5 meters
+    const float SeparationStrength = 1.6f; // Strong nudging to prevent clumping
+
+    // Find nearby teammates
+    for (TActorIterator<AMF_PlayerCharacter> It(GetWorld()); It; ++It)
+    {
+        AMF_PlayerCharacter* Other = *It;
+        
+        // Skip self and non-teammates
+        if (!Other || Other == this || Other->GetTeamID() != TeamID)
+        {
+            continue;
+        }
+
+        float Dist = FVector::Dist(GetActorLocation(), Other->GetActorLocation());
+        
+        // If within radius, add repulsion
+        if (Dist < SeparationRadius && Dist > 1.0f)
+        {
+            FVector ToMe = GetActorLocation() - Other->GetActorLocation();
+            
+            // Stronger repulsion the closer they are
+            float Weight = 1.0f - (Dist / SeparationRadius);
+            Separation += ToMe.GetSafeNormal() * Weight;
+        }
+    }
+
+    if (!Separation.IsNearlyZero())
+    {
+        return Separation.GetSafeNormal() * SeparationStrength;
+    }
+
+    return FVector::ZeroVector;
 }
