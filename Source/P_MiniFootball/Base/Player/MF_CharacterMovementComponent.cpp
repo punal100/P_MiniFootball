@@ -15,6 +15,51 @@ UMF_CharacterMovementComponent::UMF_CharacterMovementComponent()
     bWantsToSprint = false;
 }
 
+void UMF_CharacterMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+    // For AI characters on the server, we need to manually drive movement
+    // because base CharacterMovementComponent only processes input for locally controlled pawns
+    AMF_PlayerCharacter* Player = Cast<AMF_PlayerCharacter>(CharacterOwner);
+    const bool bIsServerAI = Player && Player->HasAuthority() && !Player->IsLocallyControlled() && Player->IsAIRunning();
+    
+    if (bIsServerAI)
+    {
+        // Get pending input from AddMovementInput calls (set by AI actions like MF.MoveTo)
+        const FVector InputVector = PawnOwner ? PawnOwner->ConsumeMovementInputVector() : FVector::ZeroVector;
+        
+        if (!InputVector.IsNearlyZero())
+        {
+            // Calculate velocity from input direction and max speed
+            const float CurrentMaxSpeed = GetMaxSpeed();
+            Velocity = InputVector.GetClampedToMaxSize(1.0f) * CurrentMaxSpeed;
+            Velocity.Z = 0.0f; // Keep grounded
+            
+            // Apply movement
+            const FVector Delta = Velocity * DeltaTime;
+            if (!Delta.IsNearlyZero())
+            {
+                // Move with collision
+                FHitResult Hit;
+                SafeMoveUpdatedComponent(Delta, UpdatedComponent->GetComponentQuat(), true, Hit);
+                
+                if (Hit.IsValidBlockingHit())
+                {
+                    // Slide along walls
+                    SlideAlongSurface(Delta, 1.0f - Hit.Time, Hit.Normal, Hit, true);
+                }
+            }
+        }
+        else
+        {
+            // No input - stop movement
+            Velocity = FVector::ZeroVector;
+        }
+    }
+    
+    // Always call base implementation for non-AI or client-side handling
+    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+}
+
 void UMF_CharacterMovementComponent::FSavedMove_MF::Clear()
 {
     Super::Clear();

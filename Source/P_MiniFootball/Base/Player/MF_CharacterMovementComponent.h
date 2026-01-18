@@ -22,6 +22,7 @@ public:
     /** Sprint intent used by network prediction (packed into saved moves). */
     uint8 bWantsToSprint : 1;
 
+    virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
     virtual float GetMaxSpeed() const override;
     virtual void UpdateFromCompressedFlags(uint8 Flags) override;
     virtual FNetworkPredictionData_Client *GetPredictionData_Client() const override;

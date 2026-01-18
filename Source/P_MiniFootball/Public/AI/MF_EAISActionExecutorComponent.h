@@ -39,4 +39,14 @@ private:
     FEAIS_ActionResult HandleSprint(const FAIActionParams& Params);
     FEAIS_ActionResult HandleFace(const FAIActionParams& Params);
     FEAIS_ActionResult HandleMark(const FAIActionParams& Params);
+
+    // --- Movement / targeting handlers ---
+    FEAIS_ActionResult HandleMoveTo(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleSelectPassTarget(const FAIActionParams& Params);
+
+    // --- Goalkeeper / utility handlers (AIProfile-driven; safe no-ops if not GK) ---
+    FEAIS_ActionResult HandleEvaluateShot(const FAIActionParams& Params);
+    FEAIS_ActionResult HandlePerformDive(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleSetCooldown(const FAIActionParams& Params);
+    FEAIS_ActionResult HandleClearTarget(const FAIActionParams& Params);
 };

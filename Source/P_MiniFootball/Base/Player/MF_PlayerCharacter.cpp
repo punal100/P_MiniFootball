@@ -1696,10 +1696,11 @@ void AMF_PlayerCharacter::SyncBlackboard()
     // ==================== GOALKEEPER TARGET DAMPING ====================
     // Goalkeepers can jitter/circle if their MoveTo target changes every tick.
     // Provide a cached/thresholded target that changes less often.
+    // NOTE: Reduced thresholds (150->50cm, 0.25->0.08s) for more responsive GK movement
     if (AIProfile.Contains(TEXT("Goalkeeper")))
     {
-        constexpr float MinTargetMoveDist = 150.0f;   // cm
-        constexpr float MinTargetUpdateInterval = 0.25f; // seconds
+        constexpr float MinTargetMoveDist = 50.0f;    // cm (was 150.0f - too sluggish)
+        constexpr float MinTargetUpdateInterval = 0.08f; // seconds (was 0.25f - too slow)
 
         const float Now = GetWorld()->GetTimeSeconds();
         const bool bHasCached = !CachedGKTargetPosition.IsZero();

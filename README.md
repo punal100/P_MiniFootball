@@ -177,6 +177,8 @@ PowerShell -ExecutionPolicy Bypass -File ./DevTools/scripts/Verify_ActionNamePar
 | `PenaltyAreaWidth` | 4030 cm | Width of penalty area (FIFA: 40.3m) |
 | `bAutoSpawnGoals` | true | Enable automatic goal spawning |
 | `bAutoSpawnPenaltyAreas` | true | Enable automatic penalty area spawning |
+| `GoalClass` | nullptr | Blueprint class to spawn for goals (defaults to AMF_Goal if not set) |
+| `PenaltyAreaClass` | nullptr | Blueprint class to spawn for penalty areas (defaults to AMF_PenaltyArea if not set) |
 
 **Debug Visualization (Editor/Development builds only):**
 

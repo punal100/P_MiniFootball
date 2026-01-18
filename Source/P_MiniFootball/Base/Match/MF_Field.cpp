@@ -14,6 +14,7 @@
 #include "Components/BrushComponent.h"
 #include "Model.h"
 #include "DrawDebugHelpers.h"
+#include "TimerManager.h"
 #if WITH_EDITOR
 #include "Engine/BrushBuilder.h"
 #include "Builders/CubeBuilder.h"
@@ -64,9 +65,98 @@ void AMF_Field::OnConstruction(const FTransform& Transform)
 {
     Super::OnConstruction(Transform);
 
+#if WITH_EDITOR
+    // Skip spawning for preview actors during drag-drop from Content Browser
+    // bIsEditorPreviewActor is true for the temporary preview actor shown while dragging
+    if (bIsEditorPreviewActor)
+    {
+        return;
+    }
+    
+    // CRITICAL: Skip spawn/destroy operations during undo/redo transactions to prevent crashes
+    // GIsTransacting is true when an undo/redo operation is in progress
+    const bool bIsInTransaction = GIsTransacting;
+    
+    // Check if this is just a transform change (move/rotate) vs a property change
+    const bool bTransformOnly = CachedTransform.Equals(FTransform::Identity) ? false : 
+        (CachedTransform.GetLocation() != Transform.GetLocation() || 
+         CachedTransform.GetRotation() != Transform.GetRotation() ||
+         CachedTransform.GetScale3D() != Transform.GetScale3D()) && !NeedsRespawn();
+    
+    CachedTransform = Transform;
+    
+    // During undo/redo, only update positions of existing valid actors, never spawn/destroy
+    if (bIsInTransaction)
+    {
+        // Just update positions if actors exist and are valid
+        if (bAutoSpawnGoals && IsValid(GoalA) && IsValid(GoalB))
+        {
+            const FVector FieldCenter = GetActorLocation();
+            const FVector FieldExtent = FieldBounds->GetScaledBoxExtent();
+            const FVector Right = GetActorRightVector();
+            const FVector Forward = GetActorForwardVector();
+            const float GoalDepthExtent = GoalDepth / 2.0f;
+            
+            // TeamA goal on RIGHT side (+Right), TeamB goal on LEFT side (-Right)
+            const FVector GoalALocation = FieldCenter + Right * (FieldExtent.Y - GoalDepthExtent);
+            const FRotator GoalARotation = Forward.Rotation();  // 0 degrees
+            const FVector GoalBLocation = FieldCenter - Right * (FieldExtent.Y - GoalDepthExtent);
+            const FRotator GoalBRotation = (-Forward).Rotation();  // 180 degrees
+            
+            GoalA->SetActorLocationAndRotation(GoalALocation, GoalARotation);
+            GoalB->SetActorLocationAndRotation(GoalBLocation, GoalBRotation);
+        }
+        
+        if (bAutoSpawnPenaltyAreas && IsValid(PenaltyAreaA) && IsValid(PenaltyAreaB))
+        {
+            const FVector FieldCenter = GetActorLocation();
+            const FVector FieldExtent = FieldBounds->GetScaledBoxExtent();
+            const FVector Right = GetActorRightVector();
+            const FVector Forward = GetActorForwardVector();
+            const float PenaltyDepthExtent = PenaltyAreaLength / 2.0f;
+            
+            // TeamA penalty on RIGHT side (+Right), TeamB penalty on LEFT side (-Right)
+            const FVector PenaltyALocation = FieldCenter + Right * (FieldExtent.Y - PenaltyDepthExtent);
+            const FRotator PenaltyARotation = Forward.Rotation();  // 0 degrees
+            const FVector PenaltyBLocation = FieldCenter - Right * (FieldExtent.Y - PenaltyDepthExtent);
+            const FRotator PenaltyBRotation = (-Forward).Rotation();  // 180 degrees
+            
+            PenaltyAreaA->SetActorLocationAndRotation(PenaltyALocation, PenaltyARotation);
+            PenaltyAreaB->SetActorLocationAndRotation(PenaltyBLocation, PenaltyBRotation);
+        }
+        
+        // Skip nav mesh update during transaction as well
+        return;
+    }
+#else
+    const bool bTransformOnly = false;
+#endif
+
     if (bAutoSpawnGoals)
     {
-        SpawnOrUpdateGoals();
+        // If we already have valid goals and this is just a transform change, only update positions
+        if (bTransformOnly && IsValid(GoalA) && IsValid(GoalB))
+        {
+            // Just update goal positions without respawning
+            const FVector FieldCenter = GetActorLocation();
+            const FVector FieldExtent = FieldBounds->GetScaledBoxExtent();
+            const FVector Right = GetActorRightVector();
+            const FVector Forward = GetActorForwardVector();
+            const float GoalDepthExtent = GoalDepth / 2.0f;
+            
+            // TeamA goal on RIGHT side (+Right), TeamB goal on LEFT side (-Right)
+            const FVector GoalALocation = FieldCenter + Right * (FieldExtent.Y - GoalDepthExtent);
+            const FRotator GoalARotation = Forward.Rotation();  // 0 degrees
+            const FVector GoalBLocation = FieldCenter - Right * (FieldExtent.Y - GoalDepthExtent);
+            const FRotator GoalBRotation = (-Forward).Rotation();  // 180 degrees
+            
+            GoalA->SetActorLocationAndRotation(GoalALocation, GoalARotation);
+            GoalB->SetActorLocationAndRotation(GoalBLocation, GoalBRotation);
+        }
+        else
+        {
+            SpawnOrUpdateGoals();
+        }
     }
     else
     {
@@ -85,7 +175,29 @@ void AMF_Field::OnConstruction(const FTransform& Transform)
 
     if (bAutoSpawnPenaltyAreas)
     {
-        SpawnOrUpdatePenaltyAreas();
+        // If we already have valid penalty areas and this is just a transform change, only update positions
+        if (bTransformOnly && IsValid(PenaltyAreaA) && IsValid(PenaltyAreaB))
+        {
+            // Just update penalty area positions without respawning
+            const FVector FieldCenter = GetActorLocation();
+            const FVector FieldExtent = FieldBounds->GetScaledBoxExtent();
+            const FVector Right = GetActorRightVector();
+            const FVector Forward = GetActorForwardVector();
+            const float PenaltyDepthExtent = PenaltyAreaLength / 2.0f;
+            
+            // TeamA penalty on RIGHT side (+Right), TeamB penalty on LEFT side (-Right)
+            const FVector PenaltyALocation = FieldCenter + Right * (FieldExtent.Y - PenaltyDepthExtent);
+            const FRotator PenaltyARotation = Forward.Rotation();  // 0 degrees
+            const FVector PenaltyBLocation = FieldCenter - Right * (FieldExtent.Y - PenaltyDepthExtent);
+            const FRotator PenaltyBRotation = (-Forward).Rotation();  // 180 degrees
+            
+            PenaltyAreaA->SetActorLocationAndRotation(PenaltyALocation, PenaltyARotation);
+            PenaltyAreaB->SetActorLocationAndRotation(PenaltyBLocation, PenaltyBRotation);
+        }
+        else
+        {
+            SpawnOrUpdatePenaltyAreas();
+        }
     }
     else
     {
@@ -118,7 +230,8 @@ void AMF_Field::OnConstruction(const FTransform& Transform)
 #if WITH_EDITOR
     if (GIsEditor && !GIsPlayInEditorWorld)
     {
-        UpdateNavMesh();
+        // Use debounced update instead of immediate update
+        ScheduleNavMeshUpdate();
     }
 #endif
 }
@@ -145,6 +258,88 @@ void AMF_Field::EnsureNavMesh()
 #endif
 }
 
+#if WITH_EDITOR
+void AMF_Field::PostEditUndo()
+{
+    Super::PostEditUndo();
+    
+    // After undo completes, we need to safely recover references to attached actors
+    // This is the safe point after GIsTransacting is false
+    
+    // Update cached transform to current state
+    CachedTransform = GetActorTransform();
+    
+    // Recover references to existing attached actors that may have been restored by undo
+    TArray<AActor*> AttachedActors;
+    GetAttachedActors(AttachedActors);
+    
+    // Clear invalid references first
+    if (GoalA && (!IsValid(GoalA) || GoalA->IsActorBeingDestroyed()))
+    {
+        GoalA = nullptr;
+    }
+    if (GoalB && (!IsValid(GoalB) || GoalB->IsActorBeingDestroyed()))
+    {
+        GoalB = nullptr;
+    }
+    if (PenaltyAreaA && (!IsValid(PenaltyAreaA) || PenaltyAreaA->IsActorBeingDestroyed()))
+    {
+        PenaltyAreaA = nullptr;
+    }
+    if (PenaltyAreaB && (!IsValid(PenaltyAreaB) || PenaltyAreaB->IsActorBeingDestroyed()))
+    {
+        PenaltyAreaB = nullptr;
+    }
+    
+    // Recover references from attached actors
+    for (AActor* Attached : AttachedActors)
+    {
+        if (!Attached || !IsValid(Attached) || Attached->IsActorBeingDestroyed())
+        {
+            continue;
+        }
+        
+        if (AMF_Goal* Goal = Cast<AMF_Goal>(Attached))
+        {
+            if (Goal->Tags.Contains(FName("TeamA")) && !GoalA)
+            {
+                GoalA = Goal;
+            }
+            else if (Goal->Tags.Contains(FName("TeamB")) && !GoalB)
+            {
+                GoalB = Goal;
+            }
+        }
+        else if (AMF_PenaltyArea* Penalty = Cast<AMF_PenaltyArea>(Attached))
+        {
+            if (Penalty->Tags.Contains(FName("TeamA")) && !PenaltyAreaA)
+            {
+                PenaltyAreaA = Penalty;
+            }
+            else if (Penalty->Tags.Contains(FName("TeamB")) && !PenaltyAreaB)
+            {
+                PenaltyAreaB = Penalty;
+            }
+        }
+    }
+    
+    // If references are still missing after undo, spawn new actors
+    // Use a deferred approach to avoid any transaction issues
+    if (bAutoSpawnGoals && (!IsValid(GoalA) || !IsValid(GoalB)))
+    {
+        SpawnOrUpdateGoals();
+    }
+    
+    if (bAutoSpawnPenaltyAreas && (!IsValid(PenaltyAreaA) || !IsValid(PenaltyAreaB)))
+    {
+        SpawnOrUpdatePenaltyAreas();
+    }
+    
+    // Schedule nav mesh update
+    ScheduleNavMeshUpdate();
+}
+#endif
+
 #if !UE_BUILD_SHIPPING
 void AMF_Field::Tick(float DeltaTime)
 {
@@ -164,18 +359,100 @@ void AMF_Field::SpawnOrUpdateGoals()
         return;
     }
 
+    const auto AttachToFieldIfNeeded = [this](AActor *Child)
+    {
+        if (!Child)
+        {
+            return;
+        }
+
+        if (Child->GetAttachParentActor() != this)
+        {
+            Child->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+        }
+    };
+
     const FVector FieldCenter = GetActorLocation();
     const FVector FieldExtent = FieldBounds->GetScaledBoxExtent();
     const FVector Right = GetActorRightVector();
+    const FVector Forward = GetActorForwardVector();
 
     const float GoalDepthExtent = GoalDepth / 2.0f;
-    const FVector GoalExtent(GoalDepthExtent, GoalWidth / 2.0f, GoalHeight / 2.0f);
+    const FVector GoalExtent(GoalWidth / 2.0f, GoalDepthExtent, GoalHeight / 2.0f);
 
-    const FVector GoalALocation = FieldCenter - Right * (FieldExtent.Y + GoalDepthExtent);
-    const FRotator GoalARotation = Right.Rotation();
+    // TeamA goal on RIGHT side (+Right), TeamB goal on LEFT side (-Right)
+    const FVector GoalALocation = FieldCenter + Right * (FieldExtent.Y - GoalDepthExtent);
+    const FRotator GoalARotation = Forward.Rotation();  // 0 degrees
 
-    const FVector GoalBLocation = FieldCenter + Right * (FieldExtent.Y + GoalDepthExtent);
-    const FRotator GoalBRotation = (-Right).Rotation();
+    const FVector GoalBLocation = FieldCenter - Right * (FieldExtent.Y - GoalDepthExtent);
+    const FRotator GoalBRotation = (-Forward).Rotation();  // 180 degrees
+
+    // Always scan for existing attached goals to recover lost references and prevent duplicates
+    TArray<AActor*> AttachedActors;
+    GetAttachedActors(AttachedActors);
+    
+    AMF_Goal* FoundGoalA = nullptr;
+    AMF_Goal* FoundGoalB = nullptr;
+    
+    for (AActor* Attached : AttachedActors)
+    {
+        if (AMF_Goal* Goal = Cast<AMF_Goal>(Attached))
+        {
+            if (Goal->IsActorBeingDestroyed())
+            {
+                continue;
+            }
+            
+            // GoalA belongs to TeamA (has TeamA tag)
+            if (Goal->Tags.Contains(FName("TeamA")))
+            {
+                if (!FoundGoalA)
+                {
+                    FoundGoalA = Goal;
+                }
+                else
+                {
+                    // Duplicate found - destroy it
+                    UE_LOG(LogTemp, Warning, TEXT("MF_Field: Destroying duplicate Goal (TeamA)"));
+                    Goal->Destroy();
+                }
+            }
+            // GoalB belongs to TeamB (has TeamB tag)
+            else if (Goal->Tags.Contains(FName("TeamB")))
+            {
+                if (!FoundGoalB)
+                {
+                    FoundGoalB = Goal;
+                }
+                else
+                {
+                    // Duplicate found - destroy it
+                    UE_LOG(LogTemp, Warning, TEXT("MF_Field: Destroying duplicate Goal (TeamB)"));
+                    Goal->Destroy();
+                }
+            }
+        }
+    }
+    
+    // Update references
+    if (FoundGoalA)
+    {
+        GoalA = FoundGoalA;
+    }
+    if (FoundGoalB)
+    {
+        GoalB = FoundGoalB;
+    }
+    
+    // Clear invalid references
+    if (GoalA && (!IsValid(GoalA) || GoalA->IsActorBeingDestroyed()))
+    {
+        GoalA = nullptr;
+    }
+    if (GoalB && (!IsValid(GoalB) || GoalB->IsActorBeingDestroyed()))
+    {
+        GoalB = nullptr;
+    }
 
     // Goal A
     if (!IsValid(GoalA) || GoalA->IsActorBeingDestroyed())
@@ -185,19 +462,21 @@ void AMF_Field::SpawnOrUpdateGoals()
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
         SpawnParams.ObjectFlags |= RF_Transactional;
 
-        GoalA = World->SpawnActor<AMF_Goal>(GoalALocation, GoalARotation, SpawnParams);
+        UClass* GoalClassToSpawn = GoalClass ? GoalClass.Get() : AMF_Goal::StaticClass();
+        GoalA = Cast<AMF_Goal>(World->SpawnActor(GoalClassToSpawn, &GoalALocation, &GoalARotation, SpawnParams));
 
         if (GoalA)
         {
 #if WITH_EDITOR
             GoalA->SetActorLabel(TEXT("MF_Goal_TeamA"));
 #endif
-            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Goal A (TeamA defends) at %s"), *GoalALocation.ToString());
+            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Goal A (TeamA) at %s"), *GoalALocation.ToString());
         }
     }
 
     if (GoalA)
     {
+        AttachToFieldIfNeeded(GoalA);
         GoalA->SetActorLocationAndRotation(GoalALocation, GoalARotation);
         GoalA->DefendingTeam = EMF_TeamID::TeamA;
         if (GoalA->GoalTrigger)
@@ -221,19 +500,21 @@ void AMF_Field::SpawnOrUpdateGoals()
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
         SpawnParams.ObjectFlags |= RF_Transactional;
 
-        GoalB = World->SpawnActor<AMF_Goal>(GoalBLocation, GoalBRotation, SpawnParams);
+        UClass* GoalClassToSpawn = GoalClass ? GoalClass.Get() : AMF_Goal::StaticClass();
+        GoalB = World->SpawnActor<AMF_Goal>(GoalClassToSpawn, GoalBLocation, GoalBRotation, SpawnParams);
 
         if (GoalB)
         {
 #if WITH_EDITOR
             GoalB->SetActorLabel(TEXT("MF_Goal_TeamB"));
 #endif
-            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Goal B (TeamB defends) at %s"), *GoalBLocation.ToString());
+            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Goal B (TeamB) at %s"), *GoalBLocation.ToString());
         }
     }
 
     if (GoalB)
     {
+        AttachToFieldIfNeeded(GoalB);
         GoalB->SetActorLocationAndRotation(GoalBLocation, GoalBRotation);
         GoalB->DefendingTeam = EMF_TeamID::TeamB;
         if (GoalB->GoalTrigger)
@@ -258,18 +539,133 @@ void AMF_Field::SpawnOrUpdatePenaltyAreas()
         return;
     }
 
+    const auto AttachToFieldIfNeeded = [this](AActor *Child)
+    {
+        if (!Child)
+        {
+            return;
+        }
+
+        if (Child->GetAttachParentActor() != this)
+        {
+            Child->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+        }
+    };
+
     const FVector FieldCenter = GetActorLocation();
     const FVector FieldExtent = FieldBounds->GetScaledBoxExtent();
     const FVector Right = GetActorRightVector();
+    const FVector Forward = GetActorForwardVector();
 
     const float PenaltyAreaHeight = 200.0f;
-    const FVector PenaltyExtent(PenaltyAreaLength / 2.0f, PenaltyAreaWidth / 2.0f, PenaltyAreaHeight);
+    // Extent: X=Width/2 (2015), Y=Length/2 (825), Z=Height (200)
+    const FVector PenaltyExtent(PenaltyAreaWidth / 2.0f, PenaltyAreaLength / 2.0f, PenaltyAreaHeight);
 
-    const FVector PenaltyALocation = FieldCenter - Right * (FieldExtent.Y - PenaltyAreaLength / 2.0f);
-    const FRotator PenaltyARotation = Right.Rotation();
+    // TeamA penalty on RIGHT side (+Right), TeamB penalty on LEFT side (-Right)
+    const FVector PenaltyALocation = FieldCenter + Right * (FieldExtent.Y - PenaltyAreaLength / 2.0f);
+    const FRotator PenaltyARotation = Forward.Rotation();  // 0 degrees
 
-    const FVector PenaltyBLocation = FieldCenter + Right * (FieldExtent.Y - PenaltyAreaLength / 2.0f);
-    const FRotator PenaltyBRotation = (-Right).Rotation();
+    const FVector PenaltyBLocation = FieldCenter - Right * (FieldExtent.Y - PenaltyAreaLength / 2.0f);
+    const FRotator PenaltyBRotation = (-Forward).Rotation();  // 180 degrees
+
+    // ALWAYS scan attached actors to find duplicates and recover lost references
+    TArray<AActor*> AttachedActors;
+    GetAttachedActors(AttachedActors);
+    
+    TArray<AMF_PenaltyArea*> TeamAPenaltyAreas;  // PenaltyAreaA belongs to TeamA
+    TArray<AMF_PenaltyArea*> TeamBPenaltyAreas;  // PenaltyAreaB belongs to TeamB
+    
+    for (AActor* Attached : AttachedActors)
+    {
+        if (AMF_PenaltyArea* Area = Cast<AMF_PenaltyArea>(Attached))
+        {
+            if (Area->IsActorBeingDestroyed())
+            {
+                continue;
+            }
+            
+            if (Area->Tags.Contains(FName("TeamA")))
+            {
+                TeamAPenaltyAreas.Add(Area);
+            }
+            else if (Area->Tags.Contains(FName("TeamB")))
+            {
+                TeamBPenaltyAreas.Add(Area);
+            }
+        }
+    }
+    
+    // Handle TeamA penalty areas (PenaltyAreaA) - keep first valid, destroy duplicates
+    if (TeamAPenaltyAreas.Num() > 0)
+    {
+        // Find the one matching our reference, or use the first one
+        int32 KeepIndex = 0;
+        for (int32 i = 0; i < TeamAPenaltyAreas.Num(); ++i)
+        {
+            if (TeamAPenaltyAreas[i] == PenaltyAreaA)
+            {
+                KeepIndex = i;
+                break;
+            }
+        }
+        
+        PenaltyAreaA = TeamAPenaltyAreas[KeepIndex];
+        
+        // Destroy duplicates
+        for (int32 i = 0; i < TeamAPenaltyAreas.Num(); ++i)
+        {
+            if (i != KeepIndex && IsValid(TeamAPenaltyAreas[i]))
+            {
+                UE_LOG(LogTemp, Warning, TEXT("MF_Field: Destroying duplicate PenaltyAreaA (TeamA): %s"), *TeamAPenaltyAreas[i]->GetName());
+                TeamAPenaltyAreas[i]->Destroy();
+            }
+        }
+    }
+    else if (!IsValid(PenaltyAreaA))
+    {
+        PenaltyAreaA = nullptr;
+    }
+    
+    // Handle TeamB penalty areas (PenaltyAreaB) - keep first valid, destroy duplicates
+    if (TeamBPenaltyAreas.Num() > 0)
+    {
+        // Find the one matching our reference, or use the first one
+        int32 KeepIndex = 0;
+        for (int32 i = 0; i < TeamBPenaltyAreas.Num(); ++i)
+        {
+            if (TeamBPenaltyAreas[i] == PenaltyAreaB)
+            {
+                KeepIndex = i;
+                break;
+            }
+        }
+        
+        PenaltyAreaB = TeamBPenaltyAreas[KeepIndex];
+        
+        // Destroy duplicates
+        for (int32 i = 0; i < TeamBPenaltyAreas.Num(); ++i)
+        {
+            if (i != KeepIndex && IsValid(TeamBPenaltyAreas[i]))
+            {
+                UE_LOG(LogTemp, Warning, TEXT("MF_Field: Destroying duplicate PenaltyAreaB (TeamB): %s"), *TeamBPenaltyAreas[i]->GetName());
+                TeamBPenaltyAreas[i]->Destroy();
+            }
+        }
+    }
+    else if (!IsValid(PenaltyAreaB))
+    {
+        PenaltyAreaB = nullptr;
+    }
+    
+    // Validate references are still valid after cleanup
+    if (PenaltyAreaA && PenaltyAreaA->IsActorBeingDestroyed())
+    {
+        PenaltyAreaA = nullptr;
+    }
+    if (PenaltyAreaB && PenaltyAreaB->IsActorBeingDestroyed())
+    {
+        PenaltyAreaB = nullptr;
+    }
 
     // Penalty Area A
     if (!IsValid(PenaltyAreaA) || PenaltyAreaA->IsActorBeingDestroyed())
@@ -279,19 +675,21 @@ void AMF_Field::SpawnOrUpdatePenaltyAreas()
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
         SpawnParams.ObjectFlags |= RF_Transactional;
 
-        PenaltyAreaA = World->SpawnActor<AMF_PenaltyArea>(PenaltyALocation, PenaltyARotation, SpawnParams);
+        UClass* PenaltyClassToSpawn = PenaltyAreaClass ? PenaltyAreaClass.Get() : AMF_PenaltyArea::StaticClass();
+        PenaltyAreaA = World->SpawnActor<AMF_PenaltyArea>(PenaltyClassToSpawn, PenaltyALocation, PenaltyARotation, SpawnParams);
 
         if (PenaltyAreaA)
         {
 #if WITH_EDITOR
             PenaltyAreaA->SetActorLabel(TEXT("MF_PenaltyArea_TeamA"));
 #endif
-            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Penalty Area A (TeamA defends) at %s"), *PenaltyALocation.ToString());
+            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Penalty Area A (TeamA) at %s"), *PenaltyALocation.ToString());
         }
     }
 
     if (PenaltyAreaA)
     {
+        AttachToFieldIfNeeded(PenaltyAreaA);
         PenaltyAreaA->SetActorLocationAndRotation(PenaltyALocation, PenaltyARotation);
         PenaltyAreaA->DefendingTeam = EMF_TeamID::TeamA;
         if (PenaltyAreaA->PenaltyAreaBounds)
@@ -315,19 +713,21 @@ void AMF_Field::SpawnOrUpdatePenaltyAreas()
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
         SpawnParams.ObjectFlags |= RF_Transactional;
 
-        PenaltyAreaB = World->SpawnActor<AMF_PenaltyArea>(PenaltyBLocation, PenaltyBRotation, SpawnParams);
+        UClass* PenaltyClassToSpawn = PenaltyAreaClass ? PenaltyAreaClass.Get() : AMF_PenaltyArea::StaticClass();
+        PenaltyAreaB = World->SpawnActor<AMF_PenaltyArea>(PenaltyClassToSpawn, PenaltyBLocation, PenaltyBRotation, SpawnParams);
 
         if (PenaltyAreaB)
         {
 #if WITH_EDITOR
             PenaltyAreaB->SetActorLabel(TEXT("MF_PenaltyArea_TeamB"));
 #endif
-            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Penalty Area B (TeamB defends) at %s"), *PenaltyBLocation.ToString());
+            UE_LOG(LogTemp, Log, TEXT("MF_Field: Spawned Penalty Area B (TeamB) at %s"), *PenaltyBLocation.ToString());
         }
     }
 
     if (PenaltyAreaB)
     {
+        AttachToFieldIfNeeded(PenaltyAreaB);
         PenaltyAreaB->SetActorLocationAndRotation(PenaltyBLocation, PenaltyBRotation);
         PenaltyAreaB->DefendingTeam = EMF_TeamID::TeamB;
         if (PenaltyAreaB->PenaltyAreaBounds)
@@ -555,3 +955,68 @@ void AMF_Field::ForceRebuildNavigation()
         }
     }
 }
+
+#if WITH_EDITOR
+void AMF_Field::ScheduleNavMeshUpdate()
+{
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    // Clear any existing timer to reset the debounce
+    World->GetTimerManager().ClearTimer(NavMeshUpdateTimerHandle);
+    
+    // Schedule a new timer - navigation will only be rebuilt after movement stops
+    World->GetTimerManager().SetTimer(
+        NavMeshUpdateTimerHandle,
+        this,
+        &AMF_Field::OnNavMeshUpdateTimer,
+        NavMeshUpdateDelay,
+        false  // Don't loop
+    );
+}
+
+void AMF_Field::OnNavMeshUpdateTimer()
+{
+    // Timer fired - movement has stopped, now update NavigationMesh
+    UpdateNavMesh();
+}
+
+bool AMF_Field::NeedsRespawn() const
+{
+    // Check if any spawned actors have been invalidated (e.g., by undo/redo or level operations)
+    if (bAutoSpawnGoals)
+    {
+        // If goals should exist but don't, we need to respawn
+        if (!IsValid(GoalA) || !IsValid(GoalB))
+        {
+            return true;
+        }
+        
+        // If goals aren't attached to us anymore, we need to respawn
+        if (GoalA->GetAttachParentActor() != this || GoalB->GetAttachParentActor() != this)
+        {
+            return true;
+        }
+    }
+    
+    if (bAutoSpawnPenaltyAreas)
+    {
+        // If penalty areas should exist but don't, we need to respawn
+        if (!IsValid(PenaltyAreaA) || !IsValid(PenaltyAreaB))
+        {
+            return true;
+        }
+        
+        // If penalty areas aren't attached to us anymore, we need to respawn
+        if (PenaltyAreaA->GetAttachParentActor() != this || PenaltyAreaB->GetAttachParentActor() != this)
+        {
+            return true;
+        }
+    }
+    
+    return false;
+}
+#endif

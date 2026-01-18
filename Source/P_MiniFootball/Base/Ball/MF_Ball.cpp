@@ -235,7 +235,8 @@ void AMF_Ball::SetPossessor(AMF_PlayerCharacter *NewPossessor)
         NewPossessor->CurrentBall = this;  // CRITICAL: Set CurrentBall for shoot/pass to work
         NewPossessor->SetPossessedBall(this);
 
-        UE_LOG(LogTemp, Log, TEXT("MF_Ball::SetPossessor - New possessor ptr: %p, CurrentBall set"), (void*)NewPossessor);
+        UE_LOG(LogTemp, Warning, TEXT("MF_Ball::SetPossessor - %s gained possession, AIProfile: %s, AIRunning: %d"),
+               *NewPossessor->GetName(), *NewPossessor->AIProfile, NewPossessor->IsAIRunning());
     }
     else
     {

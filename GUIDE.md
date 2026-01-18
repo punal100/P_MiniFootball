@@ -26,6 +26,15 @@ When you place `AMF_Field` in your level, it automatically creates:
 - **2 Goals**: Positioned at each end of the field
 - **2 Penalty Areas**: Inside the field at each goal end
 
+### Custom Blueprint Classes
+
+You can specify custom Blueprint subclasses for goals and penalty areas:
+
+- **GoalClass**: Set to a Blueprint child of `AMF_Goal` to use custom goal logic/visuals
+- **PenaltyAreaClass**: Set to a Blueprint child of `AMF_PenaltyArea` to use custom penalty area logic/visuals
+
+If left unset (nullptr), the base C++ classes are spawned.
+
 ### Quick verification
 
 1. Place `MF_Field` (or `BP_MF_Field`) in your level
@@ -153,6 +162,61 @@ Edit profiles in `Content/AIProfiles/`:
 - `Role` (String): Agent role (Striker, Defender, etc.)
 - `HasBall` (Bool): Does this agent have the ball?
 - `IsBallLoose` (Bool): Is the ball currently unpossessed?
+
+### Goalkeeper profile notes
+
+The goalkeeper profile is driven by a small set of MiniFootball-specific actions executed via EAIS `Execute`:
+
+- `MF.EvaluateShot`: Computes shot danger vs `Goal_Self` and writes decision keys.
+- `MF.PerformDive`: Performs a simple dive and sets `DiveComplete=true` when finished.
+- `MF.SetCooldown`: Sets `CooldownEnd_<key>`; the goalkeeper uses this for dive cooldown.
+- `MF.ClearTarget`: Clears shot/dive targeting keys.
+- `MF.MoveTo`: Moves GK to target position using `AddMovementInput` (works with any controller type).
+- `MF.SelectPassTarget`: Evaluates teammates and stores best pass target in blackboard.
+
+Key tunables (blackboard floats used by `MF.EvaluateShot`):
+
+- `GK_ShotSpeedMin`, `GK_ShotAngleDotMin`, `GK_ReactionTimeBase`, `GK_CatchingSkill`
+- `GK_GoalHalfWidth`, `GK_ReachRadius`, `GK_DiveTriggerRadius`, `GK_TimeToImpactMax`
+- `GK_DiveSpeed`, `GK_DiveDuration`
+
+Key outputs (blackboard values set by `MF.EvaluateShot` / `MF.PerformDive`):
+
+- `IsShotTowardsGoal`, `ShotIsWide`, `IsDiveRecommended`, `DiveCooldownActive`
+- `TimeToImpact`, `GK_ShotImpactPoint`, `DiveComplete`, `ShotHandled`
+
+### Goalkeeper Movement & Distribution
+
+The goalkeeper AI has two critical behaviors:
+
+**1. Positioning/Movement:**
+- Uses `MF.MoveTo` action (not built-in EAIS `MoveTo`)
+- Target: `GK_TargetPosition` (blackboard value updated in SyncBlackboard)
+- Position is calculated to bisect angle between ball and goal center
+- Movement is dampened to prevent jitter (150cm threshold, 0.25s interval)
+
+**2. Ball Distribution:**
+- When GK catches ball, enters `DistributionAim` state
+- Executes `MF.SelectPassTarget` to find best teammate
+- Selection priority: Defenders > Midfielders > Strikers (safety-first)
+- Considers: opponent proximity, passing lane clearance, distance
+- Waits 1.5-3.0 seconds before executing pass (realistic delay)
+- Falls back to forward direction if no safe target found
+
+**Key Actions:**
+| Action | Purpose |
+|--------|---------|
+| `MF.MoveTo` | Move GK to specified target (uses AddMovementInput) |
+| `MF.SelectPassTarget` | Evaluate teammates and store best target in blackboard |
+| `MF.Pass` | Execute pass, uses `SelectedPassTargetPosition` if no target specified |
+| `MF.Face` | Rotate to face target (Ball, Goal, etc.) |
+
+**Key Blackboard Keys:**
+| Key | Type | Purpose |
+|-----|------|---------|
+| `GK_TargetPosition` | Vector | Cached positioning target |
+| `HasSelectedPassTarget` | Bool | True if valid pass target found |
+| `SelectedPassTargetPosition` | Vector | Location to aim pass at |
 
 See [P_EAIS GUIDE.md](../P_EAIS/GUIDE.md) for authoring custom behaviors.
 

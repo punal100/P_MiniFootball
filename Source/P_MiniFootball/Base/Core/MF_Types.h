@@ -95,8 +95,8 @@ namespace MF_Constants
     // Field Dimensions (cm) - FIFA Standard for 11v11
     constexpr float FieldLength = 10500.0f;      // 105 meters
     constexpr float FieldWidth = 6800.0f;        // 68 meters
-    constexpr float GoalWidth = 732.0f;          // 7.32 meters
-    constexpr float GoalHeight = 244.0f;         // 2.44 meters
+    constexpr float GoalWidth = 730.0f;          // 7.30 meters
+    constexpr float GoalHeight = 240.0f;         // 2.40 meters
     constexpr float CenterCircleRadius = 915.0f; // 9.15 meters
     
     // Additional Field Markings (cm)
